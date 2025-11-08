@@ -77,6 +77,9 @@ app.use(`${API_PREFIX}/ticketmaster`, require('./routes/ticketmaster'));
 // Event routes - /api/v1/events/...
 app.use(`${API_PREFIX}/events`, require('./routes/events'));
 
+// SetListFM live API routes :
+app.use(`${API_PREFIX}/setlist`, require('./routes/setlist'));
+
 // Authentication routes - /api/v1/auth/...
 // app.use(`${API_PREFIX}/auth`, require('./routes/auth'));
 

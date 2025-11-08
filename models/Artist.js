@@ -19,7 +19,8 @@ const artistSchema = new mongoose.Schema({
     ticketmaster: String,
     spotify: String,
     stubhub: String,
-    seatgeek: String
+    seatgeek: String,
+    setlistfm: String  // MusicBrainz ID for Setlist.fm
   },
   
   // Artist Details
@@ -46,7 +47,8 @@ const artistSchema = new mongoose.Schema({
     spotify: String,
     instagram: String,
     twitter: String,
-    facebook: String
+    facebook: String,
+    setlistfm: String
   },
   
   // Tour Status
@@ -70,7 +72,9 @@ const artistSchema = new mongoose.Schema({
     totalEvents: { type: Number, default: 0 },
     upcomingEvents: { type: Number, default: 0 },
     followers: { type: Number, default: 0 },  // Users who favorited
-    averageTicketPrice: { type: Number }
+    averageTicketPrice: { type: Number },
+    totalShows: { type: Number, default: 0 },  // From Setlist.fm
+    averageSetlistLength: { type: Number }     // From Setlist.fm
   },
   
   // Data freshness tracking
@@ -93,6 +97,7 @@ const artistSchema = new mongoose.Schema({
 // Indexes for performance
 artistSchema.index({ name: 1 });
 artistSchema.index({ 'externalIds.ticketmaster': 1 });
+artistSchema.index({ 'externalIds.setlistfm': 1 });
 artistSchema.index({ tourStatus: 1 });
 artistSchema.index({ nextTourDate: 1 });
 
