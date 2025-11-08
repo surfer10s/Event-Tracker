@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tour Map - Event Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 0.5rem;
+        }
+        .event-marker {
+            background-color: #4F46E5;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="text-indigo-600" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    <h1 class="text-3xl font-bold text-gray-900">Tour Map</h1>
+                </div>
+                <a href="event-tracker.html" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    Back to Events
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Artist Selection -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Select Artist to View Tour Map</h2>
+            
+            <!-- Artist Search -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Search Artist</label>
+                <div class="relative">
+                    <input
+                        type="text"
+                        id="artistSearch"
+                        placeholder="Type artist name..."
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <div id="artistSearchResults" class="absolute w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-50" style="display: none;">
+                        <!-- Results appear here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selected Artist Info -->
+            <div id="selectedArtistInfo" style="display: none;" class="bg-indigo-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Selected Artist:</p>
+                        <p class="text-xl font-bold text-indigo-900" id="selectedArtistName"></p>
+                        <p class="text-sm text-gray-600" id="selectedArtistGenre"></p>
+                    </div>
+                    <button onclick="clearSelection()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-gray-900">Tour Route</h2>
+                <div id="eventCount" class="text-sm text-gray-600"></div>
+            </div>
+            <div id="map"></div>
+        </div>
+
+        <!-- Event List -->
+        <div id="eventList" class="bg-white rounded-lg shadow-lg p-6" style="display: none;">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Tour Stops</h2>
+            <div id="eventListContent" class="space-y-3">
+                <!-- Event cards will appear here -->
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div id="instructions" class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+            <h3 class="text-lg font-semibold text-blue-900 mb-2">How to Use</h3>
+            <ol class="list-decimal list-inside space-y-1 text-blue-800">
+                <li>Search for an artist in the search box above</li>
+                <li>Select an artist from the suggestions</li>
+                <li>View their tour route on the interactive map</li>
+                <li>Click markers for event details</li>
+                <li>See all tour stops listed below the map</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let map = null;
+        let markers = [];
+        let polyline = null;
+        let selectedArtistId = null;
+        let searchTimeout = null;
+
+        // Initialize map
+        function initMap() {
+            if (!map) {
+                map = L.map('map').setView([39.8283, -98.5795], 4); // Center on USA
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(map);
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            
+            // Artist search with debounce
+            document.getElementById('artistSearch').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                
+                if (query.length < 2) {
+                    document.getElementById('artistSearchResults').style.display = 'none';
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => searchArtists(query), 300);
+            });
+
+            // Hide results when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#artistSearch') && !e.target.closest('#artistSearchResults')) {
+                    document.getElementById('artistSearchResults').style.display = 'none';
+                }
+            });
+        });
+
+        async function searchArtists(query) {
+            try {
+                // Search in database first
+                const response = await fetch(`${API_BASE_URL}/events?limit=100`);
+                const data = await response.json();
+                
+                console.log('Search events response:', data); // Debug
+                
+                if (data.success) {
+                    // Get unique artists
+                    const artistMap = new Map();
+                    data.events.forEach(event => {
+                        if (event.artist && event.artist.name.toLowerCase().includes(query.toLowerCase())) {
+                            console.log('Found artist:', event.artist); // Debug
+                            artistMap.set(event.artist.id, event.artist);
+                        }
+                    });
+                    
+                    const artists = Array.from(artistMap.values());
+                    console.log('Unique artists found:', artists); // Debug
+                    displayArtistResults(artists);
+                }
+            } catch (error) {
+                console.error('Error searching artists:', error);
+            }
+        }
+
+        function displayArtistResults(artists) {
+            const container = document.getElementById('artistSearchResults');
+            
+            if (artists.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.innerHTML = artists.map(artist => `
+                <div 
+                    onclick='selectArtist(${JSON.stringify(artist).replace(/'/g, "\\'")})'
+                    class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
+                >
+                    <div class="font-semibold text-gray-900">${artist.name}</div>
+                    <div class="text-xs text-gray-500">${artist.genre ? artist.genre.join(', ') : 'Unknown Genre'}</div>
+                </div>
+            `).join('');
+            
+            container.style.display = 'block';
+        }
+
+        async function selectArtist(artist) {
+            selectedArtistId = artist.id;
+            
+            // Update UI
+            document.getElementById('artistSearch').value = artist.name;
+            document.getElementById('artistSearchResults').style.display = 'none';
+            document.getElementById('selectedArtistInfo').style.display = 'block';
+            document.getElementById('selectedArtistName').textContent = artist.name;
+            document.getElementById('selectedArtistGenre').textContent = artist.genre ? artist.genre.join(', ') : '';
+            document.getElementById('instructions').style.display = 'none';
+            
+            // Load tour data
+            await loadTourMap(artist.id);
+        }
+
+        function clearSelection() {
+            selectedArtistId = null;
+            document.getElementById('artistSearch').value = '';
+            document.getElementById('selectedArtistInfo').style.display = 'none';
+            document.getElementById('eventList').style.display = 'none';
+            document.getElementById('instructions').style.display = 'block';
+            clearMap();
+        }
+
+        async function loadTourMap(artistId) {
+            console.log('Loading tour map for artist ID:', artistId); // Debug
+            
+            try {
+                const url = `${API_BASE_URL}/events/tour-map/${artistId}`;
+                console.log('Fetching from:', url); // Debug
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log('Tour map response:', data); // Debug
+                
+                if (data.success && data.events.length > 0) {
+                    displayTourOnMap(data.events, data.artist);
+                    displayEventList(data.events);
+                    document.getElementById('eventCount').textContent = `${data.events.length} tour stops`;
+                } else {
+                    console.error('No tour data:', data);
+                    alert(`No tour data found for this artist. Response: ${JSON.stringify(data)}`);
+                    clearMap();
+                }
+            } catch (error) {
+                console.error('Error loading tour map:', error);
+                alert('Error loading tour data: ' + error.message);
+            }
+        }
+
+        function displayTourOnMap(events, artist) {
+            clearMap();
+            
+            if (events.length === 0) return;
+            
+            const bounds = [];
+            
+            // Add markers for each event
+            events.forEach((event, index) => {
+                const [lng, lat] = event.venue.coordinates;
+                bounds.push([lat, lng]);
+                
+                // Create custom marker
+                const markerIcon = L.divIcon({
+                    className: 'event-marker',
+                    html: `${index + 1}`,
+                    iconSize: [30, 30]
+                });
+                
+                const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+                
+                // Popup content
+                const popupContent = `
+                    <div class="p-2">
+                        <h3 class="font-bold text-gray-900 mb-1">${event.venue.city}, ${event.venue.state || event.venue.country}</h3>
+                        <p class="text-sm text-gray-600 mb-1">${event.venue.name}</p>
+                        <p class="text-sm text-gray-600 mb-2">${new Date(event.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                        })}</p>
+                        ${event.affiliateUrl ? `
+                            <a href="${event.affiliateUrl}" target="_blank" class="inline-block px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
+                                Get Tickets
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                markers.push(marker);
+            });
+            
+            // Draw route line connecting events
+            if (events.length > 1) {
+                const routeCoords = events.map(e => [e.venue.coordinates[1], e.venue.coordinates[0]]);
+                polyline = L.polyline(routeCoords, {
+                    color: '#4F46E5',
+                    weight: 3,
+                    opacity: 0.6,
+                    dashArray: '10, 10'
+                }).addTo(map);
+            }
+            
+            // Fit map to show all markers
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        function displayEventList(events) {
+            const container = document.getElementById('eventListContent');
+            
+            container.innerHTML = events.map((event, index) => `
+                <div class="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <div class="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">
+                        ${index + 1}
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-gray-900">${event.venue.city}, ${event.venue.state || event.venue.country}</h4>
+                        <p class="text-sm text-gray-600">${event.venue.name}</p>
+                        <p class="text-sm text-gray-500">${new Date(event.date).toLocaleDateString('en-US', { 
+                            weekday: 'short',
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                        })}</p>
+                    </div>
+                    ${event.affiliateUrl ? `
+                        <a href="${event.affiliateUrl}" target="_blank" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold">
+                            Tickets
+                        </a>
+                    ` : ''}
+                </div>
+            `).join('');
+            
+            document.getElementById('eventList').style.display = 'block';
+        }
+
+        function clearMap() {
+            // Remove all markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            // Remove polyline
+            if (polyline) {
+                map.removeLayer(polyline);
+                polyline = null;
+            }
+            
+            // Reset view
+            map.setView([39.8283, -98.5795], 4);
+            
+            document.getElementById('eventCount').textContent = '';
+        }
+    </script>
+</body>
+</html>

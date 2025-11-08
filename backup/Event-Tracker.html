@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <svg class="text-indigo-600" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    <h1 class="text-3xl font-bold text-gray-900">Event Tracker</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="favorites.html" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                        Favorites
+                    </a>
+                    <a href="tour-map.html" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        Tour Map
+                    </a>
+                    <button id="authButton" onclick="handleAuth()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                        Login
+                    </button>
+                    <div class="text-sm text-gray-600">
+                        <span id="totalEvents" class="font-semibold">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar with Mode Toggle -->
+            <div class="flex gap-2 mb-3">
+                <div class="flex-1 relative">
+                    <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Search for artists, events, venues..."
+                        class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <!-- Artist Suggestions Dropdown -->
+                    <div id="artistSuggestions" class="absolute w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-50" style="display: none;">
+                        <!-- Artist suggestions will appear here -->
+                    </div>
+                </div>
+                <button
+                    onclick="handleSearch()"
+                    class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
+                >
+                    Search
+                </button>
+            </div>
+
+            <!-- Search Mode Toggle -->
+            <div class="flex items-center gap-4 mb-2">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="radio" 
+                        name="searchMode" 
+                        value="database" 
+                        checked 
+                        onchange="handleModeChange()"
+                        class="w-4 h-4 text-indigo-600"
+                    />
+                    <span class="text-sm font-medium text-gray-700">
+                        💾 Search Database (Fast)
+                    </span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="radio" 
+                        name="searchMode" 
+                        value="live" 
+                        onchange="handleModeChange()"
+                        class="w-4 h-4 text-green-600"
+                    />
+                    <span class="text-sm font-medium text-gray-700">
+                        🔴 Search Live (Real-time from Ticketmaster)
+                    </span>
+                </label>
+            </div>
+
+            <!-- Search Type Toggle (for live mode) -->
+            <div id="liveSearchOptions" class="flex items-center gap-4" style="display: none;">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="radio" 
+                        name="liveSearchType" 
+                        value="keyword" 
+                        checked 
+                        class="w-4 h-4 text-green-600"
+                    />
+                    <span class="text-sm text-gray-600">
+                        Search by keyword
+                    </span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="radio" 
+                        name="liveSearchType" 
+                        value="artist" 
+                        class="w-4 h-4 text-green-600"
+                    />
+                    <span class="text-sm text-gray-600">
+                        Search by artist (more accurate)
+                    </span>
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div id="statsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <!-- Stats will be loaded here -->
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center gap-2 mb-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span class="font-semibold text-gray-700">Filters</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                    type="text"
+                    id="cityFilter"
+                    placeholder="City (e.g., Los Angeles)"
+                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <input
+                    type="text"
+                    id="stateFilter"
+                    placeholder="State (e.g., CA)"
+                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <button
+                    onclick="clearFilters()"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                    Clear Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Count -->
+        <div id="resultsCount" class="mb-4 text-gray-600"></div>
+
+        <!-- Loading State -->
+        <div id="loadingSpinner" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <p class="mt-4 text-gray-600">Loading events...</p>
+        </div>
+
+        <!-- Events Grid -->
+        <div id="eventsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" style="display: none;">
+            <!-- Events will be loaded here -->
+        </div>
+
+        <!-- No Results -->
+        <div id="noResults" class="text-center py-12 bg-white rounded-lg shadow" style="display: none;">
+            <svg class="mx-auto text-gray-400 mb-4" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No events found</h3>
+            <p class="text-gray-600">Try adjusting your search or filters</p>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="flex justify-center gap-2" style="display: none;">
+            <!-- Pagination will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let currentPage = 1;
+        let currentFilters = {};
+        let searchMode = 'database'; // 'database' or 'live'
+        let selectedArtistId = null;
+        let artistSearchTimeout = null;
+        let cachedArtistResults = {}; // Cache artist search results
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDatabaseEvents(1);
+            fetchStats();
+            
+            // Add enter key support for search
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleSearch();
+            });
+
+            // Add real-time artist search for live mode
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                console.log('Input event triggered, value:', e.target.value); // Debug
+                console.log('Search mode:', searchMode); // Debug
+                
+                const searchType = document.querySelector('input[name="liveSearchType"]:checked')?.value;
+                console.log('Search type:', searchType); // Debug
+                
+                if (searchMode === 'live' && searchType === 'artist') {
+                    console.log('Calling handleArtistSuggestions'); // Debug
+                    handleArtistSuggestions(e.target.value);
+                } else {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#searchInput') && !e.target.closest('#artistSuggestions')) {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            });
+
+            // Add filter listeners
+            document.getElementById('cityFilter').addEventListener('change', handleFilterChange);
+            document.getElementById('stateFilter').addEventListener('change', handleFilterChange);
+            
+            // Add listeners to live search type radio buttons
+            document.querySelectorAll('input[name="liveSearchType"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const query = document.getElementById('searchInput').value;
+                    if (radio.value === 'artist' && query) {
+                        handleArtistSuggestions(query);
+                    } else {
+                        document.getElementById('artistSuggestions').style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        function handleModeChange() {
+            const selectedMode = document.querySelector('input[name="searchMode"]:checked').value;
+            searchMode = selectedMode;
+            
+            // Show/hide live search options
+            const liveOptions = document.getElementById('liveSearchOptions');
+            if (selectedMode === 'live') {
+                liveOptions.style.display = 'flex';
+            } else {
+                liveOptions.style.display = 'none';
+                document.getElementById('artistSuggestions').style.display = 'none';
+            }
+            
+            console.log('Search mode changed to:', searchMode);
+        }
+
+        async function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            
+            if (!query) {
+                clearFilters();
+                return;
+            }
+
+            if (searchMode === 'live') {
+                const searchType = document.querySelector('input[name="liveSearchType"]:checked').value;
+                
+                if (searchType === 'artist' && selectedArtistId) {
+                    // Search by artist ID
+                    await searchLiveByArtist(selectedArtistId, query);
+                } else {
+                    // Search by keyword
+                    await searchLive(query);
+                }
+            } else {
+                await searchDatabase(query);
+            }
+        }
+
+        async function searchDatabase(query) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/events/search?q=${encodeURIComponent(query)}&limit=12`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'database');
+                    document.getElementById('resultsCount').innerHTML = 
+                        `<span class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold mr-2">💾 DATABASE</span>` +
+                        `Showing ${data.events.length} of ${data.total} results for "${query}"`;
+                }
+            } catch (error) {
+                console.error('Error searching database:', error);
+                showError('Database search failed.');
+            }
+        }
+
+        async function searchLive(query) {
+            showLoading();
+            
+            try {
+                const params = new URLSearchParams({
+                    keyword: query,
+                    size: 12,
+                    page: 0
+                });
+                
+                const city = document.getElementById('cityFilter').value;
+                const state = document.getElementById('stateFilter').value;
+                if (city) params.append('city', city);
+                if (state) params.append('stateCode', state);
+
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/search?${params}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'live');
+                    const total = data.pagination?.totalElements || data.events.length;
+                    document.getElementById('resultsCount').innerHTML = 
+                        `<span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold mr-2">🔴 LIVE from Ticketmaster</span>` +
+                        `Showing ${data.events.length} of ${total} real-time results for "${query}"`;
+                }
+            } catch (error) {
+                console.error('Error searching live:', error);
+                showError('Live search failed. Make sure your backend is running.');
+            }
+        }
+
+        async function searchLiveByArtist(artistId, artistName) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/artist/${artistId}/events`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'live');
+                    document.getElementById('resultsCount').innerHTML = 
+                        `<span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold mr-2">🔴 LIVE by Artist</span>` +
+                        `Showing ${data.events.length} upcoming events for "${artistName}"`;
+                }
+            } catch (error) {
+                console.error('Error searching by artist:', error);
+                showError('Artist search failed.');
+            }
+        }
+
+        async function handleArtistSuggestions(query) {
+            const searchType = document.querySelector('input[name="liveSearchType"]:checked')?.value;
+            
+            if (searchMode !== 'live' || searchType !== 'artist') {
+                document.getElementById('artistSuggestions').style.display = 'none';
+                return;
+            }
+            
+            clearTimeout(artistSearchTimeout);
+            
+            const trimmedQuery = query.trim().toLowerCase();
+            
+            if (!trimmedQuery || trimmedQuery.length < 2) {  // Back to 2 characters
+                document.getElementById('artistSuggestions').style.display = 'none';
+                return;
+            }
+
+            // Check cache first
+            const cachedResults = filterCachedResults(trimmedQuery);
+            if (cachedResults.length > 0) {
+                displayArtistSuggestions(sortArtistsByRelevance(cachedResults, trimmedQuery));
+                return;
+            }
+
+            artistSearchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(trimmedQuery)}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.artists && data.artists.length > 0) {
+                        cachedArtistResults[trimmedQuery] = data.artists;
+                        displayArtistSuggestions(sortArtistsByRelevance(data.artists, trimmedQuery));
+                    } else {
+                        document.getElementById('artistSuggestions').style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error fetching artist suggestions:', error);
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            }, 300);
+        }
+
+        function sortArtistsByRelevance(artists, query) {
+            const lowerQuery = query.toLowerCase();
+            
+            return artists.sort((a, b) => {
+                const aName = a.name.toLowerCase();
+                const bName = b.name.toLowerCase();
+                
+                // Exact match first
+                if (aName === lowerQuery) return -1;
+                if (bName === lowerQuery) return 1;
+                
+                // Starts with query
+                const aStarts = aName.startsWith(lowerQuery);
+                const bStarts = bName.startsWith(lowerQuery);
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+                
+                // Word starts with query (e.g., "Billy Joel" matches "j")
+                const aWords = aName.split(' ');
+                const bWords = bName.split(' ');
+                const aWordMatch = aWords.some(w => w.startsWith(lowerQuery));
+                const bWordMatch = bWords.some(w => w.startsWith(lowerQuery));
+                if (aWordMatch && !bWordMatch) return -1;
+                if (!aWordMatch && bWordMatch) return 1;
+                
+                // Alphabetical
+                return aName.localeCompare(bName);
+            });
+        }
+
+        function filterCachedResults(query) {
+            const results = [];
+            const lowerQuery = query.toLowerCase();
+            
+            for (const [cachedQuery, artists] of Object.entries(cachedArtistResults)) {
+                if (lowerQuery.startsWith(cachedQuery) || cachedQuery.startsWith(lowerQuery)) {
+                    for (const artist of artists) {
+                        if (artist.name.toLowerCase().includes(lowerQuery)) {
+                            if (!results.find(r => r.externalId === artist.externalId)) {
+                                results.push(artist);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return results;
+        }
+
+        function displayArtistSuggestions(artists) {
+            console.log('displayArtistSuggestions called with:', artists); // Debug
+            
+            const container = document.getElementById('artistSuggestions');
+            
+            if (!artists || artists.length === 0) {
+                console.log('No artists to display');
+                container.style.display = 'none';
+                return;
+            }
+            
+            console.log('Building HTML for', artists.length, 'artists'); // Debug
+            
+            try {
+                container.innerHTML = artists.map(artist => {
+                    console.log('Processing artist:', artist.name, 'ID:', artist.externalId); // Debug
+                    
+                    // Escape single quotes in name for onclick
+                    const safeName = artist.name.replace(/'/g, "\\'");
+                    
+                    return `
+                    <div 
+                        onclick="selectArtist('${artist.externalId}', '${safeName}')"
+                        class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-200 flex items-center gap-3"
+                    >
+                        ${artist.images && artist.images[0] ? `
+                            <img src="${artist.images[0].url}" alt="${artist.name}" class="w-10 h-10 rounded-full object-cover" />
+                        ` : `
+                            <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                            </div>
+                        `}
+                        <div>
+                            <div class="font-semibold text-gray-900">${artist.name}</div>
+                            ${artist.genre ? `<div class="text-xs text-gray-500">${artist.genre}</div>` : ''}
+                        </div>
+                    </div>
+                `}).join('');
+                
+                container.style.display = 'block';
+                console.log('Suggestions displayed successfully');
+            } catch (error) {
+                console.error('Error building suggestions HTML:', error);
+            }
+        }
+
+        function selectArtist(artistId, artistName) {
+            selectedArtistId = artistId;
+            document.getElementById('searchInput').value = artistName;
+            document.getElementById('artistSuggestions').style.display = 'none';
+            
+            // Auto-select "Search by artist" option
+            document.querySelector('input[name="liveSearchType"][value="artist"]').checked = true;
+            
+            // Trigger search
+            handleSearch();
+        }
+
+        async function fetchDatabaseEvents(page = 1) {
+            showLoading();
+            
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: 12,
+                    ...currentFilters
+                });
+
+                const response = await fetch(`${API_BASE_URL}/events?${params}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'database');
+                    displayPagination(data.page, data.totalPages, data.total);
+                }
+            } catch (error) {
+                console.error('Error fetching events:', error);
+                showError('Failed to load events. Make sure your backend server is running.');
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/events/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayStats(data.stats);
+                }
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        function handleFilterChange() {
+            const city = document.getElementById('cityFilter').value;
+            const state = document.getElementById('stateFilter').value;
+            
+            currentFilters = {};
+            if (city) currentFilters.city = city;
+            if (state) currentFilters.state = state;
+            
+            currentPage = 1;
+            fetchDatabaseEvents(1);
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('cityFilter').value = '';
+            document.getElementById('stateFilter').value = '';
+            currentFilters = {};
+            currentPage = 1;
+            fetchDatabaseEvents(1);
+        }
+
+        function displayStats(stats) {
+            const container = document.getElementById('statsContainer');
+            container.innerHTML = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Total Events</p>
+                            <p class="text-3xl font-bold text-indigo-600">${stats.totalUpcomingEvents}</p>
+                        </div>
+                        <svg class="text-indigo-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Artists</p>
+                            <p class="text-3xl font-bold text-purple-600">${stats.totalArtists}</p>
+                        </div>
+                        <svg class="text-purple-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">On Sale Now</p>
+                            <p class="text-3xl font-bold text-green-600">${stats.onSaleEvents}</p>
+                        </div>
+                        <svg class="text-green-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                            <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('totalEvents').textContent = `${stats.totalUpcomingEvents} Upcoming Events`;
+        }
+
+        function displayEvents(events, source = 'database') {
+            hideLoading();
+            
+            const grid = document.getElementById('eventsGrid');
+            const noResults = document.getElementById('noResults');
+            
+            if (events.length === 0) {
+                grid.style.display = 'none';
+                noResults.style.display = 'block';
+                return;
+            }
+            
+            grid.style.display = 'grid';
+            noResults.style.display = 'none';
+            
+            const sourceBadge = source === 'live' 
+                ? '<span class="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-semibold">🔴 LIVE</span>'
+                : '<span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">💾 DB</span>';
+            
+            grid.innerHTML = events.map(event => {
+                const artistName = event.artistInfo?.name || event.artist?.name || 'Unknown Artist';
+                const artistId = event.artist?.id || event.artist?._id || event.artistInfo?.externalId;
+                const images = event.images || {};
+                const venue = event.venue || {};
+                const ticketInfo = event.ticketInfo || {};
+                const eventId = event._id || event.externalIds?.ticketmaster;
+                
+                // Get the affiliate link - for live results, it's in affiliateLinks
+                const affiliateUrl = event.affiliateLinks?.ticketmaster?.url || null;
+                
+                return `
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                    ${images.large ? `
+                        <div class="h-48 bg-gray-200 overflow-hidden">
+                            <img src="${images.large}" alt="${event.name}" class="w-full h-full object-cover" />
+                        </div>
+                    ` : ''}
+                    
+                    <div class="p-5">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <a href="artist-detail.html?id=${artistId}&name=${encodeURIComponent(artistName)}" 
+                               class="flex items-center gap-2 hover:underline">
+                                <svg width="16" height="16" class="text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                                <span class="text-sm font-semibold text-indigo-600">
+                                    ${artistName}
+                                </span>
+                            </a>
+                            ${sourceBadge}
+                        </div>
+                        
+                        <h3 class="text-lg font-bold text-gray-900 mb-3 line-clamp-2">
+                            ${event.name}
+                        </h3>
+                        
+                        <div class="flex items-center gap-2 text-gray-600 mb-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span class="text-sm">${formatDate(event.date)}</span>
+                        </div>
+                        
+                        <div class="flex items-start gap-2 text-gray-600 mb-4">
+                            <svg width="16" height="16" class="flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <span class="text-sm line-clamp-2">
+                                ${venue.name}, ${venue.city}, ${venue.state || venue.country || ''}
+                            </span>
+                        </div>
+                        
+                        ${ticketInfo.minPrice ? `
+                            <div class="flex items-center gap-2 text-green-600 mb-4">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                </svg>
+                                <span class="text-sm font-semibold">
+                                    ${ticketInfo.minPrice} - ${ticketInfo.maxPrice}
+                                </span>
+                            </div>
+                        ` : ''}
+                        
+                        <button
+                            onclick='handleAffiliateClick(${JSON.stringify({id: eventId, source: source, url: affiliateUrl})})'
+                            class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-semibold flex items-center justify-center gap-2"
+                        >
+                            Get Tickets
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function displayPagination(currentPage, totalPages, total) {
+            const container = document.getElementById('pagination');
+            document.getElementById('resultsCount').textContent = `Showing page ${currentPage} of ${totalPages} (${total} total events)`;
+            
+            if (totalPages <= 1) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'flex';
+            container.innerHTML = `
+                <button
+                    onclick="changePage(${currentPage - 1})"
+                    ${currentPage === 1 ? 'disabled' : ''}
+                    class="px-4 py-2 bg-white rounded-lg shadow hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Previous
+                </button>
+                <span class="px-4 py-2 bg-white rounded-lg shadow">
+                    Page ${currentPage} of ${totalPages}
+                </span>
+                <button
+                    onclick="changePage(${currentPage + 1})"
+                    ${currentPage === totalPages ? 'disabled' : ''}
+                    class="px-4 py-2 bg-white rounded-lg shadow hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Next
+                </button>
+            `;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            fetchDatabaseEvents(page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function handleAffiliateClick(eventData) {
+            console.log('Click handler called with:', eventData); // Debug
+            
+            try {
+                const { id, source, url } = eventData;
+                
+                console.log('Event ID:', id);
+                console.log('Source:', source);
+                console.log('URL:', url);
+                
+                if (source === 'live') {
+                    // For live results, use the URL directly from Ticketmaster API response
+                    if (url) {
+                        console.log('Opening live URL:', url);
+                        window.open(url, '_blank');
+                    } else {
+                        // Fallback if no URL (shouldn't happen)
+                        console.error('No URL available for this event');
+                        alert('Sorry, ticket link is not available for this event.');
+                    }
+                } else {
+                    // For database results, use the tracking endpoint
+                    console.log('Fetching database URL for event:', id);
+                    const response = await fetch(`${API_BASE_URL}/events/${id}/click`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform: 'ticketmaster' })
+                    });
+                    const data = await response.json();
+                    
+                    console.log('Database response:', data);
+                    
+                    if (data.success && data.url) {
+                        console.log('Opening database URL:', data.url);
+                        window.open(data.url, '_blank');
+                    } else {
+                        console.error('No URL in response');
+                        alert('Sorry, ticket link is not available.');
+                    }
+                }
+            } catch (error) {
+                console.error('Error tracking click:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('eventsGrid').style.display = 'none';
+            document.getElementById('noResults').style.display = 'none';
+            document.getElementById('pagination').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+
+        function showError(message) {
+            hideLoading();
+            alert(message);
+        }
+    </script>
+</body>
+</html>

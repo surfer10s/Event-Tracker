@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .user-dropdown {
+            display: none;
+            z-index: 9999; /* High z-index to appear above everything */
+        }
+        .user-dropdown.show {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <svg class="text-indigo-600" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    <h1 class="text-3xl font-bold text-gray-900">Event Tracker</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="favorites.html" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                        Favorites
+                    </a>
+                    
+                    <!-- User Icon with Dropdown -->
+                    <div class="relative" id="userMenuContainer" style="z-index: 9999;">
+                        <button id="userMenuButton" onclick="toggleUserMenu()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 font-semibold text-gray-700">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span id="userMenuName">Account</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div id="userDropdown" class="user-dropdown absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-gray-200">
+                            <a href="account-details.html" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Account Details
+                            </a>
+                            <hr class="my-1">
+                            <button onclick="logout()" class="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-sm text-gray-600">
+                        <span id="totalEvents" class="font-semibold">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar with Mode Toggle -->
+            <div class="flex gap-2 mb-3">
+                <div class="flex-1 relative">
+                    <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Search for artists, events, venues..."
+                        class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <!-- Artist Suggestions Dropdown -->
+                    <div id="artistSuggestions" class="absolute w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-40" style="display: none;">
+                        <!-- Artist suggestions will appear here -->
+                    </div>
+                </div>
+                <button
+                    onclick="handleSearch()"
+                    class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
+                >
+                    Search
+                </button>
+            </div>
+
+            <!-- Search Mode Selection -->
+            <div class="flex items-center gap-6 mb-3">
+                <div class="flex items-center gap-2">
+                    <input type="radio" id="searchDatabase" name="searchMode" value="database" checked class="text-indigo-600">
+                    <label for="searchDatabase" class="text-sm font-medium text-gray-700">Search Database</label>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="radio" id="searchLive" name="searchMode" value="live" class="text-indigo-600">
+                    <label for="searchLive" class="text-sm font-medium text-gray-700">Search Live (Ticketmaster)</label>
+                </div>
+                
+                <div id="liveSearchOptions" style="display: none;" class="flex items-center gap-4 ml-auto">
+                    <div class="flex items-center gap-2">
+                        <input type="radio" id="searchByKeyword" name="liveSearchType" value="keyword" checked class="text-indigo-600">
+                        <label for="searchByKeyword" class="text-sm font-medium text-gray-700">By Keyword</label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="radio" id="searchByArtist" name="liveSearchType" value="artist" class="text-indigo-600">
+                        <label for="searchByArtist" class="text-sm font-medium text-gray-700">By Artist</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <input
+                        type="text"
+                        id="cityFilter"
+                        placeholder="City"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
+                <div>
+                    <select id="stateFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="">All States</option>
+                        <option value="AL">Alabama</option>
+                        <option value="AK">Alaska</option>
+                        <option value="AZ">Arizona</option>
+                        <option value="AR">Arkansas</option>
+                        <option value="CA">California</option>
+                        <option value="CO">Colorado</option>
+                        <option value="CT">Connecticut</option>
+                        <option value="FL">Florida</option>
+                        <option value="GA">Georgia</option>
+                        <option value="IL">Illinois</option>
+                        <option value="IN">Indiana</option>
+                        <option value="LA">Louisiana</option>
+                        <option value="MD">Maryland</option>
+                        <option value="MA">Massachusetts</option>
+                        <option value="MI">Michigan</option>
+                        <option value="MN">Minnesota</option>
+                        <option value="MO">Missouri</option>
+                        <option value="NV">Nevada</option>
+                        <option value="NJ">New Jersey</option>
+                        <option value="NY">New York</option>
+                        <option value="NC">North Carolina</option>
+                        <option value="OH">Ohio</option>
+                        <option value="OR">Oregon</option>
+                        <option value="PA">Pennsylvania</option>
+                        <option value="TN">Tennessee</option>
+                        <option value="TX">Texas</option>
+                        <option value="WA">Washington</option>
+                    </select>
+                </div>
+                <div>
+                    <input
+                        type="date"
+                        id="startDateFilter"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
+                <button
+                    onclick="applyFilters()"
+                    class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-semibold"
+                >
+                    Apply Filters
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Stats -->
+        <div id="statsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Stats will be loaded here -->
+        </div>
+
+        <!-- Results Count -->
+        <div id="resultsCount" class="mb-4 text-gray-700">
+            <!-- Results count will appear here -->
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <p class="mt-4 text-gray-600">Loading events...</p>
+        </div>
+
+        <!-- Events Grid -->
+        <div id="eventsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" style="display: none;">
+            <!-- Events will be loaded here -->
+        </div>
+
+        <!-- No Results -->
+        <div id="noResults" class="text-center py-12 bg-white rounded-lg shadow" style="display: none;">
+            <svg class="mx-auto text-gray-400 mb-4" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No events found</h3>
+            <p class="text-gray-600">Try adjusting your search or filters</p>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="flex justify-center gap-2" style="display: none;">
+            <!-- Pagination will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let currentPage = 1;
+        let currentFilters = {};
+        let searchMode = 'database';
+        let selectedArtistId = null;
+        let artistSearchTimeout = null;
+        let cachedArtistResults = {};
+        let token = localStorage.getItem('token');
+        let currentUser = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUser();
+            fetchDatabaseEvents(1);
+            fetchStats();
+            
+            // Add enter key support for search
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleSearch();
+            });
+
+            // Search mode change handler
+            document.querySelectorAll('input[name="searchMode"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    searchMode = e.target.value;
+                    const liveOptions = document.getElementById('liveSearchOptions');
+                    liveOptions.style.display = searchMode === 'live' ? 'flex' : 'none';
+                    
+                    // Clear search input and suggestions
+                    document.getElementById('searchInput').value = '';
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                    selectedArtistId = null;
+                });
+            });
+
+            // Artist autocomplete for live search
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                
+                if (searchMode === 'live' && query.length >= 2) {
+                    clearTimeout(artistSearchTimeout);
+                    artistSearchTimeout = setTimeout(() => fetchArtistSuggestions(query), 300);
+                } else {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            });
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#artistSuggestions') && !e.target.closest('#searchInput')) {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+                if (!e.target.closest('#userMenuContainer')) {
+                    document.getElementById('userDropdown').classList.remove('show');
+                }
+            });
+        });
+
+        async function loadUser() {
+            if (!token) {
+                document.getElementById('userMenuButton').style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    document.getElementById('userMenuName').textContent = data.user.firstName || data.user.username;
+                } else {
+                    token = null;
+                    localStorage.removeItem('token');
+                    document.getElementById('userMenuButton').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Load user error:', error);
+            }
+        }
+
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'auth.html';
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/events/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayStats(data.stats);
+                }
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        function displayStats(stats) {
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Total Events</p>
+                            <p class="text-3xl font-bold text-indigo-600">${stats.totalUpcomingEvents}</p>
+                        </div>
+                        <svg class="text-indigo-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Artists</p>
+                            <p class="text-3xl font-bold text-purple-600">${stats.totalArtists}</p>
+                        </div>
+                        <svg class="text-purple-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">On Sale Now</p>
+                            <p class="text-3xl font-bold text-green-600">${stats.onSaleEvents}</p>
+                        </div>
+                        <svg class="text-green-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                            <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('totalEvents').textContent = `${stats.totalUpcomingEvents} Upcoming Events`;
+        }
+
+        async function fetchArtistSuggestions(query) {
+            if (cachedArtistResults[query]) {
+                displayArtistSuggestions(cachedArtistResults[query]);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.success && data.artists) {
+                    cachedArtistResults[query] = data.artists;
+                    displayArtistSuggestions(data.artists);
+                }
+            } catch (error) {
+                console.error('Error fetching artist suggestions:', error);
+            }
+        }
+
+        function displayArtistSuggestions(artists) {
+            const container = document.getElementById('artistSuggestions');
+            
+            if (!artists || artists.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = artists.map(artist => `
+                <div class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b flex items-center gap-3" onclick='selectArtist("${artist.externalId}", "${artist.name.replace(/'/g, "\\'")}") '>
+                    ${artist.images && artist.images[0] ? `
+                        <img src="${artist.images[0].url}" alt="${artist.name}" class="w-10 h-10 rounded-full object-cover">
+                    ` : `
+                        <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
+                    `}
+                    <div class="flex-1">
+                        <div class="font-semibold text-sm">${artist.name}</div>
+                        ${artist.genre ? `<div class="text-xs text-gray-500">${artist.genre}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            container.style.display = 'block';
+        }
+
+        function selectArtist(artistId, artistName) {
+            selectedArtistId = artistId;
+            document.getElementById('searchInput').value = artistName;
+            document.getElementById('artistSuggestions').style.display = 'none';
+            document.querySelector('input[name="liveSearchType"][value="artist"]').checked = true;
+            handleSearch();
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            
+            if (!query) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            if (searchMode === 'database') {
+                searchDatabase(query);
+            } else {
+                const searchType = document.querySelector('input[name="liveSearchType"]:checked').value;
+                if (searchType === 'artist' && selectedArtistId) {
+                    searchLiveByArtist(selectedArtistId, query);
+                } else {
+                    searchLive(query);
+                }
+            }
+        }
+
+        async function searchDatabase(query) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/events/search?q=${encodeURIComponent(query)}&limit=12`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'database');
+                    document.getElementById('resultsCount').innerHTML = 
+                        `<span class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold mr-2">💾 DATABASE</span>` +
+                        `Found ${data.total} results for "${query}"`;
+                }
+            } catch (error) {
+                console.error('Error searching database:', error);
+                showError('Search failed');
+            }
+        }
+
+        async function searchLive(query) {
+            showLoading();
+            
+            try {
+                const params = new URLSearchParams({
+                    keyword: query,
+                    size: 12,
+                    page: 0
+                });
+                
+                const city = document.getElementById('cityFilter').value;
+                const state = document.getElementById('stateFilter').value;
+                if (city) params.append('city', city);
+                if (state) params.append('stateCode', state);
+
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/search?${params}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'live');
+                    const total = data.pagination?.totalElements || data.events.length;
+                    document.getElementById('resultsCount').innerHTML = 
+                        `<span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold mr-2">🔴 LIVE</span>` +
+                        `Showing ${data.events.length} of ${total} real-time results for "${query}"`;
+                }
+            } catch (error) {
+                console.error('Error searching live:', error);
+                showError('Live search failed');
+            }
+        }
+
+        async function searchLiveByArtist(artistId, artistName) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/artist/${artistId}/events`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'live');
+                    document.getElementById('resultsCount').innerHTML = 
+                        `<span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold mr-2">🔴 LIVE</span>` +
+                        `Showing ${data.events.length} upcoming events for "${artistName}"`;
+                }
+            } catch (error) {
+                console.error('Error searching by artist:', error);
+                showError('Artist search failed');
+            }
+        }
+
+        function applyFilters() {
+            currentFilters = {};
+            
+            const city = document.getElementById('cityFilter').value;
+            const state = document.getElementById('stateFilter').value;
+            const startDate = document.getElementById('startDateFilter').value;
+            
+            if (city) currentFilters.city = city;
+            if (state) currentFilters.state = state;
+            if (startDate) currentFilters.startDate = startDate;
+            
+            fetchDatabaseEvents(1);
+        }
+
+        async function fetchDatabaseEvents(page = 1) {
+            showLoading();
+            
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: 12,
+                    ...currentFilters
+                });
+
+                const response = await fetch(`${API_BASE_URL}/events?${params}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEvents(data.events, 'database');
+                    displayPagination(data.page, data.totalPages, data.total);
+                }
+            } catch (error) {
+                console.error('Error fetching events:', error);
+                showError('Failed to load events');
+            }
+        }
+
+        function displayEvents(events, source = 'database') {
+            hideLoading();
+            
+            const grid = document.getElementById('eventsGrid');
+            const noResults = document.getElementById('noResults');
+            
+            if (events.length === 0) {
+                grid.style.display = 'none';
+                noResults.style.display = 'block';
+                return;
+            }
+            
+            grid.style.display = 'grid';
+            noResults.style.display = 'none';
+            
+            const sourceBadge = source === 'live' 
+                ? '<span class="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-semibold">🔴 LIVE</span>'
+                : '<span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">💾 DB</span>';
+            
+            grid.innerHTML = events.map(event => {
+                const artistName = event.artistInfo?.name || event.artist?.name || 'Unknown Artist';
+                const artistId = event.artist?.id || event.artist?._id || event.artistInfo?.externalId;
+                const images = event.images || {};
+                const venue = event.venue || {};
+                const ticketInfo = event.ticketInfo || {};
+                const eventId = event._id || event.externalIds?.ticketmaster;
+                const affiliateUrl = event.affiliateLinks?.ticketmaster?.url || null;
+                
+                // Create artist tour map link - use MongoDB ID if available, otherwise use Ticketmaster ID
+                const artistTourLink = event.artist?._id 
+                    ? `artist-detail.html?id=${event.artist._id}&name=${encodeURIComponent(artistName)}`
+                    : `tour-map.html?ticketmasterId=${artistId}&name=${encodeURIComponent(artistName)}`;
+                
+                return `
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                    ${images.large ? `
+                        <img src="${images.large}" alt="${event.name}" class="w-full h-48 object-cover">
+                    ` : `
+                        <div class="w-full h-48 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                            <svg class="text-white opacity-50" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
+                    `}
+                    
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg line-clamp-2 flex-1">${event.name}</h3>
+                            ${sourceBadge}
+                        </div>
+                        
+                        <a href="${artistTourLink}" class="text-sm text-indigo-600 font-semibold hover:text-indigo-800 mb-2 inline-block">
+                            ${artistName} →
+                        </a>
+                        
+                        <div class="space-y-1 text-sm text-gray-600 mb-3">
+                            <div class="flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                                ${formatDate(event.date)}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                ${venue.city}, ${venue.state || venue.country}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                </svg>
+                                ${venue.name}
+                            </div>
+                        </div>
+                        
+                        ${ticketInfo.minPrice ? `
+                            <p class="text-sm font-semibold text-gray-700 mb-3">
+                                From $${ticketInfo.minPrice}
+                            </p>
+                        ` : ''}
+                        
+                        ${affiliateUrl ? `
+                            <button onclick="trackAndRedirect('${eventId}', '${affiliateUrl}')" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-semibold">
+                                Get Tickets
+                            </button>
+                        ` : `
+                            <div class="w-full bg-gray-200 text-gray-500 py-2 rounded-lg text-center text-sm">
+                                Tickets Not Available
+                            </div>
+                        `}
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function displayPagination(currentPage, totalPages, total) {
+            if (totalPages <= 1) {
+                document.getElementById('pagination').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('pagination').style.display = 'flex';
+            const pagination = document.getElementById('pagination');
+            let buttons = '';
+
+            if (currentPage > 1) {
+                buttons += `<button onclick="fetchDatabaseEvents(${currentPage - 1})" class="px-4 py-2 bg-white rounded-lg hover:bg-gray-100 border">Previous</button>`;
+            }
+
+            for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+                const activeClass = i === currentPage ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-gray-100';
+                buttons += `<button onclick="fetchDatabaseEvents(${i})" class="px-4 py-2 ${activeClass} rounded-lg border">${i}</button>`;
+            }
+
+            if (currentPage < totalPages) {
+                buttons += `<button onclick="fetchDatabaseEvents(${currentPage + 1})" class="px-4 py-2 bg-white rounded-lg hover:bg-gray-100 border">Next</button>`;
+            }
+
+            pagination.innerHTML = buttons;
+        }
+
+        async function trackAndRedirect(eventId, affiliateUrl) {
+            try {
+                if (eventId && eventId !== 'undefined') {
+                    await fetch(`${API_BASE_URL}/events/${eventId}/click`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform: 'ticketmaster' })
+                    });
+                }
+            } catch (error) {
+                console.error('Error tracking click:', error);
+            }
+            
+            window.open(affiliateUrl, '_blank');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('eventsGrid').style.display = 'none';
+            document.getElementById('noResults').style.display = 'none';
+            document.getElementById('pagination').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+
+        function showError(message) {
+            hideLoading();
+            alert(message);
+        }
+    </script>
+</body>
+</html>
