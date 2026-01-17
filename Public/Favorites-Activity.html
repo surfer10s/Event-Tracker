@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorites Activity - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 600px; border-radius: 0.5rem; }
+        #map.inactive { pointer-events: none; }
+        .map-container { position: relative; }
+        .map-interact-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .map-interact-overlay:hover {
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            color: #1e293b;
+        }
+        .map-interact-overlay.hidden { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Info Banner -->
+            <div class="bg-slate-200 border border-slate-300 rounded-xl p-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <svg class="text-slate-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <p class="text-slate-800">Showing concerts for <span id="dateRangeDisplay" class="font-semibold"></span></p>
+                </div>
+            </div>
+
+            <!-- Enhanced Filters -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Filter Events</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Date Range</label>
+                        <select id="dateRangeFilter" onchange="applyDateRangeFilter()" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="custom">Custom (use month selector below)</option>
+                            <option value="30">Next 30 Days</option>
+                            <option value="90">Next 3 Months</option>
+                            <option value="180">Next 6 Months</option>
+                            <option value="365">Next Year</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Filter by State</label>
+                        <select id="stateFilter" onchange="filterAndDisplayEvents()" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="">All States</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Filter by Genre</label>
+                        <select id="genreFilter" onchange="filterAndDisplayEvents()" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="">All Genres</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Expand Results Checkbox -->
+                <div class="mt-4 pt-4 border-t border-slate-200">
+                    <label class="inline-flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="expandResults" onchange="toggleExpandedResults()" 
+                               class="w-5 h-5 rounded border-slate-300 text-slate-700 focus:ring-slate-400 cursor-pointer">
+                        <span class="text-sm font-medium text-slate-700 relative inline-flex items-center gap-1">
+                            Expand my results
+                            <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-xs cursor-help expand-tooltip-trigger">?</span>
+                        </span>
+                        <span id="expandedBadge" class="hidden px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                            +<span id="expandedCount">0</span> artists
+                        </span>
+                    </label>
+                </div>
+                
+                <button onclick="clearAllFilters()" class="mt-4 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">
+                    Clear All Filters
+                </button>
+            </div>
+
+            <!-- Tooltip for Expand Results (positioned fixed) -->
+            <div id="expandTooltip" class="fixed z-50 hidden px-3 py-2 bg-slate-800 text-white text-sm rounded-lg shadow-lg max-w-xs pointer-events-none">
+                Expand my results will include events from Artists you have engaged with on your connected streaming services (liked songs, playlists).
+            </div>
+
+            <!-- Month Filter -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">Select Months to View</h2>
+                    <div class="flex items-center gap-2">
+                        <button onclick="selectAllMonths()" class="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm font-medium">Select All</button>
+                        <button onclick="deselectAllMonths()" class="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm font-medium">Deselect All</button>
+                        <a href="favorites-activity-location.html" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            View by Location
+                        </a>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3" id="monthSelector"></div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-sm font-medium text-slate-500 mb-2">Total Events</h3>
+                    <p class="text-3xl font-bold text-slate-700" id="totalEvents">0</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-sm font-medium text-slate-500 mb-2">Favorite Artists Touring</h3>
+                    <p class="text-3xl font-bold text-slate-700" id="artistsTouring">0</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-sm font-medium text-slate-500 mb-2">States/Countries</h3>
+                    <p class="text-3xl font-bold text-slate-700" id="locationsCount">0</p>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Concert Locations Map</h2>
+                <div class="map-container">
+                    <div id="mapInteractOverlay" class="map-interact-overlay" onclick="enableMapInteraction()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                        </svg>
+                        Click to interact with map
+                    </div>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- Events List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Upcoming Events</h2>
+                <div id="eventsList" class="space-y-4">
+                    <p class="text-center text-slate-500 py-8">Loading events...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+        let map = null;
+        let markers = [];
+        let allEvents = [];
+        let favoriteEvents = [];
+        let musicTasteEvents = [];
+        let musicTasteArtists = [];
+        let expandedResultsEnabled = false;
+        let selectedMonths = [];
+        let currentDate = new Date();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token) { window.location.href = 'auth.html'; return; }
+            initSidebar('Favorites Activity');
+            loadUser();
+            initMap();
+            generateMonthButtons();
+            loadFavoritesActivity();
+            setupExpandTooltip();
+        });
+
+        // Setup tooltip for expand checkbox
+        function setupExpandTooltip() {
+            const trigger = document.querySelector('.expand-tooltip-trigger');
+            const tooltip = document.getElementById('expandTooltip');
+            
+            if (trigger && tooltip) {
+                trigger.addEventListener('mouseenter', (e) => {
+                    const rect = trigger.getBoundingClientRect();
+                    tooltip.style.top = (rect.bottom + 8) + 'px';
+                    tooltip.style.left = rect.left + 'px';
+                    tooltip.classList.remove('hidden');
+                });
+                
+                trigger.addEventListener('mouseleave', () => {
+                    tooltip.classList.add('hidden');
+                });
+            }
+        }
+
+        function initMap() {
+            map = L.map('map', { scrollWheelZoom: false }).setView([39.8283, -98.5795], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+        }
+
+        function enableMapInteraction() {
+            map.scrollWheelZoom.enable();
+            document.getElementById('mapInteractOverlay').classList.add('hidden');
+        }
+
+        function generateMonthButtons() {
+            const container = document.getElementById('monthSelector');
+            const months = [];
+            for (let i = 0; i < 12; i++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+                months.push({ year: date.getFullYear(), month: date.getMonth(), label: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) });
+            }
+            selectedMonths = months.map(m => ({ year: m.year, month: m.month }));
+            container.innerHTML = months.map(m => `
+                <button onclick="toggleMonth(${m.year}, ${m.month})" id="month-${m.year}-${m.month}"
+                    class="month-btn px-4 py-2 border rounded-lg transition-colors ${isMonthSelected(m.year, m.month) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}">
+                    ${m.label}
+                </button>
+            `).join('');
+            updateDateRangeDisplay();
+        }
+
+        function isMonthSelected(year, month) { return selectedMonths.some(m => m.year === year && m.month === month); }
+
+        function selectAllMonths() {
+            selectedMonths = [];
+            document.querySelectorAll('.month-btn').forEach(btn => {
+                const [year, month] = btn.id.replace('month-', '').split('-').map(Number);
+                selectedMonths.push({ year, month });
+                btn.className = 'month-btn px-4 py-2 border rounded-lg transition-colors bg-slate-700 text-white border-slate-700';
+            });
+            updateDateRangeDisplay();
+            filterAndDisplayEvents();
+        }
+
+        function deselectAllMonths() {
+            selectedMonths = [];
+            document.querySelectorAll('.month-btn').forEach(btn => {
+                btn.className = 'month-btn px-4 py-2 border rounded-lg transition-colors bg-white text-slate-700 border-slate-300 hover:bg-slate-50';
+            });
+            updateDateRangeDisplay();
+            filterAndDisplayEvents();
+        }
+
+        function toggleMonth(year, month) {
+            const index = selectedMonths.findIndex(m => m.year === year && m.month === month);
+            if (index > -1) selectedMonths.splice(index, 1);
+            else selectedMonths.push({ year, month });
+            const btn = document.getElementById(`month-${year}-${month}`);
+            btn.className = `month-btn px-4 py-2 border rounded-lg transition-colors ${isMonthSelected(year, month) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`;
+            updateDateRangeDisplay();
+            filterAndDisplayEvents();
+        }
+
+        function updateDateRangeDisplay() {
+            if (selectedMonths.length === 0) { document.getElementById('dateRangeDisplay').textContent = 'No months selected'; return; }
+            selectedMonths.sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+            const first = new Date(selectedMonths[0].year, selectedMonths[0].month);
+            const last = new Date(selectedMonths[selectedMonths.length - 1].year, selectedMonths[selectedMonths.length - 1].month);
+            document.getElementById('dateRangeDisplay').textContent = `${first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - ${last.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+        }
+
+        function applyDateRangeFilter() {
+            const rangeValue = document.getElementById('dateRangeFilter').value;
+            if (rangeValue === 'custom') return;
+            selectedMonths = [];
+            document.querySelectorAll('.month-btn').forEach(btn => { btn.className = 'month-btn px-4 py-2 border rounded-lg transition-colors bg-white text-slate-700 border-slate-300 hover:bg-slate-50'; });
+            const daysAhead = parseInt(rangeValue);
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + daysAhead);
+            document.getElementById('dateRangeDisplay').textContent = `Next ${daysAhead} days (${new Date().toLocaleDateString()} - ${endDate.toLocaleDateString()})`;
+            filterAndDisplayEvents();
+        }
+
+        function clearAllFilters() {
+            document.getElementById('dateRangeFilter').value = 'custom';
+            document.getElementById('stateFilter').value = '';
+            document.getElementById('genreFilter').value = '';
+            selectedMonths = [{ year: currentDate.getFullYear(), month: currentDate.getMonth() }, { year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 }];
+            document.querySelectorAll('.month-btn').forEach(btn => {
+                const [year, month] = btn.id.replace('month-', '').split('-').map(Number);
+                btn.className = `month-btn px-4 py-2 border rounded-lg transition-colors ${isMonthSelected(year, month) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`;
+            });
+            updateDateRangeDisplay();
+            filterAndDisplayEvents();
+        }
+
+        function populateStateAndGenreFilters(events) {
+            const usStates = new Set(['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']);
+            const states = new Set();
+            events.forEach(event => { if (event.venue.state && usStates.has(event.venue.state)) states.add(event.venue.state); });
+            const stateFilter = document.getElementById('stateFilter');
+            const currentState = stateFilter.value;
+            stateFilter.innerHTML = '<option value="">All States</option>' + Array.from(states).sort().map(state => `<option value="${state}">${state}</option>`).join('');
+            stateFilter.value = currentState;
+        }
+
+        async function loadFavoritesActivity() {
+            try {
+                // Load favorite artists and their events
+                const favResponse = await fetch(`${API_BASE_URL}/users/favorites`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const favData = await favResponse.json();
+                
+                favoriteEvents = [];
+                if (favData.success && favData.artists && favData.artists.length > 0) {
+                    for (const artist of favData.artists) {
+                        try {
+                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
+                            const eventData = await eventResponse.json();
+                            if (eventData.success && eventData.events) {
+                                eventData.events.forEach(event => { 
+                                    favoriteEvents.push({ 
+                                        ...event, 
+                                        artistName: artist.name, 
+                                        artistId: artist._id,
+                                        source: 'favorite',
+                                        reason: '⭐ Favorite'
+                                    }); 
+                                });
+                            }
+                        } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
+                    }
+                }
+                
+                // Load music taste artists (for expand feature)
+                await loadMusicTasteArtists();
+                
+                // Combine events based on expand setting
+                updateAllEvents();
+                
+                if (allEvents.length === 0 && !expandedResultsEnabled) {
+                    document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-500 py-8">No favorite artists yet. <a href="favorites.html" class="text-slate-700 font-semibold hover:underline">Add some favorites</a> to see their concerts here!</p>`;
+                    return;
+                }
+                
+                filterAndDisplayEvents();
+                populateStateAndGenreFilters(allEvents);
+            } catch (error) {
+                console.error('Error loading favorites activity:', error);
+                document.getElementById('eventsList').innerHTML = `<p class="text-center text-rose-600 py-8">Error loading events. Please try again.</p>`;
+            }
+        }
+
+        async function loadMusicTasteArtists() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/music-taste-artists`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+                const data = await response.json();
+                
+                if (data.success && data.artists && data.artists.length > 0) {
+                    musicTasteArtists = data.artists;
+                    document.getElementById('expandedCount').textContent = data.artists.length;
+                    
+                    // Load events for music taste artists
+                    musicTasteEvents = [];
+                    for (const artist of data.artists) {
+                        try {
+                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
+                            const eventData = await eventResponse.json();
+                            if (eventData.success && eventData.events) {
+                                const reasonBadge = artist.source === 'liked_song' ? '🎵 Liked Song' : 
+                                                   artist.source === 'playlist' ? '📋 Playlist' : '🎧 Music Library';
+                                eventData.events.forEach(event => { 
+                                    musicTasteEvents.push({ 
+                                        ...event, 
+                                        artistName: artist.name, 
+                                        artistId: artist._id,
+                                        source: 'music_taste',
+                                        reason: reasonBadge
+                                    }); 
+                                });
+                            }
+                        } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading music taste artists:', error);
+            }
+        }
+
+        function updateAllEvents() {
+            if (expandedResultsEnabled) {
+                allEvents = [...favoriteEvents, ...musicTasteEvents];
+            } else {
+                allEvents = [...favoriteEvents];
+            }
+        }
+
+        function toggleExpandedResults() {
+            expandedResultsEnabled = document.getElementById('expandResults').checked;
+            const badge = document.getElementById('expandedBadge');
+            
+            if (expandedResultsEnabled && musicTasteArtists.length > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+            
+            updateAllEvents();
+            filterAndDisplayEvents();
+            populateStateAndGenreFilters(allEvents);
+        }
+
+        function filterAndDisplayEvents() {
+            const dateRangeValue = document.getElementById('dateRangeFilter').value;
+            const selectedState = document.getElementById('stateFilter').value;
+            let filtered = [...allEvents];
+            if (dateRangeValue === 'custom') {
+                if (selectedMonths.length === 0) { displayEvents([]); return; }
+                filtered = filtered.filter(event => {
+                    const eventDate = new Date(event.date);
+                    return selectedMonths.some(m => eventDate.getFullYear() === m.year && eventDate.getMonth() === m.month);
+                });
+            } else {
+                const daysAhead = parseInt(dateRangeValue);
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const endDate = new Date(today); endDate.setDate(endDate.getDate() + daysAhead);
+                filtered = filtered.filter(event => {
+                    const eventDate = new Date(event.date); eventDate.setHours(0, 0, 0, 0);
+                    return eventDate >= today && eventDate <= endDate;
+                });
+            }
+            if (selectedState) filtered = filtered.filter(event => event.venue.state === selectedState);
+            displayEvents(filtered);
+            populateStateAndGenreFilters(allEvents);
+        }
+
+        function displayEvents(events) {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            document.getElementById('totalEvents').textContent = events.length;
+            document.getElementById('artistsTouring').textContent = new Set(events.map(e => e.artistId)).size;
+            document.getElementById('locationsCount').textContent = new Set(events.map(e => e.venue.state || e.venue.country)).size;
+
+            if (events.length === 0) {
+                document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-500 py-8">No events found for selected months</p>`;
+                return;
+            }
+
+            const bounds = [];
+            const eventsByLocation = {};
+            events.forEach(event => {
+                if (event.venue.location?.coordinates) {
+                    const [lng, lat] = event.venue.location.coordinates;
+                    const key = `${lat},${lng}`;
+                    if (!eventsByLocation[key]) eventsByLocation[key] = [];
+                    eventsByLocation[key].push(event);
+                }
+            });
+
+            Object.entries(eventsByLocation).forEach(([key, locationEvents]) => {
+                const [lat, lng] = key.split(',').map(Number);
+                bounds.push([lat, lng]);
+                const marker = L.circleMarker([lat, lng], { radius: Math.min(10 + locationEvents.length * 2, 20), fillColor: '#475569', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.7 }).addTo(map);
+                marker.bindPopup(`<div class="p-2"><h3 class="font-bold mb-2">${locationEvents[0].venue.city}, ${locationEvents[0].venue.state || locationEvents[0].venue.country}</h3><p class="text-sm text-gray-600 mb-2">${locationEvents.length} event(s)</p>${locationEvents.slice(0, 3).map(e => `<p class="text-xs">• ${e.artistName} - ${new Date(e.date).toLocaleDateString()}</p>`).join('')}${locationEvents.length > 3 ? '<p class="text-xs text-gray-500 mt-1">+ more...</p>' : ''}</div>`);
+                markers.push(marker);
+            });
+
+            if (bounds.length > 0) map.fitBounds(bounds, { padding: [50, 50] });
+
+            const sortedEvents = events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            document.getElementById('eventsList').innerHTML = sortedEvents.map(event => {
+                const date = new Date(event.date);
+                const sourceBadge = event.source === 'music_taste' 
+                    ? `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">${event.reason}</span>`
+                    : `<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">⭐ Favorite</span>`;
+                
+                // Build price and status pills
+                const ticketInfo = event.ticketInfo || {};
+                const statusBadge = getStatusBadge(ticketInfo.status);
+                const pricePill = getPricePill(ticketInfo);
+                const resalePill = ticketInfo.resaleStatus === 'available' 
+                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Resale available</span>` 
+                    : '';
+                
+                return `
+                    <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start justify-between flex-wrap gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span class="text-lg font-bold text-slate-700">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                    <span class="px-2 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-semibold">${event.artistName}</span>
+                                    ${sourceBadge}
+                                    ${statusBadge}
+                                </div>
+                                <h3 class="font-bold text-slate-800">${event.name}</h3>
+                                <p class="text-sm font-semibold text-slate-600">${event.venue.name}</p>
+                                <p class="text-sm text-slate-500">${event.venue.city}, ${event.venue.state || event.venue.country}</p>
+                                
+                                <!-- Price Info Row -->
+                                <div class="flex flex-wrap items-center gap-2 mt-3">
+                                    ${pricePill}
+                                    ${resalePill}
+                                    ${ticketInfo.allInclusivePricing ? '<span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs">✓ Fees included</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <a href="event-details.html?id=${event._id}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
+                                ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStatusBadge(status) {
+            if (!status || status === 'on_sale') return '';
+            const styles = {
+                'few_tickets_left': 'bg-amber-100 text-amber-700',
+                'sold_out': 'bg-rose-100 text-rose-700',
+                'not_yet_on_sale': 'bg-blue-100 text-blue-700',
+                'cancelled': 'bg-slate-300 text-slate-700',
+                'postponed': 'bg-amber-100 text-amber-700'
+            };
+            const labels = {
+                'few_tickets_left': 'Few Left',
+                'sold_out': 'Sold Out',
+                'not_yet_on_sale': 'Not On Sale',
+                'cancelled': 'Cancelled',
+                'postponed': 'Postponed'
+            };
+            return `<span class="px-2 py-1 ${styles[status] || 'bg-slate-100 text-slate-600'} rounded-full text-xs font-semibold">${labels[status] || status}</span>`;
+        }
+
+        function getPricePill(ticketInfo) {
+            if (!ticketInfo) return '';
+            const min = ticketInfo.minPrice;
+            const max = ticketInfo.maxPrice;
+            if (!min && !max) return '';
+            
+            const formatPrice = (p) => new Intl.NumberFormat('en-US', { style: 'currency', currency: ticketInfo.currency || 'USD', maximumFractionDigits: 0 }).format(p);
+            
+            if (min && max && min !== max) {
+                return `<span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium">${formatPrice(min)} - ${formatPrice(max)}</span>`;
+            } else if (min) {
+                return `<span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium">From ${formatPrice(min)}</span>`;
+            }
+            return '';
+        }
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                }
+            } catch (error) { console.error('Load user error:', error); }
+        }
+    </script>
+</body>
+</html>

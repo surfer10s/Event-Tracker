@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorites Activity by Location - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 500px; border-radius: 0.5rem; }
+        .map-container { position: relative; }
+        .map-overlay { position: absolute; top: 8px; right: 8px; background: rgba(255, 255, 255, 0.95); cursor: pointer; z-index: 1000; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: all 0.3s ease; }
+        .map-overlay:hover { background: rgba(255, 255, 255, 1); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .map-overlay.hidden { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Location Filters -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Filter by Location</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">Select US State</label>
+                        <select id="stateSelector" onchange="changeLocation('state')" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="">Choose a state...</option>
+                            <option value="AL">Alabama</option>
+                            <option value="AK">Alaska</option>
+                            <option value="AZ">Arizona</option>
+                            <option value="AR">Arkansas</option>
+                            <option value="CA">California</option>
+                            <option value="CO">Colorado</option>
+                            <option value="CT">Connecticut</option>
+                            <option value="DE">Delaware</option>
+                            <option value="FL">Florida</option>
+                            <option value="GA">Georgia</option>
+                            <option value="HI">Hawaii</option>
+                            <option value="ID">Idaho</option>
+                            <option value="IL">Illinois</option>
+                            <option value="IN">Indiana</option>
+                            <option value="IA">Iowa</option>
+                            <option value="KS">Kansas</option>
+                            <option value="KY">Kentucky</option>
+                            <option value="LA">Louisiana</option>
+                            <option value="ME">Maine</option>
+                            <option value="MD">Maryland</option>
+                            <option value="MA">Massachusetts</option>
+                            <option value="MI">Michigan</option>
+                            <option value="MN">Minnesota</option>
+                            <option value="MS">Mississippi</option>
+                            <option value="MO">Missouri</option>
+                            <option value="MT">Montana</option>
+                            <option value="NE">Nebraska</option>
+                            <option value="NV">Nevada</option>
+                            <option value="NH">New Hampshire</option>
+                            <option value="NJ">New Jersey</option>
+                            <option value="NM">New Mexico</option>
+                            <option value="NY">New York</option>
+                            <option value="NC">North Carolina</option>
+                            <option value="ND">North Dakota</option>
+                            <option value="OH">Ohio</option>
+                            <option value="OK">Oklahoma</option>
+                            <option value="OR">Oregon</option>
+                            <option value="PA">Pennsylvania</option>
+                            <option value="RI">Rhode Island</option>
+                            <option value="SC">South Carolina</option>
+                            <option value="SD">South Dakota</option>
+                            <option value="TN">Tennessee</option>
+                            <option value="TX">Texas</option>
+                            <option value="UT">Utah</option>
+                            <option value="VT">Vermont</option>
+                            <option value="VA">Virginia</option>
+                            <option value="WA">Washington</option>
+                            <option value="WV">West Virginia</option>
+                            <option value="WI">Wisconsin</option>
+                            <option value="WY">Wyoming</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">Select Country</label>
+                        <select id="countrySelector" onchange="changeLocation('country')" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="">Choose a country...</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Expand Results Checkbox -->
+                <div class="mt-4 pt-4 border-t border-slate-200">
+                    <label class="inline-flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="expandResults" onchange="toggleExpandedResults()" 
+                               class="w-5 h-5 rounded border-slate-300 text-slate-700 focus:ring-slate-400 cursor-pointer">
+                        <span class="text-sm font-medium text-slate-700 relative inline-flex items-center gap-1">
+                            Expand my results
+                            <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-xs cursor-help expand-tooltip-trigger">?</span>
+                        </span>
+                        <span id="expandedBadge" class="hidden px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                            +<span id="expandedCount">0</span> artists
+                        </span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Tooltip for Expand Results -->
+            <div id="expandTooltip" class="fixed z-50 hidden px-3 py-2 bg-slate-800 text-white text-sm rounded-lg shadow-lg max-w-xs pointer-events-none">
+                Expand my results will include events from Artists you have engaged with on your connected streaming services (liked songs, playlists).
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-sm font-medium text-slate-600 mb-2">Total Events in State</h3>
+                    <p class="text-3xl font-bold text-slate-700" id="totalEvents">0</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-sm font-medium text-slate-600 mb-2">Favorite Artists</h3>
+                    <p class="text-3xl font-bold text-slate-700" id="artistsCount">0</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-sm font-medium text-slate-600 mb-2">Cities</h3>
+                    <p class="text-3xl font-bold text-emerald-600" id="citiesCount">0</p>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Concert Locations in <span id="stateNameDisplay">Selected State</span></h2>
+                <div class="map-container">
+                    <div id="mapOverlay" class="map-overlay" onclick="activateMap()">
+                        <div class="px-3 py-2 text-slate-700 text-sm font-medium">Click to interact with map</div>
+                    </div>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- Events List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Upcoming Events in <span id="stateNameDisplay2">Selected State</span></h2>
+                <div id="eventsList" class="space-y-4">
+                    <p class="text-center text-slate-600 py-8">Select a state to view events</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+        
+        let map = null;
+        let markers = [];
+        let allEvents = [];
+        let favoriteEvents = [];
+        let musicTasteEvents = [];
+        let musicTasteArtists = [];
+        let expandedResultsEnabled = false;
+        let selectedState = '';
+        let selectedCountry = '';
+        let userHomeState = 'CA';
+
+        const stateCoordinates = {
+            'AL': [32.806671, -86.791130], 'AK': [61.370716, -152.404419], 'AZ': [33.729759, -111.431221],
+            'AR': [34.969704, -92.373123], 'CA': [36.116203, -119.681564], 'CO': [39.059811, -105.311104],
+            'CT': [41.597782, -72.755371], 'DE': [39.318523, -75.507141], 'FL': [27.766279, -81.686783],
+            'GA': [33.040619, -83.643074], 'HI': [21.094318, -157.498337], 'ID': [44.240459, -114.478828],
+            'IL': [40.349457, -88.986137], 'IN': [39.849426, -86.258278], 'IA': [42.011539, -93.210526],
+            'KS': [38.526600, -96.726486], 'KY': [37.668140, -84.670067], 'LA': [31.169546, -91.867805],
+            'ME': [44.693947, -69.381927], 'MD': [39.063946, -76.802101], 'MA': [42.230171, -71.530106],
+            'MI': [43.326618, -84.536095], 'MN': [45.694454, -93.900192], 'MS': [32.741646, -89.678696],
+            'MO': [38.456085, -92.288368], 'MT': [46.921925, -110.454353], 'NE': [41.125370, -98.268082],
+            'NV': [38.313515, -117.055374], 'NH': [43.452492, -71.563896], 'NJ': [40.298904, -74.521011],
+            'NM': [34.840515, -106.248482], 'NY': [42.165726, -74.948051], 'NC': [35.630066, -79.806419],
+            'ND': [47.528912, -99.784012], 'OH': [40.388783, -82.764915], 'OK': [35.565342, -96.928917],
+            'OR': [44.572021, -122.070938], 'PA': [40.590752, -77.209755], 'RI': [41.680893, -71.511780],
+            'SC': [33.856892, -80.945007], 'SD': [44.299782, -99.438828], 'TN': [35.747845, -86.692345],
+            'TX': [31.054487, -97.563461], 'UT': [40.150032, -111.862434], 'VT': [44.045876, -72.710686],
+            'VA': [37.769337, -78.169968], 'WA': [47.400902, -121.490494], 'WV': [38.491226, -80.954453],
+            'WI': [44.268543, -89.616508], 'WY': [42.755966, -107.302490]
+        };
+
+        const countryCoordinates = {
+            'United States': [39.8283, -98.5795, 4],
+            'Canada': [56.1304, -106.3468, 4],
+            'United Kingdom': [55.3781, -3.4360, 6],
+            'Germany': [51.1657, 10.4515, 6],
+            'France': [46.2276, 2.2137, 6],
+            'Spain': [40.4637, -3.7492, 6],
+            'Italy': [41.8719, 12.5674, 6],
+            'Netherlands': [52.1326, 5.2913, 7],
+            'Belgium': [50.5039, 4.4699, 8],
+            'Australia': [-25.2744, 133.7751, 4],
+            'Japan': [36.2048, 138.2529, 5],
+            'Mexico': [23.6345, -102.5528, 5],
+            'Brazil': [-14.2350, -51.9253, 4],
+            'Argentina': [-38.4161, -63.6167, 4],
+            'Sweden': [60.1282, 18.6435, 5],
+            'Norway': [60.4720, 8.4689, 5],
+            'Denmark': [56.2639, 9.5018, 7],
+            'Finland': [61.9241, 25.7482, 5],
+            'Ireland': [53.1424, -7.6921, 7],
+            'Austria': [47.5162, 14.5501, 7],
+            'Switzerland': [46.8182, 8.2275, 8],
+            'Poland': [51.9194, 19.1451, 6],
+            'Portugal': [39.3999, -8.2245, 7],
+            'Czech Republic': [49.8175, 15.4730, 7],
+            'New Zealand': [-40.9006, 174.8860, 5]
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!token) { window.location.href = 'auth.html'; return; }
+            initSidebar('Activity by Location');
+            initMap();
+            setupExpandTooltip();
+            await loadUser();
+            await loadFavoritesEvents();
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.map-container')) deactivateMap();
+            });
+        });
+
+        // Setup tooltip for expand checkbox
+        function setupExpandTooltip() {
+            const trigger = document.querySelector('.expand-tooltip-trigger');
+            const tooltip = document.getElementById('expandTooltip');
+            
+            if (trigger && tooltip) {
+                trigger.addEventListener('mouseenter', (e) => {
+                    const rect = trigger.getBoundingClientRect();
+                    tooltip.style.top = (rect.bottom + 8) + 'px';
+                    tooltip.style.left = rect.left + 'px';
+                    tooltip.classList.remove('hidden');
+                });
+                
+                trigger.addEventListener('mouseleave', () => {
+                    tooltip.classList.add('hidden');
+                });
+            }
+        }
+
+        function initMap() {
+            map = L.map('map', { scrollWheelZoom: false, dragging: false }).setView([39.8283, -98.5795], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+        }
+
+        function activateMap() {
+            document.getElementById('mapOverlay').classList.add('hidden');
+            map.scrollWheelZoom.enable();
+            map.dragging.enable();
+        }
+
+        function deactivateMap() {
+            document.getElementById('mapOverlay').classList.remove('hidden');
+            map.scrollWheelZoom.disable();
+            map.dragging.disable();
+        }
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                    if (data.user.homeState) {
+                        userHomeState = data.user.homeState;
+                        document.getElementById('stateSelector').value = userHomeState;
+                        selectedState = userHomeState;
+                    }
+                }
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function loadFavoritesEvents() {
+            try {
+                console.log('Loading favorites...');
+                const favResponse = await fetch(`${API_BASE_URL}/users/favorites`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const favData = await favResponse.json();
+                console.log('Favorites response:', favData);
+
+                favoriteEvents = [];
+                if (favData.success && favData.artists && favData.artists.length > 0) {
+                    for (const artist of favData.artists) {
+                        try {
+                            console.log(`Loading events for ${artist.name} (${artist._id})...`);
+                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
+                            const eventData = await eventResponse.json();
+                            console.log(`Events for ${artist.name}:`, eventData);
+                            if (eventData.success && eventData.events) {
+                                eventData.events.forEach(event => {
+                                    favoriteEvents.push({ 
+                                        ...event, 
+                                        artistName: artist.name, 
+                                        artistId: artist._id,
+                                        source: 'favorite',
+                                        reason: '⭐ Favorite'
+                                    });
+                                });
+                            }
+                        } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
+                    }
+                }
+
+                // Load music taste artists (for expand feature)
+                await loadMusicTasteArtists();
+                
+                // Combine events based on expand setting
+                updateAllEvents();
+
+                console.log('All events loaded:', allEvents.length);
+                console.log('User home state:', userHomeState);
+                
+                // Populate country filter from events
+                populateCountryFilter();
+                
+                if (userHomeState) {
+                    console.log('Calling changeLocation for state...');
+                    changeLocation('state');
+                } else if (favoriteEvents.length === 0 && !expandedResultsEnabled) {
+                    document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-600 py-8">No favorite artists yet. <a href="favorites.html" class="text-slate-700 font-semibold hover:underline">Add some favorites</a> to see their concerts here!</p>`;
+                }
+            } catch (error) {
+                console.error('Error loading favorites activity:', error);
+                document.getElementById('eventsList').innerHTML = `<p class="text-center text-rose-600 py-8">Error loading events. Please try again.</p>`;
+            }
+        }
+
+        async function loadMusicTasteArtists() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/music-taste-artists`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+                const data = await response.json();
+                
+                if (data.success && data.artists && data.artists.length > 0) {
+                    musicTasteArtists = data.artists;
+                    document.getElementById('expandedCount').textContent = data.artists.length;
+                    
+                    // Load events for music taste artists
+                    musicTasteEvents = [];
+                    for (const artist of data.artists) {
+                        try {
+                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
+                            const eventData = await eventResponse.json();
+                            if (eventData.success && eventData.events) {
+                                const reasonBadge = artist.source === 'liked_song' ? '🎵 Liked Song' : 
+                                                   artist.source === 'playlist' ? '📋 Playlist' : '🎧 Music Library';
+                                eventData.events.forEach(event => { 
+                                    musicTasteEvents.push({ 
+                                        ...event, 
+                                        artistName: artist.name, 
+                                        artistId: artist._id,
+                                        source: 'music_taste',
+                                        reason: reasonBadge
+                                    }); 
+                                });
+                            }
+                        } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading music taste artists:', error);
+            }
+        }
+
+        function updateAllEvents() {
+            if (expandedResultsEnabled) {
+                allEvents = [...favoriteEvents, ...musicTasteEvents];
+            } else {
+                allEvents = [...favoriteEvents];
+            }
+        }
+
+        function toggleExpandedResults() {
+            expandedResultsEnabled = document.getElementById('expandResults').checked;
+            const badge = document.getElementById('expandedBadge');
+            
+            if (expandedResultsEnabled && musicTasteArtists.length > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+            
+            updateAllEvents();
+            populateCountryFilter();
+            
+            // Re-filter based on current selection
+            if (selectedState) {
+                changeLocation('state');
+            } else if (selectedCountry) {
+                changeLocation('country');
+            }
+        }
+
+        function populateCountryFilter() {
+            const countries = new Set();
+            const usStates = new Set(['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']);
+            
+            // Country code to full name mapping
+            const countryNames = {
+                'US': 'United States', 'USA': 'United States', 'United States': 'United States',
+                'UK': 'United Kingdom', 'GB': 'United Kingdom', 'United Kingdom': 'United Kingdom',
+                'CA': 'Canada', 'Canada': 'Canada',
+                'AU': 'Australia', 'Australia': 'Australia',
+                'NZ': 'New Zealand', 'New Zealand': 'New Zealand',
+                'DE': 'Germany', 'Germany': 'Germany',
+                'FR': 'France', 'France': 'France',
+                'ES': 'Spain', 'Spain': 'Spain',
+                'IT': 'Italy', 'Italy': 'Italy',
+                'NL': 'Netherlands', 'Netherlands': 'Netherlands',
+                'BE': 'Belgium', 'Belgium': 'Belgium',
+                'AT': 'Austria', 'Austria': 'Austria',
+                'CH': 'Switzerland', 'Switzerland': 'Switzerland',
+                'SE': 'Sweden', 'Sweden': 'Sweden',
+                'NO': 'Norway', 'Norway': 'Norway',
+                'DK': 'Denmark', 'Denmark': 'Denmark',
+                'FI': 'Finland', 'Finland': 'Finland',
+                'IE': 'Ireland', 'Ireland': 'Ireland',
+                'PT': 'Portugal', 'Portugal': 'Portugal',
+                'PL': 'Poland', 'Poland': 'Poland',
+                'CZ': 'Czech Republic', 'Czech Republic': 'Czech Republic',
+                'JP': 'Japan', 'Japan': 'Japan',
+                'MX': 'Mexico', 'Mexico': 'Mexico',
+                'BR': 'Brazil', 'Brazil': 'Brazil',
+                'AR': 'Argentina', 'Argentina': 'Argentina',
+                'CL': 'Chile', 'Chile': 'Chile',
+                'CO': 'Colombia', 'Colombia': 'Colombia',
+                'PE': 'Peru', 'Peru': 'Peru',
+                'ZA': 'South Africa', 'South Africa': 'South Africa',
+                'IN': 'India', 'India': 'India',
+                'CN': 'China', 'China': 'China',
+                'KR': 'South Korea', 'South Korea': 'South Korea',
+                'TW': 'Taiwan', 'Taiwan': 'Taiwan',
+                'SG': 'Singapore', 'Singapore': 'Singapore',
+                'HK': 'Hong Kong', 'Hong Kong': 'Hong Kong',
+                'TH': 'Thailand', 'Thailand': 'Thailand',
+                'PH': 'Philippines', 'Philippines': 'Philippines',
+                'MY': 'Malaysia', 'Malaysia': 'Malaysia',
+                'ID': 'Indonesia', 'Indonesia': 'Indonesia',
+                'RU': 'Russia', 'Russia': 'Russia',
+                'GR': 'Greece', 'Greece': 'Greece',
+                'TR': 'Turkey', 'Turkey': 'Turkey',
+                'IL': 'Israel', 'Israel': 'Israel',
+                'AE': 'United Arab Emirates', 'UAE': 'United Arab Emirates', 'United Arab Emirates': 'United Arab Emirates',
+                'HU': 'Hungary', 'Hungary': 'Hungary',
+                'RO': 'Romania', 'Romania': 'Romania',
+                'HR': 'Croatia', 'Croatia': 'Croatia',
+                'SK': 'Slovakia', 'Slovakia': 'Slovakia',
+                'SI': 'Slovenia', 'Slovenia': 'Slovenia',
+                'BG': 'Bulgaria', 'Bulgaria': 'Bulgaria',
+                'LU': 'Luxembourg', 'Luxembourg': 'Luxembourg',
+                'EE': 'Estonia', 'Estonia': 'Estonia',
+                'LV': 'Latvia', 'Latvia': 'Latvia',
+                'LT': 'Lithuania', 'Lithuania': 'Lithuania',
+                'IS': 'Iceland', 'Iceland': 'Iceland'
+            };
+            
+            allEvents.forEach(event => {
+                if (event.venue.country) {
+                    // Normalize country names using mapping, or keep original if not found
+                    let country = event.venue.country;
+                    country = countryNames[country] || country;
+                    countries.add(country);
+                }
+            });
+            
+            const countrySelector = document.getElementById('countrySelector');
+            countrySelector.innerHTML = '<option value="">Choose a country...</option>' + 
+                Array.from(countries).sort().map(country => 
+                    `<option value="${country}">${country}</option>`
+                ).join('');
+        }
+
+        function changeLocation(type) {
+            if (type === 'state') {
+                selectedState = document.getElementById('stateSelector').value;
+                selectedCountry = '';
+                document.getElementById('countrySelector').value = '';
+                
+                if (!selectedState) { displayEvents([]); return; }
+                
+                const stateName = document.getElementById('stateSelector').selectedOptions[0].text;
+                document.getElementById('stateNameDisplay').textContent = stateName;
+                document.getElementById('stateNameDisplay2').textContent = stateName;
+                
+                const filtered = allEvents.filter(event => event.venue.state === selectedState);
+                if (stateCoordinates[selectedState]) map.setView(stateCoordinates[selectedState], 7);
+                displayEvents(filtered);
+            } else if (type === 'country') {
+                selectedCountry = document.getElementById('countrySelector').value;
+                selectedState = '';
+                document.getElementById('stateSelector').value = '';
+                
+                if (!selectedCountry) { displayEvents([]); return; }
+                
+                document.getElementById('stateNameDisplay').textContent = selectedCountry;
+                document.getElementById('stateNameDisplay2').textContent = selectedCountry;
+                
+                // Country code to full name mapping (same as populateCountrySelector)
+                const countryNames = {
+                    'US': 'United States', 'USA': 'United States', 'United States': 'United States',
+                    'UK': 'United Kingdom', 'GB': 'United Kingdom', 'United Kingdom': 'United Kingdom',
+                    'CA': 'Canada', 'AU': 'Australia', 'NZ': 'New Zealand',
+                    'DE': 'Germany', 'FR': 'France', 'ES': 'Spain', 'IT': 'Italy',
+                    'NL': 'Netherlands', 'BE': 'Belgium', 'AT': 'Austria', 'CH': 'Switzerland',
+                    'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark', 'FI': 'Finland',
+                    'IE': 'Ireland', 'PT': 'Portugal', 'PL': 'Poland', 'CZ': 'Czech Republic',
+                    'JP': 'Japan', 'MX': 'Mexico', 'BR': 'Brazil', 'AR': 'Argentina',
+                    'CL': 'Chile', 'CO': 'Colombia', 'PE': 'Peru', 'ZA': 'South Africa',
+                    'IN': 'India', 'CN': 'China', 'KR': 'South Korea', 'TW': 'Taiwan',
+                    'SG': 'Singapore', 'HK': 'Hong Kong', 'TH': 'Thailand', 'PH': 'Philippines',
+                    'MY': 'Malaysia', 'ID': 'Indonesia', 'RU': 'Russia', 'GR': 'Greece',
+                    'TR': 'Turkey', 'IL': 'Israel', 'AE': 'United Arab Emirates', 'UAE': 'United Arab Emirates',
+                    'HU': 'Hungary', 'RO': 'Romania', 'HR': 'Croatia', 'SK': 'Slovakia',
+                    'SI': 'Slovenia', 'BG': 'Bulgaria', 'LU': 'Luxembourg',
+                    'EE': 'Estonia', 'LV': 'Latvia', 'LT': 'Lithuania', 'IS': 'Iceland'
+                };
+                
+                // Filter by country (normalize using mapping)
+                const filtered = allEvents.filter(event => {
+                    let country = event.venue.country;
+                    country = countryNames[country] || country;
+                    return country === selectedCountry;
+                });
+                
+                if (countryCoordinates[selectedCountry]) {
+                    const [lat, lng, zoom] = countryCoordinates[selectedCountry];
+                    map.setView([lat, lng], zoom);
+                } else {
+                    map.setView([20, 0], 2); // World view for unknown countries
+                }
+                displayEvents(filtered);
+            }
+        }
+
+        // Keep changeState for backwards compatibility
+        function changeState() {
+            changeLocation('state');
+        }
+
+        function displayEvents(events) {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            document.getElementById('totalEvents').textContent = events.length;
+            const uniqueArtists = new Set(events.map(e => e.artistId));
+            document.getElementById('artistsCount').textContent = uniqueArtists.size;
+            const uniqueCities = new Set(events.map(e => e.venue.city));
+            document.getElementById('citiesCount').textContent = uniqueCities.size;
+
+            if (events.length === 0) {
+                document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-600 py-8">No events found in this location</p>`;
+                return;
+            }
+
+            const bounds = [];
+            const eventsByLocation = {};
+
+            events.forEach(event => {
+                if (event.venue.location?.coordinates) {
+                    const [lng, lat] = event.venue.location.coordinates;
+                    const key = `${lat},${lng}`;
+                    if (!eventsByLocation[key]) eventsByLocation[key] = [];
+                    eventsByLocation[key].push(event);
+                }
+            });
+
+            Object.entries(eventsByLocation).forEach(([key, locationEvents]) => {
+                const [lat, lng] = key.split(',').map(Number);
+                bounds.push([lat, lng]);
+
+                const marker = L.circleMarker([lat, lng], {
+                    radius: Math.min(10 + locationEvents.length * 2, 20),
+                    fillColor: '#475569',
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).addTo(map);
+
+                const popupContent = `<div class="p-2"><h3 class="font-bold mb-2">${locationEvents[0].venue.city}</h3><p class="text-sm text-gray-600 mb-2">${locationEvents.length} event(s)</p>${locationEvents.slice(0, 3).map(e => `<p class="text-xs">• ${e.artistName} - ${new Date(e.date).toLocaleDateString()}</p>`).join('')}${locationEvents.length > 3 ? '<p class="text-xs text-gray-500 mt-1">+ more...</p>' : ''}</div>`;
+                marker.bindPopup(popupContent);
+                markers.push(marker);
+            });
+
+            // Handle map view based on number of unique locations
+            if (bounds.length === 1) {
+                // Only one location - zoom to state or country level instead of single point
+                if (selectedState && stateCoordinates[selectedState]) {
+                    map.setView(stateCoordinates[selectedState], 7);
+                } else if (selectedCountry && countryCoordinates[selectedCountry]) {
+                    const [lat, lng, zoom] = countryCoordinates[selectedCountry];
+                    map.setView([lat, lng], zoom);
+                } else {
+                    // Fallback: show the point with reasonable zoom
+                    map.setView(bounds[0], 8);
+                }
+            } else if (bounds.length > 1) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+            const sortedEvents = events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            document.getElementById('eventsList').innerHTML = sortedEvents.map(event => {
+                const date = new Date(event.date);
+                const sourceBadge = event.source === 'music_taste' 
+                    ? `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">${event.reason}</span>`
+                    : `<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">⭐ Favorite</span>`;
+                
+                // Build price and status pills
+                const ticketInfo = event.ticketInfo || {};
+                const statusBadge = getStatusBadge(ticketInfo.status);
+                const pricePill = getPricePill(ticketInfo);
+                const resalePill = ticketInfo.resaleStatus === 'available' 
+                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Resale available</span>` 
+                    : '';
+                
+                return `
+                    <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start justify-between flex-wrap gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span class="text-lg font-bold text-slate-700">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                    <span class="px-2 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-semibold">${event.artistName}</span>
+                                    ${sourceBadge}
+                                    ${statusBadge}
+                                </div>
+                                <h3 class="font-bold text-slate-800">${event.name}</h3>
+                                <p class="text-sm font-semibold text-slate-700">${event.venue.name}</p>
+                                <p class="text-sm text-slate-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p>
+                                
+                                <!-- Price Info Row -->
+                                <div class="flex flex-wrap items-center gap-2 mt-3">
+                                    ${pricePill}
+                                    ${resalePill}
+                                    ${ticketInfo.allInclusivePricing ? '<span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs">✓ Fees included</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <a href="event-details.html?id=${event._id}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
+                                ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStatusBadge(status) {
+            if (!status || status === 'on_sale') return '';
+            const styles = {
+                'few_tickets_left': 'bg-amber-100 text-amber-700',
+                'sold_out': 'bg-rose-100 text-rose-700',
+                'not_yet_on_sale': 'bg-blue-100 text-blue-700',
+                'cancelled': 'bg-slate-300 text-slate-700',
+                'postponed': 'bg-amber-100 text-amber-700'
+            };
+            const labels = {
+                'few_tickets_left': 'Few Left',
+                'sold_out': 'Sold Out',
+                'not_yet_on_sale': 'Not On Sale',
+                'cancelled': 'Cancelled',
+                'postponed': 'Postponed'
+            };
+            return `<span class="px-2 py-1 ${styles[status] || 'bg-slate-100 text-slate-600'} rounded-full text-xs font-semibold">${labels[status] || status}</span>`;
+        }
+
+        function getPricePill(ticketInfo) {
+            if (!ticketInfo) return '';
+            const min = ticketInfo.minPrice;
+            const max = ticketInfo.maxPrice;
+            if (!min && !max) return '';
+            
+            const formatPrice = (p) => new Intl.NumberFormat('en-US', { style: 'currency', currency: ticketInfo.currency || 'USD', maximumFractionDigits: 0 }).format(p);
+            
+            if (min && max && min !== max) {
+                return `<span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium">${formatPrice(min)} - ${formatPrice(max)}</span>`;
+            } else if (min) {
+                return `<span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium">From ${formatPrice(min)}</span>`;
+            }
+            return '';
+        }
+    </script>
+</body>
+</html>

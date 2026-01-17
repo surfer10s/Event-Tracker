@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users - Admin Portal</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <!-- Page Content -->
+        <div class="p-4 lg:p-6">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                <a href="admin-portal.html" class="hover:text-slate-700">Admin Portal</a>
+                <span>→</span>
+                <span class="text-slate-800 font-medium">Users</span>
+            </div>
+
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">User Management</h1>
+            <p class="text-slate-600 mb-6">View registered users and their account status.</p>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-slate-800" id="statTotalUsers">-</p>
+                    <p class="text-sm text-slate-500">Total Users</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-emerald-600" id="statVerified">-</p>
+                    <p class="text-sm text-slate-500">Verified</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-blue-600" id="statWithLocation">-</p>
+                    <p class="text-sm text-slate-500">With Location</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-purple-600" id="statWithFavorites">-</p>
+                    <p class="text-sm text-slate-500">With Favorites</p>
+                </div>
+            </div>
+
+            <!-- User List -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">All Users</h2>
+                    <button onclick="loadUsers()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">
+                        Refresh
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-slate-200">
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">User</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">Email</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">Location</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-slate-600">Favorites</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-slate-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('Admin Portal');
+            loadUser();
+            loadUsers();
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateAdminSidebarUser(data.user);
+                }
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/users/admin/list`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.users) {
+                    const users = data.users;
+                    
+                    // Update stats
+                    document.getElementById('statTotalUsers').textContent = users.length;
+                    document.getElementById('statVerified').textContent = users.filter(u => u.isEmailVerified).length;
+                    document.getElementById('statWithLocation').textContent = users.filter(u => u.city && u.state).length;
+                    document.getElementById('statWithFavorites').textContent = users.filter(u => u.favoriteCount > 0).length;
+                    
+                    // Build table
+                    const tbody = document.getElementById('userTableBody');
+                    if (users.length > 0) {
+                        tbody.innerHTML = users.map(u => {
+                            const location = u.city && u.state ? `${u.city}, ${u.state}` : '<span class="text-slate-400">Not set</span>';
+                            const verified = u.isEmailVerified 
+                                ? '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs">Verified</span>'
+                                : '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">Pending</span>';
+                            const joined = new Date(u.createdAt).toLocaleDateString();
+                            
+                            return `
+                                <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                ${(u.firstName || u.username || '?').charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-slate-800">${u.firstName || ''} ${u.lastName || ''}</p>
+                                                <p class="text-xs text-slate-500">@${u.username}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-sm text-slate-600">${u.email}</td>
+                                    <td class="py-3 px-4 text-sm">${location}</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="font-medium text-slate-800">${u.favoriteCount || 0}</span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">${verified}</td>
+                                    <td class="py-3 px-4 text-sm text-slate-500">${joined}</td>
+                                </tr>
+                            `;
+                        }).join('');
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">No users found</td></tr>';
+                    }
+                }
+            } catch (err) {
+                console.error('Load users error:', err);
+                document.getElementById('userTableBody').innerHTML = `
+                    <tr><td colspan="6" class="py-8 text-center text-rose-600">${err.message}</td></tr>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

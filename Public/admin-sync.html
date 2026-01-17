@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Sync - Admin Portal</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <!-- Page Content -->
+        <div class="p-4 lg:p-6">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                <a href="admin-portal.html" class="hover:text-slate-700">Admin Portal</a>
+                <span>→</span>
+                <span class="text-slate-800 font-medium">Background Sync</span>
+            </div>
+
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">Background Sync</h1>
+            <p class="text-slate-600 mb-6">Sync events from Ticketmaster for all favorite and music taste artists.</p>
+
+            <!-- Last Sync Stats -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Last Sync Stats</h2>
+                <div id="syncStats" class="mb-4">
+                    <p class="text-sm text-slate-600">Loading stats...</p>
+                </div>
+                <button onclick="loadSyncStats()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">Refresh</button>
+            </div>
+
+            <!-- Sync Actions -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Run Sync</h2>
+                <p class="text-sm text-slate-600 mb-4">
+                    Fetch latest events from Ticketmaster for all favorite artists and music taste artists.
+                </p>
+                
+                <div id="syncStatus" class="mb-4 p-4 bg-slate-50 rounded-lg hidden">
+                    <p class="text-sm text-slate-600">Ready to sync</p>
+                </div>
+                
+                <!-- Progress Bar Section -->
+                <div id="progressSection" class="mb-6 hidden">
+                    <div class="bg-slate-50 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-700">Syncing Artists</span>
+                            <span id="progressText" class="text-sm text-slate-600">0/0</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-4 mb-3">
+                            <div id="progressBar" class="bg-violet-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="animate-pulse w-2 h-2 bg-violet-600 rounded-full"></div>
+                            <span id="currentArtist" class="text-sm text-slate-600 truncate">Preparing...</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 mt-4 text-center">
+                            <div>
+                                <p id="progressEventsFound" class="text-lg font-bold text-blue-600">0</p>
+                                <p class="text-xs text-slate-500">Events Found</p>
+                            </div>
+                            <div>
+                                <p id="progressEventsSaved" class="text-lg font-bold text-emerald-600">0</p>
+                                <p class="text-xs text-slate-500">New Saved</p>
+                            </div>
+                            <div>
+                                <p id="progressErrors" class="text-lg font-bold text-rose-600">0</p>
+                                <p class="text-xs text-slate-500">Errors</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <button onclick="syncMyArtists()" class="px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">
+                        🔄 Sync My Artists
+                        <span class="block text-xs font-normal opacity-80">Sync events for your favorites only</span>
+                    </button>
+                    <button onclick="runFullSync()" class="px-4 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 font-semibold">
+                        🔄 Full Sync (All Users)
+                        <span class="block text-xs font-normal opacity-80">Sync all artists from all users</span>
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button onclick="runMyPipeline()" class="px-4 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-semibold">
+                        ⚡ My Full Pipeline
+                        <span class="block text-xs font-normal opacity-80">Sync + Check notifications for me</span>
+                    </button>
+                    <button onclick="runFullPipeline()" class="px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-semibold">
+                        ⚡ Full Pipeline (All)
+                        <span class="block text-xs font-normal opacity-80">Sync + Notifications for everyone</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Artists to Sync -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Artists to Sync</h2>
+                <p class="text-sm text-slate-600 mb-4">These artists will be synced when running a full sync.</p>
+                <button onclick="loadArtistsToSync()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm mb-4">Load Artist List</button>
+                <div id="artistsToSync" class="text-sm text-slate-600"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+        let eventSource = null;
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('Admin Portal');
+            loadUser();
+            loadSyncStats();
+        });
+
+        // ============================================
+        // SSE Progress Tracking
+        // ============================================
+        
+        function startProgressTracking() {
+            // Close existing connection if any
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            // Show progress section
+            document.getElementById('progressSection').classList.remove('hidden');
+            
+            // Connect to SSE endpoint
+            eventSource = new EventSource(`${API_BASE_URL}/sync/progress?token=${token}`);
+            
+            eventSource.onmessage = (event) => {
+                const progress = JSON.parse(event.data);
+                updateProgressUI(progress);
+                
+                // Only close connection when phase is 'complete' or sync_complete (for non-pipeline ops)
+                if (progress.phase === 'complete' || 
+                    (progress.phase === 'sync_complete' && !progress.isRunning)) {
+                    setTimeout(() => {
+                        eventSource.close();
+                        eventSource = null;
+                        loadSyncStats();
+                    }, 1000);
+                }
+            };
+            
+            eventSource.onerror = (err) => {
+                console.error('SSE error:', err);
+                eventSource.close();
+                eventSource = null;
+            };
+        }
+        
+        function updateProgressUI(progress) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const currentArtist = document.getElementById('currentArtist');
+            const eventsFound = document.getElementById('progressEventsFound');
+            const eventsSaved = document.getElementById('progressEventsSaved');
+            const errorsEl = document.getElementById('progressErrors');
+            const progressLabel = document.querySelector('#progressSection .text-sm.font-medium');
+            
+            // Update label based on phase
+            if (progress.phase === 'sync') {
+                if (progressLabel) progressLabel.textContent = 'Syncing Artists';
+                progressBar.classList.remove('bg-amber-500', 'bg-emerald-600');
+                progressBar.classList.add('bg-violet-600');
+            } else if (progress.phase === 'notifications') {
+                if (progressLabel) progressLabel.textContent = 'Checking Notifications';
+                progressBar.style.width = '100%';
+                progressBar.classList.remove('bg-violet-600', 'bg-emerald-600');
+                progressBar.classList.add('bg-amber-500');
+            } else if (progress.phase === 'complete') {
+                if (progressLabel) progressLabel.textContent = 'Pipeline Complete';
+            }
+            
+            if (progress.totalArtists > 0 && progress.phase === 'sync') {
+                const percent = Math.round((progress.currentIndex / progress.totalArtists) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressText.textContent = `${progress.currentIndex}/${progress.totalArtists}`;
+            } else if (progress.phase === 'notifications') {
+                progressText.textContent = 'Processing...';
+            }
+            
+            currentArtist.textContent = progress.currentArtist || (progress.isRunning ? 'Processing...' : 'Complete!');
+            eventsFound.textContent = progress.eventsFound || 0;
+            eventsSaved.textContent = progress.eventsSaved || 0;
+            errorsEl.textContent = progress.errors || 0;
+            
+            // Update progress bar color when complete
+            if (progress.phase === 'complete' || progress.phase === 'sync_complete') {
+                progressBar.classList.remove('bg-violet-600', 'bg-amber-500');
+                progressBar.classList.add('bg-emerald-600');
+                progressBar.style.width = '100%';
+                currentArtist.textContent = '✓ Complete!';
+                if (progress.totalArtists > 0) {
+                    progressText.textContent = `${progress.currentIndex}/${progress.totalArtists}`;
+                }
+            }
+        }
+        
+        function hideProgress() {
+            document.getElementById('progressSection').classList.add('hidden');
+            // Reset progress bar
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = '0%';
+            progressBar.classList.remove('bg-emerald-600', 'bg-amber-500');
+            progressBar.classList.add('bg-violet-600');
+            // Reset label
+            const progressLabel = document.querySelector('#progressSection .text-sm.font-medium');
+            if (progressLabel) progressLabel.textContent = 'Syncing Artists';
+        }
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateAdminSidebarUser(data.user);
+                }
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        async function loadSyncStats() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                const statsEl = document.getElementById('syncStats');
+                if (data.success && data.stats) {
+                    const s = data.stats;
+                    if (s.lastRun) {
+                        statsEl.innerHTML = `
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
+                                <div class="bg-slate-50 rounded-lg p-3">
+                                    <p class="text-xl font-bold text-slate-800">${s.artistsChecked}</p>
+                                    <p class="text-xs text-slate-500">Artists Checked</p>
+                                </div>
+                                <div class="bg-slate-50 rounded-lg p-3">
+                                    <p class="text-xl font-bold text-blue-600">${s.eventsFound}</p>
+                                    <p class="text-xs text-slate-500">Events Found</p>
+                                </div>
+                                <div class="bg-slate-50 rounded-lg p-3">
+                                    <p class="text-xl font-bold text-emerald-600">${s.eventsSaved}</p>
+                                    <p class="text-xs text-slate-500">New Saved</p>
+                                </div>
+                                <div class="bg-slate-50 rounded-lg p-3">
+                                    <p class="text-xl font-bold text-rose-600">${s.errors}</p>
+                                    <p class="text-xs text-slate-500">Errors</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400 text-center">
+                                Last run: ${new Date(s.lastRun).toLocaleString()} (${(s.lastDuration / 1000).toFixed(1)}s)
+                                ${s.isRunning ? ' • <span class="text-amber-600 font-medium">Currently running...</span>' : ''}
+                            </p>
+                        `;
+                    } else {
+                        statsEl.innerHTML = '<p class="text-sm text-slate-500 text-center">No sync has been run yet</p>';
+                    }
+                }
+            } catch (err) {
+                console.error('Load sync stats error:', err);
+            }
+        }
+
+        async function syncMyArtists() {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.classList.remove('hidden');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Syncing your artists...</p>';
+            
+            // Start progress tracking
+            startProgressTracking();
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/my-artists`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Sync complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Checked ${data.artistsChecked} artists • Found ${data.eventsFound} events • Saved ${data.eventsSaved} new
+                        </p>
+                    `;
+                    loadSyncStats();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                    hideProgress();
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+                hideProgress();
+            }
+        }
+
+        async function runFullSync() {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.classList.remove('hidden');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Starting full sync...</p>';
+            
+            // Start progress tracking
+            startProgressTracking();
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/full-blocking`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Full sync complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Checked ${data.artistsChecked} artists • Found ${data.eventsFound} events • Saved ${data.eventsSaved} new
+                        </p>
+                    `;
+                    loadSyncStats();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                    hideProgress();
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+                hideProgress();
+            }
+        }
+
+        async function runMyPipeline() {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.classList.remove('hidden');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Running pipeline: Sync + Notifications...</p>';
+            
+            // Start progress tracking
+            startProgressTracking();
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/my-pipeline`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const sync = data.results.sync;
+                    const notif = data.results.notifications;
+                    
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Pipeline complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Sync: ${sync.artistsChecked} artists, ${sync.eventsSaved} new events<br>
+                            Notifications: ${notif.totalFound || 0} matches, ${notif.created || 0} new
+                        </p>
+                    `;
+                    loadSyncStats();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                    hideProgress();
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+                hideProgress();
+            }
+        }
+
+        async function runFullPipeline() {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.classList.remove('hidden');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Running FULL pipeline...</p>';
+            
+            // Start progress tracking
+            startProgressTracking();
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/full-pipeline`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const sync = data.results.sync;
+                    const notif = data.results.notifications?.summary;
+                    
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Full pipeline complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Sync: ${sync.artistsChecked} artists, ${sync.eventsSaved} new events<br>
+                            Notifications: ${notif?.totalUsers || 0} users, ${notif?.totalNotifications || 0} new
+                        </p>
+                    `;
+                    loadSyncStats();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                    hideProgress();
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+                hideProgress();
+            }
+        }
+
+        async function loadArtistsToSync() {
+            const container = document.getElementById('artistsToSync');
+            container.innerHTML = '<p class="text-slate-500">Loading...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/artists`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.artists?.length > 0) {
+                    container.innerHTML = `
+                        <p class="mb-2"><strong>${data.count}</strong> artists will be synced:</p>
+                        <div class="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2 bg-slate-50 rounded-lg">
+                            ${data.artists.map(a => `
+                                <span class="px-2 py-1 rounded-full text-xs ${a.source === 'favorite' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
+                                    ${a.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">
+                            <span class="inline-block w-3 h-3 bg-amber-100 rounded-full mr-1"></span> Favorites
+                            <span class="inline-block w-3 h-3 bg-blue-100 rounded-full ml-3 mr-1"></span> Music Taste
+                        </p>
+                    `;
+                } else {
+                    container.innerHTML = '<p class="text-slate-500">No artists to sync. Add favorites or sync music taste first.</p>';
+                }
+            } catch (err) {
+                container.innerHTML = `<p class="text-rose-600">${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

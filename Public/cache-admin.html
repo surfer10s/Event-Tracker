@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Admin - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div class="max-w-4xl mx-auto p-6">
+        <h1 class="text-3xl font-bold text-slate-800 mb-2">🧪 Cache Admin Tool</h1>
+        <p class="text-slate-600 mb-6">Seed the song cache manually - no API quota used!</p>
+
+        <!-- Stats -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Cache Stats</h2>
+            <div id="statsContainer" class="grid grid-cols-3 gap-4">
+                <div class="bg-slate-50 rounded-lg p-4 text-center">
+                    <p class="text-3xl font-bold text-slate-800" id="statTotal">-</p>
+                    <p class="text-sm text-slate-600">Total Cached</p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-4 text-center">
+                    <p class="text-3xl font-bold text-emerald-600" id="statUsedToday">-</p>
+                    <p class="text-sm text-slate-600">Used Today</p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-4 text-center">
+                    <p class="text-3xl font-bold text-blue-600" id="statAddedToday">-</p>
+                    <p class="text-sm text-slate-600">Added Today</p>
+                </div>
+            </div>
+            <button onclick="loadStats()" class="mt-4 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">Refresh Stats</button>
+        </div>
+
+        <!-- Single Song Add -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Add Single Song</h2>
+            <p class="text-sm text-slate-600 mb-4">
+                1. Search on <a href="https://www.youtube.com" target="_blank" class="text-blue-600 hover:underline">YouTube</a> for the song<br>
+                2. Copy the video ID from the URL (e.g., <code class="bg-slate-100 px-1 rounded">dQw4w9WgXcQ</code> from youtube.com/watch?v=<strong>dQw4w9WgXcQ</strong>)<br>
+                3. Enter details below
+            </p>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Artist</label>
+                    <input type="text" id="singleArtist" class="w-full px-3 py-2 border border-slate-200 rounded-lg" placeholder="Arcade Fire">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Song Title</label>
+                    <input type="text" id="singleTitle" class="w-full px-3 py-2 border border-slate-200 rounded-lg" placeholder="Wake Up">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1">YouTube Video ID</label>
+                <input type="text" id="singleVideoId" class="w-full px-3 py-2 border border-slate-200 rounded-lg" placeholder="ojF6Uo7Wp9c">
+            </div>
+            <button onclick="addSingleSong()" class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">Add to Cache</button>
+            <p id="singleResult" class="mt-3 text-sm"></p>
+        </div>
+
+        <!-- Bulk Add -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Bulk Add (JSON)</h2>
+            <p class="text-sm text-slate-600 mb-4">Paste JSON array of songs:</p>
+            <textarea id="bulkJson" class="w-full h-48 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm" placeholder='[
+  { "artist": "Arcade Fire", "title": "Wake Up", "videoId": "ojF6Uo7Wp9c" },
+  { "artist": "Arcade Fire", "title": "Rebellion (Lies)", "videoId": "MQvZ4N1RfS8" },
+  { "artist": "Radiohead", "title": "Creep", "videoId": "XFkzRNyygfk" }
+]'></textarea>
+            <button onclick="addBulkSongs()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">Bulk Add to Cache</button>
+            <p id="bulkResult" class="mt-3 text-sm"></p>
+        </div>
+
+        <!-- CSV Import -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Import from CSV</h2>
+            <p class="text-sm text-slate-600 mb-4">
+                CSV format: <code class="bg-slate-100 px-1 rounded">artist,title,videoId</code><br>
+                One song per line, no header row needed.
+            </p>
+            <textarea id="csvInput" class="w-full h-32 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm" placeholder="Arcade Fire,Wake Up,ojF6Uo7Wp9c
+Arcade Fire,Rebellion (Lies),MQvZ4N1RfS8
+Radiohead,Creep,XFkzRNyygfk"></textarea>
+            <button onclick="importCsv()" class="mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">Import CSV</button>
+            <p id="csvResult" class="mt-3 text-sm"></p>
+        </div>
+
+        <!-- Search Cache -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Search Cache</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="searchQuery" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg" placeholder="Search artist or song...">
+                <button onclick="searchCache()" class="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Search</button>
+            </div>
+            <div id="searchResults" class="space-y-2"></div>
+        </div>
+
+        <!-- Music Taste Sync -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-2">🎵 Music Taste Import</h2>
+            <p class="text-sm text-slate-600 mb-4">Import artists from your YouTube Music liked songs and playlists. This data will be used for concert notifications.</p>
+            
+            <div id="musicTasteStatus" class="mb-4 p-4 bg-slate-50 rounded-lg">
+                <p class="text-sm text-slate-600">Loading status...</p>
+            </div>
+            
+            <div class="flex gap-3 mb-4">
+                <button onclick="syncMusicTaste()" id="syncButton" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                    Sync Now
+                </button>
+                <button onclick="loadMusicTaste()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">
+                    Refresh Status
+                </button>
+            </div>
+            
+            <div id="topArtistsList" class="hidden">
+                <h3 class="text-md font-semibold text-slate-700 mb-2">Your Top Artists</h3>
+                <div id="artistsGrid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+            </div>
+        </div>
+
+        <!-- Notification Testing -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-2">🔔 Notification Testing</h2>
+            <p class="text-sm text-slate-600 mb-4">Test the concert notification system. Make sure you have your city/state set in Account Details.</p>
+            
+            <div id="notifStatus" class="mb-4 p-4 bg-slate-50 rounded-lg">
+                <p class="text-sm text-slate-600">Click a button below to test notifications.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <button onclick="checkMyNotifications()" class="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                    🔍 Check Events for Me
+                    <span class="block text-xs font-normal opacity-80">Scans events within 50mi of your location</span>
+                </button>
+                <button onclick="checkAllNotifications()" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                    🔍 Check Events for All Users
+                    <span class="block text-xs font-normal opacity-80">Admin: Scans for all users with location set</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <button onclick="sendMyDigest()" class="px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">
+                    📧 Send My Email Digest
+                    <span class="block text-xs font-normal opacity-80">Sends pending notifications to your email</span>
+                </button>
+                <button onclick="sendAllDigests()" class="px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold">
+                    📧 Send All Email Digests
+                    <span class="block text-xs font-normal opacity-80">Admin: Sends to all users with pending</span>
+                </button>
+            </div>
+            
+            <div class="border-t border-slate-200 pt-4 mt-4">
+                <h3 class="text-md font-semibold text-slate-700 mb-3">My Notifications</h3>
+                <div class="flex gap-2 mb-3">
+                    <button onclick="loadMyNotifications()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">
+                        Refresh List
+                    </button>
+                    <button onclick="markAllRead()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">
+                        Mark All Read
+                    </button>
+                </div>
+                <div id="notificationsList" class="space-y-2 max-h-96 overflow-y-auto">
+                    <p class="text-slate-500 text-sm">Click "Refresh List" to load notifications</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Sync -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-2">🔄 Background Sync</h2>
+            <p class="text-sm text-slate-600 mb-4">Sync events from Ticketmaster for all favorite/music taste artists. This keeps your event database fresh.</p>
+            
+            <!-- Sync Stats -->
+            <div id="syncStats" class="mb-4 p-4 bg-slate-50 rounded-lg">
+                <p class="text-sm text-slate-600">Loading sync stats...</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <button onclick="syncMyArtists()" class="px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 font-semibold">
+                    🔄 Sync My Artists
+                    <span class="block text-xs font-normal opacity-80">Fetch events for your favorites only</span>
+                </button>
+                <button onclick="runFullSync()" class="px-4 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 font-semibold">
+                    🔄 Full Sync (All Users)
+                    <span class="block text-xs font-normal opacity-80">Admin: Sync all artists from all users</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <button onclick="runMyPipeline()" class="px-4 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-semibold">
+                    ⚡ My Full Pipeline
+                    <span class="block text-xs font-normal opacity-80">Sync + Check Notifications for me</span>
+                </button>
+                <button onclick="runFullPipeline()" class="px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-semibold">
+                    ⚡ Full Pipeline (All)
+                    <span class="block text-xs font-normal opacity-80">Admin: Sync + Notifications for everyone</span>
+                </button>
+            </div>
+            
+            <div class="border-t border-slate-200 pt-4 mt-4">
+                <h3 class="text-md font-semibold text-slate-700 mb-3">Artists to Sync</h3>
+                <button onclick="loadArtistsToSync()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm mb-3">
+                    Load Artist List
+                </button>
+                <div id="artistsToSync" class="text-sm text-slate-600"></div>
+            </div>
+        </div>
+
+        <!-- Artist Cache -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-2">🎤 Artist Cache</h2>
+            <p class="text-sm text-slate-600 mb-4">Cache music taste artists from Ticketmaster to improve artist profile lookups.</p>
+            
+            <!-- Cache Coverage -->
+            <div id="cacheCoverage" class="mb-4 p-4 bg-slate-50 rounded-lg">
+                <p class="text-sm text-slate-600">Loading cache coverage...</p>
+            </div>
+            
+            <!-- Cache Stats -->
+            <div id="cacheStats" class="mb-4 p-4 bg-slate-50 rounded-lg hidden">
+                <p class="text-sm text-slate-600">No cache job has been run yet</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <button onclick="runArtistCache(100)" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                    🎤 Cache 100 Artists
+                    <span class="block text-xs font-normal opacity-80">Quick batch - ~25 seconds</span>
+                </button>
+                <button onclick="runArtistCache(500)" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                    🎤 Cache 500 Artists
+                    <span class="block text-xs font-normal opacity-80">Full batch - ~2 minutes</span>
+                </button>
+            </div>
+            
+            <div class="border-t border-slate-200 pt-4 mt-4">
+                <h3 class="text-md font-semibold text-slate-700 mb-3">Uncached Artists</h3>
+                <button onclick="loadUncachedArtists()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm mb-3">
+                    Show Uncached Artists
+                </button>
+                <div id="uncachedArtists" class="text-sm text-slate-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            alert('Please log in first');
+            window.location.href = 'index.html';
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/youtube/cache/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                document.getElementById('statTotal').textContent = data.totalCached || 0;
+                document.getElementById('statUsedToday').textContent = data.usedToday || 0;
+                document.getElementById('statAddedToday').textContent = data.addedToday || 0;
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        async function loadMusicTaste() {
+            const statusEl = document.getElementById('musicTasteStatus');
+            const artistsListEl = document.getElementById('topArtistsList');
+            const artistsGridEl = document.getElementById('artistsGrid');
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/youtube/music-taste`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (!data.synced) {
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-slate-600">Not yet synced. Click "Sync Now" to import your music taste from YouTube.</p>
+                    `;
+                    artistsListEl.classList.add('hidden');
+                } else {
+                    const syncDate = new Date(data.lastSyncedAt).toLocaleString();
+                    statusEl.innerHTML = `
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-2xl font-bold text-purple-600">${data.totalArtists}</p>
+                                <p class="text-xs text-slate-500">Artists</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-slate-700">${data.totalVideosProcessed}</p>
+                                <p class="text-xs text-slate-500">Videos</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 mt-2">Last synced</p>
+                                <p class="text-xs text-slate-700">${syncDate}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Show top artists
+                    if (data.topArtists && data.topArtists.length > 0) {
+                        artistsListEl.classList.remove('hidden');
+                        artistsGridEl.innerHTML = data.topArtists.slice(0, 30).map(artist => `
+                            <div class="bg-slate-50 rounded-lg p-2 flex justify-between items-center">
+                                <span class="text-sm text-slate-700 truncate">${artist.name}</span>
+                                <span class="text-xs text-slate-400 ml-2">${artist.videoCount}</span>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600">Error: ${err.message}</p>`;
+            }
+        }
+
+        async function syncMusicTaste() {
+            const statusEl = document.getElementById('musicTasteStatus');
+            const syncButton = document.getElementById('syncButton');
+            
+            syncButton.disabled = true;
+            syncButton.textContent = 'Syncing...';
+            statusEl.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <svg class="animate-spin h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span class="text-sm text-slate-600">Importing from YouTube... This may take a minute.</span>
+                </div>
+            `;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/youtube/sync-music-taste`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600">✓ Sync complete! Found ${data.artistsFound} artists from ${data.totalVideosProcessed} videos.</p>
+                        <p class="text-sm text-blue-600 mt-1">🎵 Cached ${data.songsCached} new songs (${data.songsSkipped} already cached). Quota used: ${data.quotaUsed}</p>
+                    `;
+                    // Reload full status
+                    setTimeout(loadMusicTaste, 1000);
+                    loadStats(); // Also refresh cache stats
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600">Error: ${data.error}</p>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600">Error: ${err.message}</p>`;
+            }
+            
+            syncButton.disabled = false;
+            syncButton.textContent = 'Sync Now';
+        }
+
+        async function addSingleSong() {
+            const artist = document.getElementById('singleArtist').value.trim();
+            const title = document.getElementById('singleTitle').value.trim();
+            const videoId = document.getElementById('singleVideoId').value.trim();
+            const resultEl = document.getElementById('singleResult');
+
+            if (!artist || !title || !videoId) {
+                resultEl.innerHTML = '<span class="text-rose-600">Please fill in all fields</span>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/youtube/cache/seed`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ artist, title, videoId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    resultEl.innerHTML = `<span class="text-emerald-600">✓ Cached "${artist} - ${title}"</span>`;
+                    document.getElementById('singleArtist').value = '';
+                    document.getElementById('singleTitle').value = '';
+                    document.getElementById('singleVideoId').value = '';
+                    loadStats();
+                } else {
+                    resultEl.innerHTML = `<span class="text-rose-600">✗ ${data.error}</span>`;
+                }
+            } catch (err) {
+                resultEl.innerHTML = `<span class="text-rose-600">✗ ${err.message}</span>`;
+            }
+        }
+
+        async function addBulkSongs() {
+            const jsonInput = document.getElementById('bulkJson').value.trim();
+            const resultEl = document.getElementById('bulkResult');
+
+            try {
+                const songs = JSON.parse(jsonInput);
+                const res = await fetch(`${API_BASE_URL}/api/youtube/cache/seed-bulk`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ songs })
+                });
+                const data = await res.json();
+
+                resultEl.innerHTML = `<span class="text-emerald-600">✓ Added ${data.added?.length || 0} songs</span>` +
+                    (data.failed?.length ? `<span class="text-rose-600 ml-2">✗ ${data.failed.length} failed</span>` : '');
+                loadStats();
+            } catch (err) {
+                resultEl.innerHTML = `<span class="text-rose-600">✗ Invalid JSON: ${err.message}</span>`;
+            }
+        }
+
+        async function importCsv() {
+            const csvInput = document.getElementById('csvInput').value.trim();
+            const resultEl = document.getElementById('csvResult');
+
+            if (!csvInput) {
+                resultEl.innerHTML = '<span class="text-rose-600">Please enter CSV data</span>';
+                return;
+            }
+
+            try {
+                const lines = csvInput.split('\n').filter(line => line.trim());
+                const songs = lines.map(line => {
+                    const [artist, title, videoId] = line.split(',').map(s => s.trim());
+                    return { artist, title, videoId };
+                });
+
+                const res = await fetch(`${API_BASE_URL}/api/youtube/cache/seed-bulk`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ songs })
+                });
+                const data = await res.json();
+
+                resultEl.innerHTML = `<span class="text-emerald-600">✓ Added ${data.added?.length || 0} songs</span>` +
+                    (data.failed?.length ? `<span class="text-rose-600 ml-2">✗ ${data.failed.length} failed</span>` : '');
+                loadStats();
+            } catch (err) {
+                resultEl.innerHTML = `<span class="text-rose-600">✗ ${err.message}</span>`;
+            }
+        }
+
+        async function searchCache() {
+            const query = document.getElementById('searchQuery').value.trim();
+            const resultsEl = document.getElementById('searchResults');
+
+            if (!query) {
+                resultsEl.innerHTML = '<p class="text-slate-500">Enter a search term</p>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/youtube/cache/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.results && data.results.length > 0) {
+                    resultsEl.innerHTML = data.results.map(song => `
+                        <div class="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                            <div>
+                                <p class="font-medium text-slate-800">${song.artist} - ${song.title}</p>
+                                <p class="text-xs text-slate-500">Video ID: ${song.videoId} | Used ${song.useCount}x</p>
+                            </div>
+                            <a href="https://youtube.com/watch?v=${song.videoId}" target="_blank" class="text-blue-600 hover:underline text-sm">View</a>
+                        </div>
+                    `).join('');
+                } else {
+                    resultsEl.innerHTML = '<p class="text-slate-500">No results found</p>';
+                }
+            } catch (err) {
+                resultsEl.innerHTML = `<p class="text-rose-600">${err.message}</p>`;
+            }
+        }
+
+        // Load stats on page load
+        loadStats();
+        loadMusicTaste();
+
+        // === ARTIST CACHE FUNCTIONS ===
+        
+        // Load cache coverage on page load
+        loadCacheCoverage();
+        
+        async function loadCacheCoverage() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/artist-cache/coverage`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                const coverageEl = document.getElementById('cacheCoverage');
+                if (data.success && data.coverage) {
+                    const c = data.coverage;
+                    const barColor = c.percentage >= 80 ? 'bg-emerald-500' : c.percentage >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+                    coverageEl.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-700">Cache Coverage</span>
+                            <span class="text-sm font-bold text-slate-800">${c.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-3 mb-2">
+                            <div class="${barColor} h-3 rounded-full transition-all" style="width: ${c.percentage}%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>${c.cached} cached</span>
+                            <span>${c.uncached} uncached</span>
+                            <span>${c.total} total</span>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Load cache coverage error:', err);
+            }
+        }
+        
+        async function runArtistCache(maxArtists) {
+            const coverageEl = document.getElementById('cacheCoverage');
+            const statsEl = document.getElementById('cacheStats');
+            
+            coverageEl.innerHTML = `<p class="text-sm text-blue-600 text-center">⏳ Caching artists from Ticketmaster... (this may take a few minutes)</p>`;
+            statsEl.classList.remove('hidden');
+            statsEl.innerHTML = `<p class="text-sm text-blue-600 text-center">⏳ Processing up to ${maxArtists} artists...</p>`;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/artist-cache/run`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ maxArtists })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statsEl.innerHTML = `
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <p class="text-2xl font-bold text-slate-800">${data.processed}</p>
+                                <p class="text-xs text-slate-500">Processed</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-emerald-600">${data.found}</p>
+                                <p class="text-xs text-slate-500">New Cached</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-amber-600">${data.notFound}</p>
+                                <p class="text-xs text-slate-500">Not Found</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-slate-400">${data.alreadyCached}</p>
+                                <p class="text-xs text-slate-500">Already Cached</p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-3 text-center">
+                            Completed in ${(data.duration / 1000).toFixed(1)}s
+                        </p>
+                    `;
+                    loadCacheCoverage();
+                } else {
+                    statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function loadUncachedArtists() {
+            const container = document.getElementById('uncachedArtists');
+            container.innerHTML = '<p class="text-slate-500">Loading...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/artist-cache/uncached?limit=50`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.artists?.length > 0) {
+                    container.innerHTML = `
+                        <p class="mb-2"><strong>${data.total}</strong> artists need caching:</p>
+                        <div class="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                            ${data.artists.map(a => `
+                                <span class="px-2 py-1 rounded-full text-xs bg-slate-100 text-slate-700">
+                                    ${a.name} <span class="text-slate-400">(${a.userCount})</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p class="text-emerald-600">✓ All music taste artists are cached!</p>';
+                }
+            } catch (err) {
+                container.innerHTML = `<p class="text-rose-600">${err.message}</p>`;
+            }
+        }
+
+        // === NOTIFICATION TESTING FUNCTIONS ===
+        
+        // Load sync stats on page load
+        loadSyncStats();
+        
+        async function loadSyncStats() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/sync/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                const statsEl = document.getElementById('syncStats');
+                if (data.success && data.stats) {
+                    const s = data.stats;
+                    if (s.lastRun) {
+                        statsEl.innerHTML = `
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                                <div>
+                                    <p class="text-2xl font-bold text-slate-800">${s.artistsChecked}</p>
+                                    <p class="text-xs text-slate-500">Artists Checked</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-blue-600">${s.eventsFound}</p>
+                                    <p class="text-xs text-slate-500">Events Found</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-emerald-600">${s.eventsSaved}</p>
+                                    <p class="text-xs text-slate-500">New Saved</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-rose-600">${s.errors}</p>
+                                    <p class="text-xs text-slate-500">Errors</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-3 text-center">
+                                Last run: ${new Date(s.lastRun).toLocaleString()} 
+                                (${(s.lastDuration / 1000).toFixed(1)}s)
+                                ${s.isRunning ? ' • <span class="text-amber-600">Currently running...</span>' : ''}
+                            </p>
+                        `;
+                    } else {
+                        statsEl.innerHTML = '<p class="text-sm text-slate-500 text-center">No sync has been run yet</p>';
+                    }
+                }
+            } catch (err) {
+                console.error('Load sync stats error:', err);
+            }
+        }
+        
+        async function syncMyArtists() {
+            const statsEl = document.getElementById('syncStats');
+            statsEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Syncing your artists from Ticketmaster...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/sync/my-artists`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statsEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Sync complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Checked ${data.artistsChecked} artists • 
+                            Found ${data.eventsFound} events • 
+                            Saved ${data.eventsSaved} new
+                        </p>
+                    `;
+                } else {
+                    statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function runFullSync() {
+            const statsEl = document.getElementById('syncStats');
+            statsEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Starting full sync... (this may take a while)</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/sync/full-blocking`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    loadSyncStats();
+                } else {
+                    statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function runMyPipeline() {
+            const statsEl = document.getElementById('syncStats');
+            const notifEl = document.getElementById('notifStatus');
+            
+            statsEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Running pipeline: Sync + Notifications...</p>';
+            notifEl.innerHTML = '<p class="text-sm text-blue-600">⏳ Pipeline in progress...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/sync/my-pipeline`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const sync = data.results.sync;
+                    const notif = data.results.notifications;
+                    
+                    statsEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Pipeline complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Sync: ${sync.artistsChecked} artists, ${sync.eventsSaved} new events
+                        </p>
+                    `;
+                    
+                    notifEl.innerHTML = `
+                        <p class="text-sm text-emerald-600">✓ Notification check complete!</p>
+                        <p class="text-sm text-slate-600 mt-1">
+                            Found ${notif.totalFound || 0} matching events • 
+                            Created ${notif.created || 0} notifications
+                        </p>
+                    `;
+                    
+                    loadMyNotifications();
+                } else {
+                    statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function runFullPipeline() {
+            const statsEl = document.getElementById('syncStats');
+            const notifEl = document.getElementById('notifStatus');
+            
+            statsEl.innerHTML = '<p class="text-sm text-blue-600 text-center">⏳ Running FULL pipeline for all users... (this may take a while)</p>';
+            notifEl.innerHTML = '<p class="text-sm text-blue-600">⏳ Full pipeline in progress...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/sync/full-pipeline`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const sync = data.results.sync;
+                    const notif = data.results.notifications?.summary;
+                    
+                    statsEl.innerHTML = `
+                        <p class="text-sm text-emerald-600 text-center">✓ Full pipeline complete!</p>
+                        <p class="text-sm text-slate-600 text-center mt-1">
+                            Sync: ${sync.artistsChecked} artists, ${sync.eventsSaved} new events
+                        </p>
+                    `;
+                    
+                    notifEl.innerHTML = `
+                        <p class="text-sm text-emerald-600">✓ Notifications for all users!</p>
+                        <p class="text-sm text-slate-600 mt-1">
+                            Users: ${notif?.successful || 0}/${notif?.totalUsers || 0} • 
+                            New notifications: ${notif?.totalNotifications || 0}
+                        </p>
+                    `;
+                    
+                    loadMyNotifications();
+                } else {
+                    statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                statsEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function loadArtistsToSync() {
+            const container = document.getElementById('artistsToSync');
+            container.innerHTML = '<p class="text-slate-500">Loading...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/sync/artists`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.artists?.length > 0) {
+                    container.innerHTML = `
+                        <p class="mb-2"><strong>${data.count}</strong> artists will be synced:</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${data.artists.map(a => `
+                                <span class="px-2 py-1 rounded-full text-xs ${a.source === 'favorite' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
+                                    ${a.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p class="text-slate-500">No artists to sync. Add favorites or sync music taste first.</p>';
+                }
+            } catch (err) {
+                container.innerHTML = `<p class="text-rose-600">${err.message}</p>`;
+            }
+        }
+        
+        async function checkMyNotifications() {
+            const statusEl = document.getElementById('notifStatus');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600">⏳ Checking for events near you...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/notifications/check`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600">✓ Check complete!</p>
+                        <p class="text-sm text-slate-600 mt-1">
+                            Found <strong>${data.totalFound || 0}</strong> events within 50 miles<br>
+                            Created <strong>${data.created || 0}</strong> new notifications<br>
+                            Skipped <strong>${data.skipped || 0}</strong> (already notified)
+                        </p>
+                    `;
+                    loadMyNotifications();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ Error: ${data.error}</p>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function checkAllNotifications() {
+            const statusEl = document.getElementById('notifStatus');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600">⏳ Checking events for all users...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/notifications/check-all`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.summary) {
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600">✓ Check complete!</p>
+                        <p class="text-sm text-slate-600 mt-1">
+                            Users processed: <strong>${data.summary.successful}/${data.summary.totalUsers}</strong><br>
+                            Total new notifications: <strong>${data.summary.totalNotifications}</strong><br>
+                            Errors: <strong>${data.summary.errors}</strong>
+                        </p>
+                    `;
+                    loadMyNotifications();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ Error: ${data.error || 'Unknown error'}</p>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function sendMyDigest() {
+            const statusEl = document.getElementById('notifStatus');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600">⏳ Sending email digest...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/notifications/send-digest`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (data.sent > 0) {
+                        statusEl.innerHTML = `
+                            <p class="text-sm text-emerald-600">✓ Email sent!</p>
+                            <p class="text-sm text-slate-600 mt-1">
+                                Sent <strong>${data.sent}</strong> notifications<br>
+                                Favorites: ${data.favorites || 0}, Music Taste: ${data.musicTaste || 0}
+                            </p>
+                        `;
+                    } else {
+                        statusEl.innerHTML = `<p class="text-sm text-amber-600">No pending notifications to send</p>`;
+                    }
+                    loadMyNotifications();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ Error: ${data.error}</p>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function sendAllDigests() {
+            const statusEl = document.getElementById('notifStatus');
+            statusEl.innerHTML = '<p class="text-sm text-blue-600">⏳ Sending all email digests...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/notifications/send-all-digests`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const successful = data.results?.filter(r => r.success && r.sent > 0).length || 0;
+                    statusEl.innerHTML = `
+                        <p class="text-sm text-emerald-600">✓ Digests sent!</p>
+                        <p class="text-sm text-slate-600 mt-1">
+                            Sent to <strong>${successful}/${data.totalUsers}</strong> users with pending notifications
+                        </p>
+                    `;
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ Error: ${data.error}</p>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600">✗ ${err.message}</p>`;
+            }
+        }
+        
+        async function loadMyNotifications() {
+            const listEl = document.getElementById('notificationsList');
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/notifications?limit=20`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.notifications?.length > 0) {
+                    listEl.innerHTML = data.notifications.map(n => {
+                        const date = new Date(n.eventDate).toLocaleDateString('en-US', {
+                            weekday: 'short', month: 'short', day: 'numeric'
+                        });
+                        const tierColor = n.tier === 'favorite' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+                        const statusColor = n.status === 'read' ? 'bg-slate-50' : 'bg-white border-l-4 border-blue-500';
+                        
+                        return `
+                            <div class="${statusColor} rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${tierColor}">${n.reason}</span>
+                                    <span class="text-xs text-slate-400">${n.distance} mi • ${n.status}</span>
+                                </div>
+                                <p class="font-semibold text-slate-800">${n.artistName}</p>
+                                <p class="text-sm text-slate-600">${date} • ${n.venueName}</p>
+                                <p class="text-xs text-slate-500">${n.venueCity}, ${n.venueState}</p>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    listEl.innerHTML = '<p class="text-slate-500 text-sm text-center py-4">No notifications yet. Click "Check Events for Me" to scan for concerts.</p>';
+                }
+            } catch (err) {
+                listEl.innerHTML = `<p class="text-rose-600 text-sm">${err.message}</p>`;
+            }
+        }
+        
+        async function markAllRead() {
+            try {
+                await fetch(`${API_BASE_URL}/api/v1/notifications/read-all`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                loadMyNotifications();
+            } catch (err) {
+                console.error('Mark all read error:', err);
+            }
+        }
+
+        // Enter key handlers
+        document.getElementById('singleVideoId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addSingleSong();
+        });
+        document.getElementById('searchQuery').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchCache();
+        });
+    </script>
+</body>
+</html>

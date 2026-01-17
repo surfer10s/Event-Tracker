@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduled Concerts - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 500px; border-radius: 0.5rem; }
+        .map-container { position: relative; }
+        .map-interact-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .map-interact-overlay:hover {
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            color: #1e293b;
+        }
+        .map-interact-overlay.hidden { display: none; }
+        
+        /* Tour Animation Styles */
+        .tour-bus-icon {
+            background: #059669;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+            50% { transform: scale(1.15); box-shadow: 0 4px 16px rgba(5, 150, 105, 0.6); }
+        }
+        .timeline-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #059669 0%, #475569 100%);
+            outline: none;
+            cursor: pointer;
+        }
+        .timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #059669;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .timeline-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .timeline-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #059669;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Artist Info -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800" id="artistName">Loading...</h2>
+                        <p class="text-slate-600" id="eventCount">Loading tour dates...</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <a href="#" id="backToProfile" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Back to Profile</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date Filter -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Filter by Date</h3>
+                <div class="flex flex-wrap items-center gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">From</label>
+                        <input type="date" id="startDate" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">To</label>
+                        <input type="date" id="endDate" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button onclick="applyDateFilter()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Apply</button>
+                        <button onclick="clearDateFilter()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Clear</button>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-2" id="dateFilterInfo">Showing all tour dates</p>
+            </div>
+
+            <!-- Tour Animation Controls -->
+            <div id="tourControls" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" style="display: none;">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-slate-800">Tour Progress</h3>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-slate-600">Speed:</label>
+                        <select id="speedControl" onchange="changeSpeed()" class="px-2 py-1 border border-slate-200 rounded text-sm">
+                            <option value="2000">Slow</option>
+                            <option value="1000" selected>Normal</option>
+                            <option value="500">Fast</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Current Show Info -->
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-emerald-600 font-semibold" id="currentShowNumber">Stop 1 of X</p>
+                            <h4 class="text-xl font-bold text-slate-800" id="currentShowName">Loading...</h4>
+                            <p class="text-slate-600" id="currentShowVenue"></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold text-emerald-600" id="currentShowDate"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Playback Controls -->
+                <div class="flex items-center justify-center gap-4 mb-4">
+                    <button onclick="skipToStart()" class="p-2 hover:bg-slate-100 rounded-lg" title="First">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                    </button>
+                    <button onclick="previousStop()" class="p-2 hover:bg-slate-100 rounded-lg" title="Previous">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon></svg>
+                    </button>
+                    <button onclick="togglePlayback()" class="p-4 bg-emerald-600 text-white rounded-full hover:bg-emerald-700" title="Play/Pause">
+                        <svg id="playIcon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg id="pauseIcon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" class="hidden"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    </button>
+                    <button onclick="nextStop()" class="p-2 hover:bg-slate-100 rounded-lg" title="Next">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon></svg>
+                    </button>
+                    <button onclick="skipToEnd()" class="p-2 hover:bg-slate-100 rounded-lg" title="Last">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                    </button>
+                </div>
+                
+                <!-- Timeline Slider -->
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-slate-600" id="tourStartDate"></span>
+                    <input type="range" id="timelineSlider" min="0" max="100" value="0" class="timeline-slider flex-1" oninput="scrubTimeline(this.value)">
+                    <span class="text-sm text-slate-600" id="tourEndDate"></span>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4" id="tourMap">Tour Map</h3>
+                <div class="map-container">
+                    <div id="mapInteractOverlay" class="map-interact-overlay" onclick="enableMapInteraction()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                        </svg>
+                        Click to interact with map
+                    </div>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- Events List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">All Tour Dates</h3>
+                <div id="eventsList" class="space-y-4">
+                    <div class="text-center py-8 text-slate-500">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-2"></div>
+                        <p>Loading tour dates...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let token = localStorage.getItem('token');
+        let map;
+        let markers = [];
+        let polyline = null;
+        let allEvents = [];
+        let filteredEvents = [];
+        let artistId = null;
+        let ticketmasterId = null;
+        
+        // Animation state
+        let eventCoordinates = [];
+        let tourBusMarker = null;
+        let animatedPolyline = null;
+        let currentStopIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1000;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Scheduled Concerts');
+            loadUser();
+            initMap();
+            
+            const params = new URLSearchParams(window.location.search);
+            artistId = params.get('id');
+            ticketmasterId = params.get('ticketmasterId');
+            const artistName = params.get('name');
+            
+            if (artistName) document.getElementById('artistName').textContent = decodeURIComponent(artistName);
+            
+            if (artistId) {
+                document.getElementById('backToProfile').href = `artist-profile.html?id=${artistId}&name=${encodeURIComponent(artistName)}`;
+                loadEventsByArtistId(artistId);
+            } else if (ticketmasterId) {
+                document.getElementById('backToProfile').href = `artist-profile.html?ticketmasterId=${ticketmasterId}&name=${encodeURIComponent(artistName)}`;
+                loadEventsByTicketmaster(ticketmasterId);
+            } else {
+                window.location.href = 'favorites.html';
+            }
+        });
+
+        function initMap() {
+            map = L.map('map', { scrollWheelZoom: false }).setView([39.8283, -98.5795], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+        }
+
+        function enableMapInteraction() {
+            map.scrollWheelZoom.enable();
+            document.getElementById('mapInteractOverlay').classList.add('hidden');
+        }
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                }
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function loadEventsByArtistId(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/events/artist/${id}?includePast=false`);
+                const data = await response.json();
+                if (data.success && data.events) {
+                    allEvents = data.events.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    filteredEvents = allEvents;
+                    document.getElementById('eventCount').textContent = `${allEvents.length} upcoming shows`;
+                    displayEvents();
+                } else {
+                    document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-500 py-8">No scheduled concerts found.</p>`;
+                    document.getElementById('eventCount').textContent = 'No shows scheduled';
+                }
+            } catch (error) { console.error('Load events error:', error); document.getElementById('eventsList').innerHTML = `<p class="text-center text-rose-600 py-8">Error loading events.</p>`; }
+        }
+
+        async function loadEventsByTicketmaster(tmId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/artist/${tmId}/events`);
+                const data = await response.json();
+                if (data.success && data.events) {
+                    allEvents = data.events.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    filteredEvents = allEvents;
+                    document.getElementById('eventCount').textContent = `${allEvents.length} upcoming shows`;
+                    displayEvents();
+                } else {
+                    document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-500 py-8">No scheduled concerts found.</p>`;
+                    document.getElementById('eventCount').textContent = 'No shows scheduled';
+                }
+            } catch (error) { console.error('Load events error:', error); document.getElementById('eventsList').innerHTML = `<p class="text-center text-rose-600 py-8">Error loading events.</p>`; }
+        }
+
+        function displayEvents() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            if (polyline) { map.removeLayer(polyline); polyline = null; }
+            if (animatedPolyline) { map.removeLayer(animatedPolyline); animatedPolyline = null; }
+            if (tourBusMarker) { map.removeLayer(tourBusMarker); tourBusMarker = null; }
+
+            if (filteredEvents.length === 0) {
+                document.getElementById('eventsList').innerHTML = `<p class="text-center text-slate-500 py-8">No events match your filter.</p>`;
+                document.getElementById('tourControls').style.display = 'none';
+                return;
+            }
+
+            const bounds = [];
+            eventCoordinates = [];
+
+            filteredEvents.forEach((event, index) => {
+                if (event.venue?.location?.coordinates) {
+                    const [lng, lat] = event.venue.location.coordinates;
+                    bounds.push([lat, lng]);
+                    eventCoordinates.push({ lat, lng, event, index });
+                    
+                    const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: '#475569', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.7 }).addTo(map);
+                    const date = new Date(event.date);
+                    marker.bindPopup(`<div class="p-2"><p class="font-bold">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p><p class="text-sm">${event.venue.name}</p><p class="text-sm text-gray-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p></div>`);
+                    markers.push(marker);
+                }
+            });
+
+            if (bounds.length > 1) {
+                const routeCoords = bounds;
+                polyline = L.polyline(routeCoords, { color: '#94a3b8', weight: 2, opacity: 0.5, dashArray: '5, 10' }).addTo(map);
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else if (bounds.length === 1) {
+                map.setView(bounds[0], 8);
+            }
+
+            // Show tour controls if we have coordinates
+            if (eventCoordinates.length > 1) {
+                document.getElementById('tourControls').style.display = 'block';
+                initTourAnimation();
+            } else {
+                document.getElementById('tourControls').style.display = 'none';
+            }
+
+            document.getElementById('eventsList').innerHTML = filteredEvents.map((event, index) => {
+                const date = new Date(event.date);
+                const venue = event.venue;
+                return `
+                    <div class="event-list-item border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer" onclick="goToStop(${index})">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-4 flex-1">
+                                <div class="w-12 h-12 bg-slate-700 text-white rounded-full flex items-center justify-center font-bold">${index + 1}</div>
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-lg font-bold text-slate-700">${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                    </div>
+                                    <h4 class="font-bold text-slate-800">${venue.name}</h4>
+                                    <p class="text-sm text-slate-600">${venue.city}, ${venue.state || venue.country}</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" onclick="event.stopPropagation()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold">Get Tickets</a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function initTourAnimation() {
+            if (eventCoordinates.length < 2) return;
+            
+            document.getElementById('timelineSlider').max = eventCoordinates.length - 1;
+            
+            const firstDate = new Date(eventCoordinates[0].event.date);
+            const lastDate = new Date(eventCoordinates[eventCoordinates.length - 1].event.date);
+            document.getElementById('tourStartDate').textContent = firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            document.getElementById('tourEndDate').textContent = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            
+            const tourBusIcon = L.divIcon({
+                className: 'tour-bus-icon',
+                html: `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z"/></svg>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+            
+            const firstCoord = eventCoordinates[0];
+            tourBusMarker = L.marker([firstCoord.lat, firstCoord.lng], { icon: tourBusIcon, zIndexOffset: 1000 }).addTo(map);
+            
+            currentStopIndex = 0;
+            updateCurrentStop(0);
+        }
+
+        function updateCurrentStop(index) {
+            if (index < 0 || index >= eventCoordinates.length) return;
+            
+            currentStopIndex = index;
+            const coord = eventCoordinates[index];
+            const event = coord.event;
+            const venue = event.venue;
+            const date = new Date(event.date);
+            
+            document.getElementById('currentShowName').textContent = `${venue.city}, ${venue.state || venue.country}`;
+            document.getElementById('currentShowVenue').textContent = venue.name;
+            document.getElementById('currentShowDate').textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            document.getElementById('currentShowNumber').textContent = `Stop ${index + 1} of ${eventCoordinates.length}`;
+            
+            document.getElementById('timelineSlider').value = index;
+            
+            if (tourBusMarker) tourBusMarker.setLatLng([coord.lat, coord.lng]);
+            
+            if (animatedPolyline) map.removeLayer(animatedPolyline);
+            
+            if (index > 0) {
+                const traveledPath = eventCoordinates.slice(0, index + 1).map(c => [c.lat, c.lng]);
+                animatedPolyline = L.polyline(traveledPath, { color: '#059669', weight: 4, opacity: 0.9 }).addTo(map);
+            }
+            
+            markers.forEach((marker, i) => {
+                if (i < index) marker.setStyle({ fillColor: '#059669', fillOpacity: 1, radius: 10 });
+                else if (i === index) marker.setStyle({ fillColor: '#059669', fillOpacity: 1, radius: 14 });
+                else marker.setStyle({ fillColor: '#475569', fillOpacity: 0.5, radius: 10 });
+            });
+            
+            document.querySelectorAll('.event-list-item').forEach((el, i) => {
+                if (i === index) el.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50');
+                else el.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-50');
+            });
+        }
+
+        function togglePlayback() { if (isPlaying) pauseAnimation(); else playAnimation(); }
+
+        function playAnimation() {
+            isPlaying = true;
+            document.getElementById('playIcon').classList.add('hidden');
+            document.getElementById('pauseIcon').classList.remove('hidden');
+            if (currentStopIndex >= eventCoordinates.length - 1) { currentStopIndex = 0; updateCurrentStop(0); }
+            animationInterval = setInterval(() => {
+                if (currentStopIndex < eventCoordinates.length - 1) { currentStopIndex++; updateCurrentStop(currentStopIndex); }
+                else pauseAnimation();
+            }, animationSpeed);
+        }
+
+        function pauseAnimation() {
+            isPlaying = false;
+            document.getElementById('playIcon').classList.remove('hidden');
+            document.getElementById('pauseIcon').classList.add('hidden');
+            if (animationInterval) { clearInterval(animationInterval); animationInterval = null; }
+        }
+
+        function previousStop() { pauseAnimation(); if (currentStopIndex > 0) updateCurrentStop(currentStopIndex - 1); }
+        function nextStop() { pauseAnimation(); if (currentStopIndex < eventCoordinates.length - 1) updateCurrentStop(currentStopIndex + 1); }
+        function skipToStart() { pauseAnimation(); updateCurrentStop(0); }
+        function skipToEnd() { pauseAnimation(); updateCurrentStop(eventCoordinates.length - 1); }
+        function scrubTimeline(value) { pauseAnimation(); updateCurrentStop(parseInt(value)); }
+        
+        function goToStop(index) {
+            pauseAnimation();
+            updateCurrentStop(index);
+            document.getElementById('tourMap').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function changeSpeed() {
+            animationSpeed = parseInt(document.getElementById('speedControl').value);
+            if (isPlaying) { pauseAnimation(); playAnimation(); }
+        }
+
+        function applyDateFilter() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            if (!startDate && !endDate) { alert('Please select at least one date'); return; }
+            pauseAnimation();
+            filteredEvents = allEvents.filter(event => {
+                const eventDate = new Date(event.date);
+                if (startDate && endDate) return eventDate >= new Date(startDate) && eventDate <= new Date(endDate);
+                else if (startDate) return eventDate >= new Date(startDate);
+                else return eventDate <= new Date(endDate);
+            });
+            const info = [];
+            if (startDate) info.push(`from ${new Date(startDate).toLocaleDateString()}`);
+            if (endDate) info.push(`to ${new Date(endDate).toLocaleDateString()}`);
+            document.getElementById('dateFilterInfo').textContent = `Showing events ${info.join(' ')}`;
+            displayEvents();
+        }
+
+        function clearDateFilter() {
+            pauseAnimation();
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            filteredEvents = allEvents;
+            document.getElementById('dateFilterInfo').textContent = 'Showing all tour dates';
+            displayEvents();
+        }
+    </script>
+</body>
+</html>

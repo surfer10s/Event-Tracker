@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Details - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                <a href="index.html" class="hover:text-slate-700">Home</a>
+                <span>→</span>
+                <span id="breadcrumbArtist" class="hover:text-slate-700 cursor-pointer">Artist</span>
+                <span>→</span>
+                <span class="text-slate-800 font-medium">Event Details</span>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center py-16">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600 mx-auto"></div>
+                <p class="mt-4 text-slate-600">Loading event details...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="hidden text-center py-16">
+                <svg class="mx-auto text-rose-500 mb-4" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <h2 class="text-xl font-bold text-slate-800 mb-2">Event Not Found</h2>
+                <p class="text-slate-600 mb-4">The event you're looking for doesn't exist or has been removed.</p>
+                <a href="index.html" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">Back to Home</a>
+            </div>
+
+            <!-- Event Content -->
+            <div id="eventContent" class="hidden">
+                <!-- Event Header Card -->
+                <div class="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl text-white p-6 mb-6">
+                    <div class="flex justify-between items-start mb-4 flex-wrap gap-4">
+                        <div>
+                            <h1 id="eventName" class="text-2xl md:text-3xl font-bold mb-2"></h1>
+                            <p id="eventArtist" class="text-slate-300 text-lg"></p>
+                        </div>
+                        <div id="statusBadge"></div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-6 text-sm">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span id="eventDate"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span id="eventTime"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <span id="eventVenue"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Main Content Column -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Ticket Prices Card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="border-b border-slate-200">
+                                <div class="flex">
+                                    <button id="tabPrices" onclick="switchTab('prices')" class="flex-1 px-4 py-3 text-sm font-medium text-slate-800 border-b-2 border-slate-800">
+                                        Ticket Prices
+                                    </button>
+                                    <button id="tabPresales" onclick="switchTab('presales')" class="flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700">
+                                        Presales & Sales
+                                    </button>
+                                    <button id="tabDetails" onclick="switchTab('details')" class="flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700">
+                                        Details
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Prices Tab -->
+                            <div id="pricesContent" class="p-6">
+                                <!-- Primary Price Highlight -->
+                                <div id="primaryPriceBox" class="bg-slate-50 rounded-xl p-5 mb-6">
+                                    <div class="flex items-center justify-between flex-wrap gap-4">
+                                        <div>
+                                            <p class="text-sm text-slate-500 mb-1">Standard Tickets</p>
+                                            <p id="primaryPriceRange" class="text-3xl font-bold text-slate-800"></p>
+                                            <p id="pricingNote" class="text-xs text-slate-400 mt-1"></p>
+                                        </div>
+                                        <a id="buyTicketsBtn" href="#" target="_blank" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+                                            Get Tickets
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- All Price Ranges -->
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-sm font-semibold text-slate-700">All Ticket Options</h3>
+                                        <span id="resaleBadge" class="hidden text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">Resale Available</span>
+                                    </div>
+                                    <div id="priceRangesList" class="space-y-3"></div>
+                                    <p id="noPricesMsg" class="hidden text-slate-500 text-sm py-4 text-center">Price information not available</p>
+                                </div>
+                            </div>
+
+                            <!-- Presales Tab -->
+                            <div id="presalesContent" class="p-6 hidden">
+                                <div id="onSaleInfo" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                    <p class="text-sm text-blue-800">
+                                        <span class="font-semibold">General On Sale:</span> <span id="onSaleDate"></span>
+                                    </p>
+                                </div>
+                                <div id="presalesList"></div>
+                                <p id="noPresalesMsg" class="hidden text-slate-500 text-sm py-4 text-center">No presales for this event</p>
+                            </div>
+
+                            <!-- Details Tab -->
+                            <div id="detailsContent" class="p-6 hidden">
+                                <div class="grid grid-cols-2 gap-4 mb-6">
+                                    <div class="bg-slate-50 rounded-lg p-4">
+                                        <p class="text-xs text-slate-500 mb-1">Ticket Limit</p>
+                                        <p id="ticketLimit" class="text-lg font-bold text-slate-800">--</p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-lg p-4">
+                                        <p class="text-xs text-slate-500 mb-1">Currency</p>
+                                        <p id="currency" class="text-lg font-bold text-slate-800">USD</p>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-slate-200 pt-4">
+                                    <h4 class="text-sm font-semibold text-slate-700 mb-3">Availability Status</h4>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center justify-between py-2">
+                                            <span class="text-slate-600">Primary Tickets</span>
+                                            <span id="primaryStatus"></span>
+                                        </div>
+                                        <div class="flex items-center justify-between py-2">
+                                            <span class="text-slate-600">Resale Tickets</span>
+                                            <span id="resaleStatus"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="eventDescription" class="border-t border-slate-200 pt-4 mt-4 hidden">
+                                    <h4 class="text-sm font-semibold text-slate-700 mb-2">Event Info</h4>
+                                    <p id="descriptionText" class="text-sm text-slate-600"></p>
+                                </div>
+
+                                <div class="text-xs text-slate-400 mt-6">
+                                    Last updated: <span id="lastUpdated"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Supporting Acts -->
+                        <div id="supportingActsCard" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hidden">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4">Supporting Acts</h3>
+                            <div id="supportingActsList" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar Column -->
+                    <div class="space-y-6">
+                        <!-- Venue Card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4">Venue</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <p id="venueName" class="font-semibold text-slate-800"></p>
+                                    <p id="venueAddress" class="text-sm text-slate-600"></p>
+                                    <p id="venueLocation" class="text-sm text-slate-600"></p>
+                                </div>
+                                <a id="venueMapLink" href="#" target="_blank" class="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    View on Map
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Artist Card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4">Artist</h3>
+                            <div class="flex items-center gap-4 mb-4">
+                                <img id="artistImage" src="" alt="" class="w-16 h-16 rounded-lg object-cover hidden">
+                                <div>
+                                    <p id="artistName" class="font-semibold text-slate-800"></p>
+                                    <p id="artistGenre" class="text-sm text-slate-600"></p>
+                                </div>
+                            </div>
+                            <a id="artistProfileLink" href="#" class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800">
+                                View Artist Profile →
+                            </a>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4">Quick Actions</h3>
+                            <div class="space-y-3">
+                                <a id="ticketmasterLink" href="#" target="_blank" class="flex items-center gap-3 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
+                                    </svg>
+                                    <span class="font-semibold">Buy on Ticketmaster</span>
+                                </a>
+                                <button onclick="shareEvent()" class="flex items-center gap-3 w-full px-4 py-3 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <circle cx="18" cy="5" r="3"></circle>
+                                        <circle cx="6" cy="12" r="3"></circle>
+                                        <circle cx="18" cy="19" r="3"></circle>
+                                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                    </svg>
+                                    <span class="font-semibold">Share Event</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('id');
+        const ticketmasterId = urlParams.get('tmId');
+
+        let eventData = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Event Details');
+            loadUser();
+            if (eventId || ticketmasterId) {
+                loadEventDetails();
+            } else {
+                showError();
+            }
+        });
+
+        async function loadUser() {
+            if (!token) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) updateSidebarUser(data.user);
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function loadEventDetails() {
+            try {
+                let url = eventId 
+                    ? `${API_BASE_URL}/events/${eventId}`
+                    : `${API_BASE_URL}/events/ticketmaster/${ticketmasterId}`;
+                
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (data.success && data.event) {
+                    eventData = data.event;
+                    displayEventDetails();
+                } else {
+                    showError();
+                }
+            } catch (error) {
+                console.error('Error loading event:', error);
+                showError();
+            }
+        }
+
+        function showError() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('errorState').classList.remove('hidden');
+        }
+
+        function displayEventDetails() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('eventContent').classList.remove('hidden');
+
+            const event = eventData;
+            const date = new Date(event.date);
+
+            // Header
+            document.getElementById('eventName').textContent = event.name;
+            document.getElementById('eventArtist').textContent = event.artist?.name || 'Unknown Artist';
+            document.getElementById('eventDate').textContent = formatDate(date);
+            document.getElementById('eventTime').textContent = formatTime(date);
+            document.getElementById('eventVenue').textContent = `${event.venue.name}, ${event.venue.city}`;
+
+            // Status Badge
+            document.getElementById('statusBadge').innerHTML = getStatusBadgeHtml(event.ticketInfo?.status);
+
+            // Breadcrumb
+            const artistName = event.artist?.name || 'Artist';
+            document.getElementById('breadcrumbArtist').textContent = artistName;
+            document.getElementById('breadcrumbArtist').onclick = () => {
+                window.location.href = `artist-profile.html?id=${event.artist?._id}&name=${encodeURIComponent(artistName)}`;
+            };
+
+            // Prices
+            displayPrices(event);
+
+            // Presales
+            displayPresales(event);
+
+            // Details
+            displayDetails(event);
+
+            // Supporting Acts
+            if (event.supportingActs && event.supportingActs.length > 0) {
+                document.getElementById('supportingActsCard').classList.remove('hidden');
+                document.getElementById('supportingActsList').innerHTML = event.supportingActs
+                    .map(act => `<span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm">${act.name}</span>`)
+                    .join('');
+            }
+
+            // Venue
+            document.getElementById('venueName').textContent = event.venue.name;
+            document.getElementById('venueAddress').textContent = event.venue.address || '';
+            document.getElementById('venueLocation').textContent = [event.venue.city, event.venue.state, event.venue.country].filter(Boolean).join(', ');
+            
+            if (event.venue.location?.coordinates) {
+                const [lng, lat] = event.venue.location.coordinates;
+                document.getElementById('venueMapLink').href = `https://www.google.com/maps?q=${lat},${lng}`;
+            }
+
+            // Artist
+            document.getElementById('artistName').textContent = artistName;
+            document.getElementById('artistGenre').textContent = event.artist?.genre?.join(', ') || '';
+            if (event.artist?.images?.large || event.images?.large) {
+                document.getElementById('artistImage').src = event.artist?.images?.large || event.images?.large;
+                document.getElementById('artistImage').classList.remove('hidden');
+            }
+            document.getElementById('artistProfileLink').href = `artist-profile.html?id=${event.artist?._id}&name=${encodeURIComponent(artistName)}`;
+
+            // Quick Actions
+            const tmUrl = event.affiliateLinks?.ticketmaster?.url || '#';
+            document.getElementById('ticketmasterLink').href = tmUrl;
+            document.getElementById('buyTicketsBtn').href = tmUrl;
+        }
+
+        function displayPrices(event) {
+            const ticketInfo = event.ticketInfo || {};
+            const priceRanges = ticketInfo.priceRanges || [];
+
+            // Primary price highlight
+            const primaryRange = priceRanges.find(p => p.type === 'standard') || priceRanges[0];
+            if (primaryRange || ticketInfo.minPrice) {
+                const min = primaryRange?.min || ticketInfo.minPrice;
+                const max = primaryRange?.max || ticketInfo.maxPrice;
+                document.getElementById('primaryPriceRange').textContent = `${formatPrice(min)} - ${formatPrice(max)}`;
+                
+                if (ticketInfo.allInclusivePricing) {
+                    document.getElementById('pricingNote').innerHTML = '<span class="text-emerald-600">✓ All-in pricing (fees included)</span>';
+                } else {
+                    document.getElementById('pricingNote').textContent = '+ fees';
+                }
+            } else {
+                document.getElementById('primaryPriceBox').classList.add('hidden');
+            }
+
+            // Resale badge
+            if (ticketInfo.resaleStatus === 'available' || priceRanges.some(p => p.type === 'resale')) {
+                document.getElementById('resaleBadge').classList.remove('hidden');
+            }
+
+            // All price ranges
+            if (priceRanges.length > 0) {
+                document.getElementById('priceRangesList').innerHTML = priceRanges.map(range => `
+                    <div class="border rounded-lg p-4 ${getPriceTypeStyle(range.type)}">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-medium text-slate-800">${getPriceTypeLabel(range.type)}</p>
+                                <p class="text-xs text-slate-500">${getPriceTypeDescription(range.type)}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-slate-800">${formatPrice(range.min)} - ${formatPrice(range.max)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else if (ticketInfo.minPrice) {
+                document.getElementById('priceRangesList').innerHTML = `
+                    <div class="border rounded-lg p-4 border-slate-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-medium text-slate-800">Standard</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-slate-800">${formatPrice(ticketInfo.minPrice)} - ${formatPrice(ticketInfo.maxPrice)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('noPricesMsg').classList.remove('hidden');
+            }
+        }
+
+        function displayPresales(event) {
+            const ticketInfo = event.ticketInfo || {};
+            const presales = ticketInfo.presales || [];
+
+            // On sale date
+            if (ticketInfo.onSaleDate) {
+                document.getElementById('onSaleDate').textContent = formatDateTime(new Date(ticketInfo.onSaleDate));
+            } else {
+                document.getElementById('onSaleInfo').classList.add('hidden');
+            }
+
+            // Presales list
+            if (presales.length > 0) {
+                document.getElementById('presalesList').innerHTML = `
+                    <h3 class="text-sm font-semibold text-slate-700 mb-3">Presale Schedule</h3>
+                    ${presales.map(presale => {
+                        const now = new Date();
+                        const start = new Date(presale.startDateTime);
+                        const end = new Date(presale.endDateTime);
+                        const isActive = now >= start && now <= end;
+                        const isPast = now > end;
+                        
+                        return `
+                            <div class="border rounded-lg p-4 mb-3 ${isActive ? 'border-emerald-300 bg-emerald-50' : isPast ? 'border-slate-200 bg-slate-50 opacity-60' : 'border-slate-200 bg-white'}">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <p class="font-medium text-slate-800">${presale.name}</p>
+                                            ${isActive ? '<span class="px-2 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-full">LIVE NOW</span>' : ''}
+                                            ${isPast ? '<span class="px-2 py-0.5 bg-slate-400 text-white text-xs font-semibold rounded-full">ENDED</span>' : ''}
+                                        </div>
+                                        <p class="text-sm text-slate-500 mt-1">
+                                            ${formatDateTime(start)} - ${formatDateTime(end)}
+                                        </p>
+                                    </div>
+                                    ${isActive ? `<a href="${event.affiliateLinks?.ticketmaster?.url || '#'}" target="_blank" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg">Shop Now</a>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                `;
+            } else {
+                document.getElementById('noPresalesMsg').classList.remove('hidden');
+            }
+        }
+
+        function displayDetails(event) {
+            const ticketInfo = event.ticketInfo || {};
+
+            document.getElementById('ticketLimit').textContent = ticketInfo.ticketLimit ? `${ticketInfo.ticketLimit} per order` : 'Not specified';
+            document.getElementById('currency').textContent = ticketInfo.currency || 'USD';
+
+            document.getElementById('primaryStatus').innerHTML = getStatusBadgeHtml(ticketInfo.status, true);
+            document.getElementById('resaleStatus').innerHTML = getResaleStatusBadge(ticketInfo.resaleStatus);
+
+            if (event.description) {
+                document.getElementById('eventDescription').classList.remove('hidden');
+                document.getElementById('descriptionText').textContent = event.description;
+            }
+
+            document.getElementById('lastUpdated').textContent = event.lastUpdated 
+                ? new Date(event.lastUpdated).toLocaleString() 
+                : 'Unknown';
+        }
+
+        function switchTab(tab) {
+            // Hide all tabs
+            document.getElementById('pricesContent').classList.add('hidden');
+            document.getElementById('presalesContent').classList.add('hidden');
+            document.getElementById('detailsContent').classList.add('hidden');
+
+            // Reset tab styles
+            document.getElementById('tabPrices').className = 'flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700';
+            document.getElementById('tabPresales').className = 'flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700';
+            document.getElementById('tabDetails').className = 'flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-700';
+
+            // Show selected tab
+            document.getElementById(`${tab}Content`).classList.remove('hidden');
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).className = 'flex-1 px-4 py-3 text-sm font-medium text-slate-800 border-b-2 border-slate-800';
+        }
+
+        function shareEvent() {
+            const url = window.location.href;
+            const text = `Check out ${eventData?.name} - ${eventData?.artist?.name}`;
+            
+            if (navigator.share) {
+                navigator.share({ title: eventData?.name, text, url });
+            } else {
+                navigator.clipboard.writeText(url);
+                alert('Link copied to clipboard!');
+            }
+        }
+
+        // Helper functions
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+
+        function formatDateTime(date) {
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + 
+                   date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+
+        function formatPrice(price, currency = 'USD') {
+            if (!price) return '--';
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(price);
+        }
+
+        function getStatusBadgeHtml(status, small = false) {
+            const styles = {
+                'on_sale': 'bg-emerald-100 text-emerald-700',
+                'few_tickets_left': 'bg-amber-100 text-amber-700',
+                'sold_out': 'bg-rose-100 text-rose-700',
+                'not_yet_on_sale': 'bg-blue-100 text-blue-700',
+                'cancelled': 'bg-slate-100 text-slate-700',
+                'postponed': 'bg-amber-100 text-amber-700',
+                'rescheduled': 'bg-purple-100 text-purple-700'
+            };
+            const labels = {
+                'on_sale': '● On Sale',
+                'few_tickets_left': '● Few Tickets Left',
+                'sold_out': '● Sold Out',
+                'not_yet_on_sale': '● Not Yet On Sale',
+                'cancelled': '● Cancelled',
+                'postponed': '● Postponed',
+                'rescheduled': '● Rescheduled'
+            };
+            const sizeClass = small ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm';
+            return `<span class="${sizeClass} rounded-full font-semibold ${styles[status] || styles['on_sale']}">${labels[status] || status || 'Unknown'}</span>`;
+        }
+
+        function getResaleStatusBadge(status) {
+            if (status === 'available') {
+                return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">● Available</span>';
+            } else if (status === 'not_available') {
+                return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">● Not Available</span>';
+            }
+            return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">● Unknown</span>';
+        }
+
+        function getPriceTypeLabel(type) {
+            const labels = {
+                'standard': 'Standard',
+                'platinum': 'Platinum (Dynamic)',
+                'vip': 'VIP Packages',
+                'resale': 'Verified Resale'
+            };
+            return labels[type] || type;
+        }
+
+        function getPriceTypeDescription(type) {
+            const descriptions = {
+                'standard': 'Regular admission tickets',
+                'platinum': 'Prices adjust based on demand',
+                'vip': 'Includes exclusive experiences',
+                'resale': 'Verified fan-to-fan tickets'
+            };
+            return descriptions[type] || '';
+        }
+
+        function getPriceTypeStyle(type) {
+            const styles = {
+                'standard': 'border-slate-200 bg-white',
+                'platinum': 'border-violet-200 bg-violet-50',
+                'vip': 'border-amber-200 bg-amber-50',
+                'resale': 'border-blue-200 bg-blue-50'
+            };
+            return styles[type] || styles['standard'];
+        }
+    </script>
+</body>
+</html>

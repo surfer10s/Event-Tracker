@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Register - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full mx-4">
+        <!-- Logo/Brand -->
+        <div class="text-center mb-8">
+            <div class="flex items-center justify-center gap-3 mb-2">
+                <svg class="text-white" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="text-white text-2xl font-bold">Event Tracker</span>
+            </div>
+            <p class="text-slate-400">Track concerts, discover artists, never miss a show</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginForm" class="bg-white rounded-xl shadow-2xl p-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Welcome Back</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" id="loginEmail" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent" placeholder="your@email.com" onkeypress="if(event.key==='Enter') login()">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent" placeholder="••••••••" onkeypress="if(event.key==='Enter') login()">
+                </div>
+                <div class="text-right">
+                    <button onclick="showForgotPassword()" class="text-sm text-slate-600 hover:text-slate-800 hover:underline">Forgot password?</button>
+                </div>
+                <button onclick="login()" class="w-full bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-800 font-semibold transition-colors">
+                    Login
+                </button>
+            </div>
+            <p class="mt-6 text-center text-sm text-slate-600">
+                Don't have an account? 
+                <button onclick="showRegister()" class="text-slate-800 hover:underline font-semibold">Register</button>
+            </p>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="bg-white rounded-xl shadow-2xl p-8" style="display:none;">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Create Account</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                        <input type="text" id="firstName" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="John">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                        <input type="text" id="lastName" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="Doe">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="johndoe">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" id="registerEmail" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="your@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Confirm Email</label>
+                    <input type="email" id="confirmEmail" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="your@email.com">
+                    <p id="emailMatchError" class="text-rose-500 text-sm mt-1 hidden">Emails do not match</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="registerPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="Minimum 6 characters">
+                </div>
+                <button onclick="register()" class="w-full bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-800 font-semibold transition-colors">
+                    Create Account
+                </button>
+            </div>
+            <p class="mt-6 text-center text-sm text-slate-600">
+                Already have an account? 
+                <button onclick="showLogin()" class="text-slate-800 hover:underline font-semibold">Login</button>
+            </p>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div id="forgotPasswordForm" class="bg-white rounded-xl shadow-2xl p-8" style="display:none;">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 text-center">Reset Password</h2>
+            <p class="text-slate-500 text-sm text-center mb-6">Enter your email and we'll send you a reset code</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" id="forgotEmail" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="your@email.com" onkeypress="if(event.key==='Enter') sendResetCode()">
+                </div>
+                <button onclick="sendResetCode()" class="w-full bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-800 font-semibold transition-colors">
+                    Send Reset Code
+                </button>
+            </div>
+            <p class="mt-6 text-center text-sm text-slate-600">
+                Remember your password? 
+                <button onclick="showLogin()" class="text-slate-800 hover:underline font-semibold">Login</button>
+            </p>
+        </div>
+
+        <!-- Enter Reset Code Form -->
+        <div id="resetCodeForm" class="bg-white rounded-xl shadow-2xl p-8" style="display:none;">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 text-center">Enter Reset Code</h2>
+            <p class="text-slate-500 text-sm text-center mb-6">Check your email for the 6-digit code</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Reset Code</label>
+                    <input type="text" id="resetCode" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-center text-2xl tracking-widest" placeholder="000000" maxlength="6" onkeypress="if(event.key==='Enter') verifyResetCode()">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                    <input type="password" id="newPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="Minimum 6 characters">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                    <input type="password" id="confirmNewPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400" placeholder="Confirm password" onkeypress="if(event.key==='Enter') verifyResetCode()">
+                </div>
+                <button onclick="verifyResetCode()" class="w-full bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-800 font-semibold transition-colors">
+                    Reset Password
+                </button>
+                <button onclick="sendResetCode()" class="w-full text-slate-600 py-2 hover:text-slate-800 text-sm">
+                    Didn't receive code? Resend
+                </button>
+            </div>
+        </div>
+
+        <!-- Email Verification Pending -->
+        <div id="verificationPendingForm" class="bg-white rounded-xl shadow-2xl p-8" style="display:none;">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-600">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">Verify Your Email</h2>
+                <p class="text-slate-500 text-sm mb-6">We've sent a verification link to<br><strong id="pendingEmail" class="text-slate-700">your@email.com</strong></p>
+                <p class="text-slate-500 text-sm mb-4">Click the link in the email to activate your account.</p>
+                <button onclick="resendVerification()" class="w-full bg-slate-100 text-slate-700 py-3 rounded-lg hover:bg-slate-200 font-semibold transition-colors mb-3">
+                    Resend Verification Email
+                </button>
+                <button onclick="showLogin()" class="w-full text-slate-600 py-2 hover:text-slate-800 text-sm">
+                    Back to Login
+                </button>
+            </div>
+        </div>
+
+        <!-- Email Verified Success -->
+        <div id="verifiedSuccessForm" class="bg-white rounded-xl shadow-2xl p-8" style="display:none;">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald-600">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">Email Verified!</h2>
+                <p class="text-slate-500 text-sm mb-6">Your account is now active. You can now log in.</p>
+                <button onclick="showLogin()" class="w-full bg-slate-700 text-white py-3 rounded-lg hover:bg-slate-800 font-semibold transition-colors">
+                    Continue to Login
+                </button>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toastContainer" class="fixed bottom-4 right-4 z-50"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let pendingVerificationEmail = '';
+
+        // Form switching functions
+        function hideAllForms() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('resetCodeForm').style.display = 'none';
+            document.getElementById('verificationPendingForm').style.display = 'none';
+            document.getElementById('verifiedSuccessForm').style.display = 'none';
+        }
+
+        function showLogin() {
+            hideAllForms();
+            document.getElementById('loginForm').style.display = 'block';
+        }
+
+        function showRegister() {
+            hideAllForms();
+            document.getElementById('registerForm').style.display = 'block';
+        }
+
+        function showForgotPassword() {
+            hideAllForms();
+            document.getElementById('forgotPasswordForm').style.display = 'block';
+        }
+
+        function showResetCode() {
+            hideAllForms();
+            document.getElementById('resetCodeForm').style.display = 'block';
+        }
+
+        function showVerificationPending(email) {
+            hideAllForms();
+            pendingVerificationEmail = email;
+            document.getElementById('pendingEmail').textContent = email;
+            document.getElementById('verificationPendingForm').style.display = 'block';
+        }
+
+        function showVerifiedSuccess() {
+            hideAllForms();
+            document.getElementById('verifiedSuccessForm').style.display = 'block';
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const colors = { 
+                success: 'bg-emerald-500', 
+                error: 'bg-rose-500', 
+                info: 'bg-slate-600' 
+            };
+            const toast = document.createElement('div');
+            toast.className = `${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg mb-2 transition-opacity duration-300`;
+            toast.textContent = message;
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                setTimeout(() => toast.remove(), 300); 
+            }, 4000);
+        }
+
+        // Login
+        async function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showToast('Please enter email and password', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    window.location.href = 'index.html';
+                } else if (data.needsVerification) {
+                    showVerificationPending(email);
+                    showToast('Please verify your email first', 'info');
+                } else {
+                    showToast(data.message || 'Login failed', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showToast('Login failed. Please try again.', 'error');
+            }
+        }
+
+        // Register with email confirmation
+        async function register() {
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const confirmEmail = document.getElementById('confirmEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+
+            // Validation
+            if (!username || !email || !confirmEmail || !password) {
+                showToast('Please fill in all required fields', 'error');
+                return;
+            }
+
+            if (email !== confirmEmail) {
+                document.getElementById('emailMatchError').classList.remove('hidden');
+                showToast('Email addresses do not match', 'error');
+                return;
+            } else {
+                document.getElementById('emailMatchError').classList.add('hidden');
+            }
+
+            if (password.length < 6) {
+                showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password, firstName, lastName })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showVerificationPending(email);
+                    showToast('Account created! Please verify your email.', 'success');
+                } else {
+                    showToast(data.message || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                showToast('Registration failed. Please try again.', 'error');
+            }
+        }
+
+        // Resend verification email
+        async function resendVerification() {
+            if (!pendingVerificationEmail) {
+                showToast('No email address found', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: pendingVerificationEmail })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Verification email sent!', 'success');
+                } else {
+                    showToast(data.message || 'Failed to send email', 'error');
+                }
+            } catch (error) {
+                console.error('Resend verification error:', error);
+                showToast('Failed to send email. Please try again.', 'error');
+            }
+        }
+
+        // Send password reset code
+        async function sendResetCode() {
+            const email = document.getElementById('forgotEmail').value.trim();
+
+            if (!email) {
+                showToast('Please enter your email', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    pendingVerificationEmail = email;
+                    showResetCode();
+                    showToast('Reset code sent to your email', 'success');
+                } else {
+                    showToast(data.message || 'Failed to send reset code', 'error');
+                }
+            } catch (error) {
+                console.error('Forgot password error:', error);
+                showToast('Failed to send reset code. Please try again.', 'error');
+            }
+        }
+
+        // Verify reset code and set new password
+        async function verifyResetCode() {
+            const code = document.getElementById('resetCode').value.trim();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+            if (!code || code.length !== 6) {
+                showToast('Please enter the 6-digit code', 'error');
+                return;
+            }
+
+            if (!newPassword || newPassword.length < 6) {
+                showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmNewPassword) {
+                showToast('Passwords do not match', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: pendingVerificationEmail,
+                        code, 
+                        newPassword 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Password reset successful!', 'success');
+                    showLogin();
+                } else {
+                    showToast(data.message || 'Failed to reset password', 'error');
+                }
+            } catch (error) {
+                console.error('Reset password error:', error);
+                showToast('Failed to reset password. Please try again.', 'error');
+            }
+        }
+
+        // Check for verification token in URL
+        function checkVerificationToken() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('verify');
+            
+            if (token) {
+                verifyEmail(token);
+            }
+        }
+
+        // Verify email with token
+        async function verifyEmail(token) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/verify-email/${token}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    showVerifiedSuccess();
+                } else {
+                    showToast(data.message || 'Verification failed', 'error');
+                    showLogin();
+                }
+            } catch (error) {
+                console.error('Verify email error:', error);
+                showToast('Verification failed. Please try again.', 'error');
+                showLogin();
+            }
+        }
+
+        // Real-time email match validation
+        document.getElementById('confirmEmail')?.addEventListener('input', function() {
+            const email = document.getElementById('registerEmail').value;
+            const confirmEmail = this.value;
+            
+            if (confirmEmail && email !== confirmEmail) {
+                document.getElementById('emailMatchError').classList.remove('hidden');
+            } else {
+                document.getElementById('emailMatchError').classList.add('hidden');
+            }
+        });
+
+        // Check if already logged in or if there's a verification token
+        document.addEventListener('DOMContentLoaded', () => {
+            checkVerificationToken();
+            
+            if (localStorage.getItem('token') && !window.location.search.includes('verify')) {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>

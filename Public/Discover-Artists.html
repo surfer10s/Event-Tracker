@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discover Artists - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Stats -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div class="text-3xl font-bold text-emerald-600" id="addedCount">0</div>
+                    <div class="text-sm text-slate-500">Added Today</div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div class="text-3xl font-bold text-slate-700" id="remainingCount">0</div>
+                    <div class="text-sm text-slate-500">Remaining</div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800" id="recommendationsTitle">Loading recommendations...</h2>
+                    <button onclick="loadMoreRecommendations()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold text-sm">Refresh</button>
+                </div>
+                <div id="recommendationsContainer">
+                    <div class="text-center py-12 text-slate-500">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600 mb-4"></div>
+                        <p class="text-lg">Finding artists you might like...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let token = localStorage.getItem('token');
+        let recommendations = [];
+        let processedArtists = new Set();
+        let addedToday = 0;
+        let basedOnArtist = null;
+
+        if (!token) { window.location.href = 'auth.html'; }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Discover New Artists');
+            loadUser();
+            
+            // Check for URL params
+            const params = new URLSearchParams(window.location.search);
+            const artistId = params.get('artist');
+            const artistName = params.get('name');
+            
+            if (artistId && artistName) {
+                basedOnArtist = { id: artistId, name: artistName };
+                document.getElementById('recommendationsTitle').textContent = `Artists Similar to ${artistName}`;
+                loadSimilarForSingleArtist(artistName);
+            } else {
+                loadRecommendations();
+            }
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                }
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function loadRecommendations() {
+            try {
+                const favResponse = await fetch(`${API_BASE_URL}/users/favorites`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const favData = await favResponse.json();
+                
+                if (!favData.success || !favData.artists || favData.artists.length === 0) {
+                    document.getElementById('recommendationsContainer').innerHTML = `<div class="text-center py-12"><p class="text-slate-600 mb-4">Add some favorite artists first to get recommendations!</p><a href="favorites.html" class="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Go to Favorites</a></div>`;
+                    document.getElementById('recommendationsTitle').textContent = 'No favorites yet';
+                    return;
+                }
+
+                const favoriteIds = new Set(favData.artists.map(a => a._id));
+                const favoriteTicketmasterIds = new Set(favData.artists.map(a => a.ticketmasterId).filter(id => id));
+                const favoriteNames = new Set(favData.artists.map(a => a.name.toLowerCase()));
+
+                // Get similar artists from Last.fm via backend for each favorite
+                const similarArtists = new Set();
+                for (const artist of favData.artists.slice(0, 5)) {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/lastfm/similar/${encodeURIComponent(artist.name)}?limit=10`);
+                        const data = await response.json();
+                        if (data.success && data.artists) {
+                            data.artists.forEach(similar => {
+                                if (!processedArtists.has(similar.name)) {
+                                    similarArtists.add(JSON.stringify({
+                                        name: similar.name,
+                                        image: similar.image,
+                                        match: similar.match,
+                                        basedOn: artist.name
+                                    }));
+                                }
+                            });
+                        }
+                    } catch (error) { console.error(`Error getting similar artists for ${artist.name}:`, error); }
+                }
+
+                // Shuffle and search Ticketmaster for each
+                const similarArtistsArray = Array.from(similarArtists).map(str => JSON.parse(str)).sort(() => Math.random() - 0.5);
+                recommendations = [];
+
+                for (const similar of similarArtistsArray.slice(0, 30)) {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(similar.name)}`);
+                        const data = await response.json();
+                        if (data.success && data.artists && data.artists.length > 0) {
+                            const match = data.artists.find(a => a.name.toLowerCase() === similar.name.toLowerCase()) || data.artists[0];
+                            const isDuplicate = favoriteIds.has(match.externalId) || favoriteTicketmasterIds.has(match.externalId) || favoriteNames.has(match.name.toLowerCase());
+                            if (!isDuplicate) {
+                                recommendations.push({ ...match, similarity: similar.match, basedOn: similar.basedOn, lastfmImage: similar.image });
+                            }
+                        }
+                        if (recommendations.length >= 20) break;
+                    } catch (error) { console.error(`Error searching Ticketmaster for ${similar.name}:`, error); }
+                }
+
+                recommendations.sort((a, b) => parseFloat(b.similarity || 0) - parseFloat(a.similarity || 0));
+                displayRecommendations();
+                document.getElementById('recommendationsTitle').textContent = 'Recommended for You';
+                updateStats();
+            } catch (error) {
+                console.error('Error loading recommendations:', error);
+                document.getElementById('recommendationsContainer').innerHTML = `<div class="text-center py-12"><p class="text-rose-600">Error loading recommendations. Please try again.</p></div>`;
+            }
+        }
+
+        function displayRecommendations() {
+            const container = document.getElementById('recommendationsContainer');
+            if (recommendations.length === 0) {
+                container.innerHTML = `<div class="text-center py-12"><p class="text-slate-600 mb-4">No more recommendations available.</p><button onclick="loadMoreRecommendations()" class="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Load More</button></div>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${recommendations.map(artist => `
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 artist-card" data-artist-id="${artist.externalId}">
+                            <div class="flex gap-4 mb-4">
+                                ${artist.images && artist.images[0] ? `<img src="${artist.images[0].url}" alt="${artist.name}" class="w-24 h-24 rounded-lg object-cover">` : artist.lastfmImage ? `<img src="${artist.lastfmImage}" alt="${artist.name}" class="w-24 h-24 rounded-lg object-cover">` : `<div class="w-24 h-24 rounded-lg bg-slate-200 flex items-center justify-center"><svg class="text-slate-400" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></div>`}
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold text-slate-800 mb-1">${artist.name}</h3>
+                                    <p class="text-sm text-slate-600 mb-2">${artist.genre || 'Various Genres'}</p>
+                                    <div class="flex flex-col gap-1">
+                                        ${artist.similarity ? `<div class="flex items-center gap-1 text-xs text-emerald-600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg><span>${Math.round(parseFloat(artist.similarity) * 100)}% match</span></div>` : ''}
+                                        ${artist.basedOn ? `<div class="text-xs text-slate-500">Similar to ${artist.basedOn}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick='addToFavorites(${JSON.stringify(artist).replace(/'/g, "&#39;")})' class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold flex items-center justify-center gap-2">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                    Add to Favorites
+                                </button>
+                                <button onclick="skipArtist('${artist.externalId}')" class="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Skip</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+
+        async function addToFavorites(artist) {
+            try {
+                const card = document.querySelector(`[data-artist-id="${artist.externalId}"]`);
+                card.style.opacity = '0.5';
+                const response = await fetch(`${API_BASE_URL}/users/favorites/ticketmaster/${artist.externalId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: artist.name, genre: artist.genre, images: artist.images }) });
+                const data = await response.json();
+                if (data.success) {
+                    card.innerHTML = `<div class="flex items-center justify-center py-12"><div class="text-center"><svg class="mx-auto mb-3 text-emerald-600" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><p class="text-lg font-bold text-emerald-600">Added to Favorites!</p></div></div>`;
+                    addedToday++;
+                    processedArtists.add(artist.externalId);
+                    recommendations = recommendations.filter(r => r.externalId !== artist.externalId);
+                    setTimeout(() => { card.remove(); updateStats(); if (recommendations.length === 0) displayRecommendations(); }, 1500);
+                } else throw new Error(data.message || 'Failed to add favorite');
+            } catch (error) { console.error('Error adding favorite:', error); alert('Failed to add to favorites. Please try again.'); card.style.opacity = '1'; }
+        }
+
+        function skipArtist(artistId) {
+            const card = document.querySelector(`[data-artist-id="${artistId}"]`);
+            card.style.transition = 'transform 0.3s, opacity 0.3s';
+            card.style.transform = 'translateX(100%)';
+            card.style.opacity = '0';
+            processedArtists.add(artistId);
+            recommendations = recommendations.filter(r => r.externalId !== artistId);
+            setTimeout(() => { card.remove(); updateStats(); if (recommendations.length === 0) displayRecommendations(); }, 300);
+        }
+
+        async function loadSimilarForSingleArtist(artistName) {
+            try {
+                const similarArtists = new Set();
+                const response = await fetch(`${API_BASE_URL}/lastfm/similar/${encodeURIComponent(artistName)}?limit=30`);
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Last.fm API error');
+                if (data.artists) {
+                    data.artists.forEach(similar => {
+                        if (!processedArtists.has(similar.name)) similarArtists.add(JSON.stringify({ name: similar.name, image: similar.image, match: similar.match, basedOn: artistName }));
+                    });
+                }
+                const similarArtistsArray = Array.from(similarArtists).map(str => JSON.parse(str)).sort(() => Math.random() - 0.5);
+                const favResponse = await fetch(`${API_BASE_URL}/users/favorites`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const favData = await favResponse.json();
+                const favoriteIds = new Set(favData.artists?.map(a => a._id) || []);
+                const favoriteTicketmasterIds = new Set(favData.artists?.map(a => a.ticketmasterId).filter(id => id) || []);
+                const favoriteNames = new Set(favData.artists?.map(a => a.name.toLowerCase()) || []);
+                recommendations = [];
+                for (const similar of similarArtistsArray.slice(0, 30)) {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(similar.name)}`);
+                        const data = await response.json();
+                        if (data.success && data.artists && data.artists.length > 0) {
+                            const match = data.artists.find(a => a.name.toLowerCase() === similar.name.toLowerCase()) || data.artists[0];
+                            const isDuplicate = favoriteIds.has(match.externalId) || favoriteTicketmasterIds.has(match.externalId) || favoriteNames.has(match.name.toLowerCase());
+                            if (!isDuplicate) recommendations.push({ ...match, similarity: similar.match, basedOn: similar.basedOn, lastfmImage: similar.image });
+                        }
+                        if (recommendations.length >= 20) break;
+                    } catch (error) { console.error(`Error searching Ticketmaster for ${similar.name}:`, error); }
+                }
+                recommendations.sort((a, b) => parseFloat(b.similarity || 0) - parseFloat(a.similarity || 0));
+                displayRecommendations();
+                updateStats();
+            } catch (error) {
+                console.error('Error loading similar artists:', error);
+                document.getElementById('recommendationsContainer').innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center"><p class="text-rose-600 mb-2">Error loading recommendations</p><p class="text-slate-600 text-sm">${error.message}</p></div>`;
+            }
+        }
+
+        function updateStats() { document.getElementById('addedCount').textContent = addedToday; document.getElementById('remainingCount').textContent = recommendations.length; }
+
+        function loadMoreRecommendations() {
+            processedArtists.clear();
+            recommendations = [];
+            document.getElementById('recommendationsContainer').innerHTML = `<div class="text-center py-12 text-slate-500"><div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600 mb-4"></div><p class="text-lg">Loading fresh recommendations...</p></div>`;
+            if (basedOnArtist) loadSimilarForSingleArtist(basedOnArtist.name);
+            else loadRecommendations();
+        }
+    </script>
+</body>
+</html>

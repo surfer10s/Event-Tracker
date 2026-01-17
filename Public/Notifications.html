@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <!-- Page Content -->
+        <div class="p-4 lg:p-6">
+            <!-- Filters & Actions Bar -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <select id="filterTier" onchange="loadNotifications()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm">
+                            <option value="">All Sources</option>
+                            <option value="favorite">⭐ Favorites Only</option>
+                            <option value="music_taste">🎧 Music Taste Only</option>
+                        </select>
+                        <select id="filterStatus" onchange="loadNotifications()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm">
+                            <option value="unread">Unread</option>
+                            <option value="all">All</option>
+                            <option value="read">Read</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="markAllRead()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">
+                            Mark All Read
+                        </button>
+                        <button onclick="refreshNotifications()" class="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-slate-800" id="statTotal">0</p>
+                    <p class="text-sm text-slate-500">Total</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-blue-600" id="statUnread">0</p>
+                    <p class="text-sm text-slate-500">Unread</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-amber-600" id="statFavorites">0</p>
+                    <p class="text-sm text-slate-500">From Favorites</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <p class="text-2xl font-bold text-indigo-600" id="statMusicTaste">0</p>
+                    <p class="text-sm text-slate-500">From Music Taste</p>
+                </div>
+            </div>
+
+            <!-- Notifications List -->
+            <div class="space-y-3" id="notificationsList">
+                <div class="bg-white rounded-xl shadow-sm p-8 text-center">
+                    <p class="text-slate-400">Loading notifications...</p>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" class="mt-6 flex justify-center gap-2 hidden">
+                <button onclick="prevPage()" id="prevBtn" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-50" disabled>
+                    ← Previous
+                </button>
+                <span id="pageInfo" class="px-4 py-2 text-sm text-slate-600"></span>
+                <button onclick="nextPage()" id="nextBtn" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-50">
+                    Next →
+                </button>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden bg-white rounded-xl shadow-sm p-12 text-center">
+                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-slate-400">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-slate-800 mb-2">No notifications yet</h3>
+                <p class="text-slate-500 mb-4">When artists you follow have concerts near you, you'll see them here.</p>
+                <a href="favorites.html" class="inline-block px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium">
+                    Add Favorite Artists
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+        
+        let currentPage = 1;
+        const limit = 20;
+        let totalPages = 1;
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Notifications');
+            loadUserData();
+            loadNotifications();
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                }
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        async function loadNotifications() {
+            const listEl = document.getElementById('notificationsList');
+            const emptyEl = document.getElementById('emptyState');
+            const paginationEl = document.getElementById('pagination');
+            
+            const tier = document.getElementById('filterTier').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            
+            // Build query - get more results to group properly
+            let query = `?limit=100&page=${currentPage}`;
+            if (tier) query += `&tier=${tier}`;
+            
+            if (statusFilter === 'all') {
+                query += '&status=all';
+            } else if (statusFilter === 'read') {
+                query += '&status=read';
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/notifications${query}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    // Update stats
+                    document.getElementById('statTotal').textContent = data.pagination?.total || 0;
+                    document.getElementById('statUnread').textContent = data.unreadCount || 0;
+                    
+                    // Count by tier
+                    const favorites = data.notifications?.filter(n => n.tier === 'favorite').length || 0;
+                    const musicTaste = data.notifications?.filter(n => n.tier === 'music_taste').length || 0;
+                    document.getElementById('statFavorites').textContent = favorites;
+                    document.getElementById('statMusicTaste').textContent = musicTaste;
+                    
+                    if (data.notifications?.length > 0) {
+                        // Group notifications by artist
+                        const grouped = groupByArtist(data.notifications);
+                        listEl.innerHTML = renderGroupedNotifications(grouped);
+                        emptyEl.classList.add('hidden');
+                        listEl.classList.remove('hidden');
+                        
+                        // Pagination
+                        totalPages = data.pagination?.pages || 1;
+                        if (totalPages > 1) {
+                            paginationEl.classList.remove('hidden');
+                            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+                            document.getElementById('prevBtn').disabled = currentPage === 1;
+                            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+                        } else {
+                            paginationEl.classList.add('hidden');
+                        }
+                    } else {
+                        listEl.classList.add('hidden');
+                        emptyEl.classList.remove('hidden');
+                        paginationEl.classList.add('hidden');
+                    }
+                    
+                    if (typeof loadNotificationCount === 'function') {
+                        loadNotificationCount();
+                    }
+                }
+            } catch (err) {
+                console.error('Load notifications error:', err);
+                listEl.innerHTML = `<div class="bg-white rounded-xl shadow-sm p-8 text-center text-rose-500">Failed to load notifications</div>`;
+            }
+        }
+
+        // Group notifications by artist and sort by earliest date
+        function groupByArtist(notifications) {
+            const groups = {};
+            
+            for (const n of notifications) {
+                const key = n.artistName;
+                if (!groups[key]) {
+                    groups[key] = {
+                        artistName: n.artistName,
+                        artistId: n.artistId,
+                        tier: n.tier,
+                        reason: n.reason,
+                        events: []
+                    };
+                }
+                groups[key].events.push(n);
+            }
+            
+            // Sort events within each group by date
+            for (const key in groups) {
+                groups[key].events.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+            }
+            
+            // Sort groups by their earliest event date
+            const sortedGroups = Object.values(groups).sort((a, b) => {
+                const dateA = new Date(a.events[0].eventDate);
+                const dateB = new Date(b.events[0].eventDate);
+                return dateA - dateB;
+            });
+            
+            return sortedGroups;
+        }
+
+        // Render grouped notifications
+        function renderGroupedNotifications(groups) {
+            return groups.map(group => {
+                const hasMultiple = group.events.length > 1;
+                const firstEvent = group.events[0];
+                const isUnread = group.events.some(e => e.status === 'pending' || e.status === 'sent');
+                
+                const tierStyles = {
+                    favorite: { badge: 'bg-amber-100 text-amber-700', icon: '⭐' },
+                    music_taste: { badge: 'bg-blue-100 text-blue-700', icon: '🎧' }
+                };
+                const style = tierStyles[group.tier] || tierStyles.music_taste;
+                
+                if (hasMultiple) {
+                    // Collapsible group with multiple events
+                    const groupId = `group-${group.artistName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    const lastEvent = group.events[group.events.length - 1];
+                    const dateRange = formatDateRange(firstEvent.eventDate, lastEvent.eventDate);
+                    return `
+                        <div class="bg-white rounded-lg shadow-sm overflow-hidden ${isUnread ? 'border-l-4 border-l-blue-500' : ''}" id="artist-${groupId}">
+                            <div class="px-3 py-2 flex items-center gap-2">
+                                <div class="flex items-center gap-2 flex-1 cursor-pointer hover:bg-slate-50 rounded py-1 px-1 -ml-1" onclick="toggleGroup('${groupId}')">
+                                    <svg id="${groupId}-icon" class="w-4 h-4 text-slate-400 transition-transform flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                    <span class="font-bold text-slate-800 truncate">${group.artistName}</span>
+                                    <span class="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-medium flex-shrink-0">${group.events.length}</span>
+                                    ${isUnread ? '<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>' : ''}
+                                    <span class="font-bold text-slate-700 flex-shrink-0">${firstEvent.venueCity}, ${firstEvent.venueState}</span>
+                                    <span class="font-bold text-slate-700 flex-shrink-0">${dateRange}</span>
+                                </div>
+                                <button onclick="dismissAllArtistNotifications('${groupId}', '${group.artistName}')" 
+                                        class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded flex-shrink-0"
+                                        title="Dismiss all">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <!-- Expandable Events List -->
+                            <div id="${groupId}" class="hidden border-t border-slate-100 bg-slate-50">
+                                <div class="px-4 py-2 border-b border-slate-100">
+                                    <a href="artist-profile.html?${getArtistLinkParam(group)}" 
+                                       class="font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                        ${group.artistName} →
+                                    </a>
+                                </div>
+                                ${group.events.map(event => renderExpandedEventRow(event, style)).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Single event - compact row with expandable details
+                    return renderCompactNotification(firstEvent, style);
+                }
+            }).join('');
+        }
+
+        // Render compact single notification row
+        function renderCompactNotification(n, style) {
+            const isUnread = n.status === 'pending' || n.status === 'sent';
+            const rowId = `row-${n._id}`;
+            
+            if (!style) {
+                const tierStyles = {
+                    favorite: { badge: 'bg-amber-100 text-amber-700', icon: '⭐' },
+                    music_taste: { badge: 'bg-blue-100 text-blue-700', icon: '🎧' }
+                };
+                style = tierStyles[n.tier] || tierStyles.music_taste;
+            }
+            
+            return `
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden ${isUnread ? 'border-l-4 border-l-blue-500' : ''}" id="notif-${n._id}">
+                    <div class="px-3 py-2 flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-1 cursor-pointer hover:bg-slate-50 rounded py-1 px-1 -ml-1" onclick="toggleRow('${rowId}')">
+                            <svg id="${rowId}-icon" class="w-4 h-4 text-slate-400 transition-transform flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            <span class="font-bold text-slate-800 truncate">${n.artistName}</span>
+                            ${isUnread ? '<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>' : ''}
+                            <span class="font-bold text-slate-700 flex-shrink-0">${n.venueCity}, ${n.venueState}</span>
+                            <span class="font-bold text-slate-700 flex-shrink-0">${formatDateShort(n.eventDate)}</span>
+                        </div>
+                        <button onclick="dismissNotification('${n._id}'); event.stopPropagation();" 
+                                class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded flex-shrink-0"
+                                title="Dismiss">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Expandable Details -->
+                    <div id="${rowId}" class="hidden border-t border-slate-100 bg-slate-50 px-4 py-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="space-y-1 text-sm">
+                                <a href="artist-profile.html?${getArtistLinkParam(n)}" 
+                                   class="font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-2">
+                                    ${n.artistName} →
+                                </a>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs px-2 py-0.5 rounded-full ${style.badge}">${style.icon} ${n.reason}</span>
+                                </div>
+                                <p class="text-slate-700"><span class="text-slate-500">Venue:</span> ${n.venueName}</p>
+                                <p class="text-slate-700"><span class="text-slate-500">Time:</span> ${formatTime(n.eventDate) || 'TBD'}</p>
+                                <p class="text-slate-700"><span class="text-slate-500">Distance:</span> ${n.distance} miles</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${n.ticketUrl ? `
+                                    <a href="${n.ticketUrl}" target="_blank" 
+                                       class="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800"
+                                       onclick="markAsRead('${n._id}'); event.stopPropagation();">
+                                        Get Tickets →
+                                    </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render expanded event row inside a group
+        function renderExpandedEventRow(n, style) {
+            const isUnread = n.status === 'pending' || n.status === 'sent';
+            
+            return `
+                <div class="px-4 py-3 border-b border-slate-100 last:border-b-0 ${isUnread ? 'bg-blue-50/50' : ''}" id="notif-${n._id}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="space-y-0.5 text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-slate-800">${formatDateShort(n.eventDate)}</span>
+                                <span class="text-slate-400">•</span>
+                                <span class="text-slate-600">${formatTime(n.eventDate) || 'TBD'}</span>
+                                ${isUnread ? '<span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>' : ''}
+                            </div>
+                            <p class="text-slate-600">${n.venueName} - ${n.venueCity}, ${n.venueState}</p>
+                            <div class="flex items-center gap-3 text-xs text-slate-400">
+                                <span class="px-2 py-0.5 rounded-full ${style.badge}">${style.icon} ${n.reason}</span>
+                                <span>${n.distance} mi</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            ${n.ticketUrl ? `
+                                <a href="${n.ticketUrl}" target="_blank" 
+                                   class="px-3 py-1.5 bg-slate-700 text-white rounded text-xs font-medium hover:bg-slate-800"
+                                   onclick="markAsRead('${n._id}'); event.stopPropagation();">
+                                    Tickets
+                                </a>
+                            ` : ''}
+                            <button onclick="dismissNotification('${n._id}'); event.stopPropagation();" 
+                                    class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render a single event row (inside collapsed group) - legacy
+        function renderEventRow(n) {
+            const tierStyles = {
+                favorite: { badge: 'bg-amber-100 text-amber-700', icon: '⭐' },
+                music_taste: { badge: 'bg-blue-100 text-blue-700', icon: '🎧' }
+            };
+            return renderExpandedEventRow(n, tierStyles[n.tier] || tierStyles.music_taste);
+        }
+
+        // Toggle group expand/collapse
+        function toggleGroup(groupId) {
+            const content = document.getElementById(groupId);
+            const icon = document.getElementById(`${groupId}-icon`);
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.style.transform = 'rotate(90deg)';
+            } else {
+                content.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Toggle single row expand/collapse
+        function toggleRow(rowId) {
+            const content = document.getElementById(rowId);
+            const icon = document.getElementById(`${rowId}-icon`);
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.style.transform = 'rotate(90deg)';
+            } else {
+                content.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Format helpers
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function formatDateShort(dateStr) {
+            return new Date(dateStr).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function formatDateRange(startDateStr, endDateStr) {
+            const start = new Date(startDateStr);
+            const end = new Date(endDateStr);
+            
+            const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+            const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+            const startDay = start.getDate();
+            const endDay = end.getDate();
+            
+            // Same day: "Jan 8"
+            if (startMonth === endMonth && startDay === endDay) {
+                return `${startMonth} ${startDay}`;
+            }
+            // Same month: "Jan 3-7"
+            if (startMonth === endMonth) {
+                return `${startMonth} ${startDay}-${endDay}`;
+            }
+            // Different months: "Jan 28-Feb 3"
+            return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+        }
+
+        function formatTime(dateStr) {
+            const date = new Date(dateStr);
+            if (date.getHours() === 0 && date.getMinutes() === 0) return '';
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+
+        // Get artist link parameter - handles populated or unpopulated artistId
+        function getArtistLinkParam(item) {
+            // artistId could be: ObjectId string, populated object with _id, or null/undefined
+            if (item.artistId) {
+                // If it's a populated object, use _id
+                if (typeof item.artistId === 'object' && item.artistId._id) {
+                    return 'id=' + item.artistId._id;
+                }
+                // If it's a string (ObjectId), use directly
+                if (typeof item.artistId === 'string') {
+                    return 'id=' + item.artistId;
+                }
+            }
+            // Fallback to name search
+            return 'name=' + encodeURIComponent(item.artistName);
+        }
+
+        function renderNotification(n) {
+            // Use the new compact notification format
+            return renderCompactNotification(n);
+        }
+
+        async function markAsRead(id) {
+            try {
+                await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                // Update UI
+                const el = document.getElementById(`notif-${id}`);
+                if (el) {
+                    el.classList.remove('border-l-4', 'border-l-blue-500');
+                    const dot = el.querySelector('.bg-blue-500.rounded-full');
+                    if (dot) dot.remove();
+                    const btn = el.querySelector('button[onclick*="markAsRead"]');
+                    if (btn) btn.remove();
+                }
+                
+                // Update count
+                const unreadEl = document.getElementById('statUnread');
+                unreadEl.textContent = Math.max(0, parseInt(unreadEl.textContent) - 1);
+                
+                if (typeof loadNotificationCount === 'function') {
+                    loadNotificationCount();
+                }
+            } catch (err) {
+                console.error('Mark read error:', err);
+            }
+        }
+
+        async function markAllRead() {
+            try {
+                await fetch(`${API_BASE_URL}/notifications/read-all`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                loadNotifications();
+            } catch (err) {
+                console.error('Mark all read error:', err);
+            }
+        }
+
+        async function dismissNotification(id) {
+            try {
+                await fetch(`${API_BASE_URL}/notifications/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                // Remove from UI with animation
+                const el = document.getElementById(`notif-${id}`);
+                if (el) {
+                    el.style.transition = 'opacity 0.3s, transform 0.3s';
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateX(20px)';
+                    setTimeout(() => el.remove(), 300);
+                }
+                
+                // Update total
+                const totalEl = document.getElementById('statTotal');
+                totalEl.textContent = Math.max(0, parseInt(totalEl.textContent) - 1);
+            } catch (err) {
+                console.error('Dismiss error:', err);
+            }
+        }
+
+        async function dismissAllArtistNotifications(groupId, artistName) {
+            event.stopPropagation();
+            
+            // Get all notification IDs in this group
+            const groupEl = document.getElementById(groupId);
+            const artistEl = document.getElementById(`artist-${groupId}`);
+            
+            if (!artistEl) return;
+            
+            // Find all notif- elements in the group
+            const notifEls = artistEl.querySelectorAll('[id^="notif-"]');
+            const ids = Array.from(notifEls).map(el => el.id.replace('notif-', ''));
+            
+            // Animate out the whole group
+            artistEl.style.transition = 'opacity 0.3s, transform 0.3s';
+            artistEl.style.opacity = '0';
+            artistEl.style.transform = 'translateX(20px)';
+            
+            // Delete all notifications
+            try {
+                await Promise.all(ids.map(id => 
+                    fetch(`${API_BASE_URL}/notifications/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ));
+                
+                setTimeout(() => artistEl.remove(), 300);
+                
+                // Update total
+                const totalEl = document.getElementById('statTotal');
+                totalEl.textContent = Math.max(0, parseInt(totalEl.textContent) - ids.length);
+            } catch (err) {
+                console.error('Dismiss all error:', err);
+                artistEl.style.opacity = '1';
+                artistEl.style.transform = 'none';
+            }
+        }
+
+        function refreshNotifications() {
+            currentPage = 1;
+            loadNotifications();
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadNotifications();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadNotifications();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    </script>
+</body>
+</html>

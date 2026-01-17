@@ -1,0 +1,29 @@
+(function() {
+  const songs = [];
+  
+  document.querySelectorAll('ytmusic-responsive-list-item-renderer').forEach(item => {
+    // Get song title and video ID
+    const titleEl = item.querySelector('.title-column yt-formatted-string a, .title yt-formatted-string a');
+    const title = titleEl?.textContent?.trim();
+    const href = titleEl?.getAttribute('href');
+    const videoId = href?.match(/v=([^&]+)/)?.[1];
+    
+    // Get artist from secondary column (each song has its own artist)
+    const artistEl = item.querySelector('.secondary-flex-columns yt-formatted-string a[href^="channel/"]');
+    const artist = artistEl?.textContent?.trim();
+    
+    if (title && videoId && artist) {
+      songs.push({ 
+        artist: artist,
+        title: title, 
+        videoId: videoId 
+      });
+    }
+  });
+
+  console.table(songs);
+  console.log(`Found ${songs.length} songs`);
+  
+  copy(JSON.stringify(songs, null, 2));
+  console.log('✓ Copied to clipboard! Paste into cache admin bulk import.');
+})();

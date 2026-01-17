@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concert History - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <style>
+        .star-rating { display: flex; flex-direction: row-reverse; justify-content: flex-end; }
+        .star-rating input { display: none; }
+        .star-rating label { cursor: pointer; color: #d1d5db; font-size: 1.5rem; }
+        .star-rating label:hover, .star-rating label:hover ~ label,
+        .star-rating input:checked ~ label { color: #fbbf24; }
+        .star-display { color: #fbbf24; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Search Section -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Search Past Concerts</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div class="relative">
+                        <input type="text" id="artistSearch" placeholder="Artist name..." class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                        <div id="artistSuggestions" class="absolute w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-50" style="display:none;"></div>
+                    </div>
+                    <input type="number" id="yearFilter" placeholder="Year (e.g. 2024)" min="1950" max="2030" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                    <input type="text" id="stateFilter" placeholder="State/Region" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                    <input type="text" id="cityFilter" placeholder="City" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="searchSetlists()" class="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Search Setlist.fm</button>
+                    <button onclick="resetFilters()" class="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Clear All</button>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="searchResultsSection" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" style="display:none;">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Search Results</h2>
+                <div id="searchResults" class="space-y-4"></div>
+            </div>
+
+            <!-- Concert History -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">My Concert History <span id="concertCount" class="text-slate-600 font-normal">(0)</span></h2>
+                    <select id="historySortSelect" onchange="loadConcertHistory()" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 text-slate-700">
+                        <option value="date">Sort by Date</option>
+                        <option value="rating">Sort by Rating</option>
+                        <option value="artist">Sort by Artist</option>
+                    </select>
+                </div>
+                <div id="concertHistoryList" class="space-y-4">
+                    <div class="text-center py-8 text-slate-500">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-2"></div>
+                        <p>Loading your concert history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Concert Modal -->
+    <div id="addConcertModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-xl p-6 m-4 max-w-md w-full">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Add to Concert History</h3>
+            <div id="modalConcertInfo" class="mb-4"></div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Your Rating</label>
+                <div class="star-rating">
+                    <input type="radio" name="rating" value="5" id="star5"><label for="star5">★</label>
+                    <input type="radio" name="rating" value="4" id="star4"><label for="star4">★</label>
+                    <input type="radio" name="rating" value="3" id="star3"><label for="star3">★</label>
+                    <input type="radio" name="rating" value="2" id="star2"><label for="star2">★</label>
+                    <input type="radio" name="rating" value="1" id="star1"><label for="star1">★</label>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Notes (optional)</label>
+                <textarea id="concertNotes" rows="3" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="What was memorable about this concert?"></textarea>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="saveConcert()" class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">Save</button>
+                <button onclick="closeModal()" class="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Concert Modal -->
+    <div id="editConcertModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-xl p-6 m-4 max-w-md w-full">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Edit Concert Entry</h3>
+            <input type="hidden" id="editConcertId">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Your Rating</label>
+                <div class="star-rating">
+                    <input type="radio" name="editRating" value="5" id="editStar5"><label for="editStar5">★</label>
+                    <input type="radio" name="editRating" value="4" id="editStar4"><label for="editStar4">★</label>
+                    <input type="radio" name="editRating" value="3" id="editStar3"><label for="editStar3">★</label>
+                    <input type="radio" name="editRating" value="2" id="editStar2"><label for="editStar2">★</label>
+                    <input type="radio" name="editRating" value="1" id="editStar1"><label for="editStar1">★</label>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Notes</label>
+                <textarea id="editConcertNotes" rows="3" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700"></textarea>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="updateConcert()" class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">Update</button>
+                <button onclick="closeEditModal()" class="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Service Selection Modal -->
+    <div id="serviceModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Create Playlist</h3>
+                <button onclick="closeServiceModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <p class="text-slate-600 mb-4">Select a streaming service:</p>
+            <div class="space-y-2">
+                <button onclick="selectService('youtube')" class="w-full flex items-center gap-4 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="#DC2626">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                    </div>
+                    <div class="text-left flex-1">
+                        <p class="font-bold text-slate-800">YouTube Music</p>
+                        <p class="text-sm text-slate-500" id="youtubeServiceStatus">Checking...</p>
+                    </div>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+                <div class="w-full flex items-center gap-4 p-4 border border-dashed border-slate-300 rounded-xl opacity-50">
+                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="#1DB954">
+                            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                        </svg>
+                    </div>
+                    <div class="text-left flex-1">
+                        <p class="font-bold text-slate-500">Spotify</p>
+                        <p class="text-sm text-slate-400">Coming soon</p>
+                    </div>
+                </div>
+                <div class="w-full flex items-center gap-4 p-4 border border-dashed border-slate-300 rounded-xl opacity-50">
+                    <div class="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="#FC3C44">
+                            <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.401-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03c.525 0 1.048-.034 1.57-.1.823-.106 1.597-.35 2.296-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.282-2.442-.96-.476-.493-.71-1.09-.67-1.78.037-.64.26-1.18.678-1.62.418-.44.918-.722 1.485-.902.344-.11.697-.176 1.053-.21.387-.038.774-.065 1.162-.09.17-.01.19-.04.19-.2v-4.24c0-.18-.01-.18-.19-.16l-5.21.67c-.19.03-.19.03-.19.22v6.86c0 .37-.04.73-.2 1.07-.31.68-.83 1.1-1.54 1.3-.35.1-.71.15-1.08.17-.94.05-1.78-.23-2.45-.88-.53-.52-.78-1.17-.74-1.9.05-.8.35-1.44.94-1.93.4-.33.86-.56 1.35-.7.42-.12.85-.19 1.29-.23.37-.04.75-.06 1.12-.09.18-.02.2-.04.2-.21v-7.69c0-.12.03-.2.15-.22l7.08-.92c.42-.05.84-.1 1.26-.14.12-.02.18.02.18.16v6.42z"/>
+                        </svg>
+                    </div>
+                    <div class="text-left flex-1">
+                        <p class="font-bold text-slate-500">Apple Music</p>
+                        <p class="text-sm text-slate-400">Coming soon</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Name Modal -->
+    <div id="nameModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Name Your Playlist</h3>
+                <button onclick="closeNameModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Playlist Name</label>
+                <input type="text" id="playlistNameInput" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="Enter playlist name">
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-slate-600"><span id="songCountPreview">0</span> songs will be added</p>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" id="includeCoversCheckbox" class="mt-1 w-4 h-4 text-slate-600 rounded border-slate-300 focus:ring-slate-500">
+                    <div>
+                        <span class="text-sm font-medium text-slate-700">Include cover songs</span>
+                        <p class="text-xs text-slate-400 mt-1">First searches for the artist's version, then falls back to the original artist's recording.</p>
+                    </div>
+                </label>
+            </div>
+            <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <label class="block text-sm font-medium text-amber-800 mb-2">🧪 Dev: Limit Songs (leave empty for all)</label>
+                <input type="number" id="songLimitInput" class="w-24 px-3 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400 text-slate-700" placeholder="e.g. 5" min="1">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeNameModal()" class="flex-1 px-4 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Cancel</button>
+                <button onclick="startPlaylistCreation()" class="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Create Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Progress Modal -->
+    <div id="progressModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col">
+            <div class="p-6 border-b border-slate-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-slate-800" id="progressTitle">Creating Playlist...</h3>
+                    <div id="progressSpinner" class="animate-spin">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
+                            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                            <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75"/>
+                        </svg>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-600 mt-1" id="progressSubtitle">Adding songs to your playlist...</p>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6" id="progressSongList"></div>
+            <div class="p-6 border-t border-slate-200" id="progressFooter" style="display: none;">
+                <div class="flex gap-3">
+                    <button onclick="closeProgressModal()" class="flex-1 px-4 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Close</button>
+                    <button onclick="openPlaylistInYouTube()" id="openPlaylistBtn" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold flex items-center justify-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Open in YouTube
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let token = localStorage.getItem('token');
+        let selectedSetlist = null;
+        let allSetlists = [];
+        let currentPage = 1;
+        let searchTimeout = null;
+
+        if (!token) { window.location.href = 'auth.html'; }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Concert History');
+            loadUser();
+            loadConcertHistory();
+
+            document.getElementById('artistSearch').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                if (query.length < 2) { document.getElementById('artistSuggestions').style.display = 'none'; return; }
+                searchTimeout = setTimeout(() => fetchArtistSuggestions(query), 300);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#artistSearch') && !e.target.closest('#artistSuggestions')) {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            });
+            
+            // Checkbox listener for cover songs
+            const checkbox = document.getElementById('includeCoversCheckbox');
+            if (checkbox) {
+                checkbox.addEventListener('change', updateSongCountPreview);
+            }
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                }
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function fetchArtistSuggestions(query) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/setlist/artist/search?name=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                if (data.success && data.artists && data.artists.length > 0) {
+                    displayArtistSuggestions(data.artists);
+                } else {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            } catch (error) { console.error('Artist suggestion error:', error); }
+        }
+
+        function displayArtistSuggestions(artists) {
+            const container = document.getElementById('artistSuggestions');
+            container.innerHTML = artists.map(artist => `
+                <div onclick="selectArtist('${artist.mbid}', '${artist.name.replace(/'/g, "\\'")}')" class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 flex items-center gap-3">
+                    <div class="font-semibold text-slate-800">${artist.name}</div>
+                    ${artist.disambiguation ? `<span class="text-xs text-slate-500">${artist.disambiguation}</span>` : ''}
+                </div>
+            `).join('');
+            container.style.display = 'block';
+        }
+
+        function selectArtist(mbid, name) {
+            document.getElementById('artistSearch').value = name;
+            document.getElementById('artistSearch').dataset.mbid = mbid;
+            document.getElementById('artistSuggestions').style.display = 'none';
+        }
+
+        async function searchSetlists(loadMore = false) {
+            const artistName = document.getElementById('artistSearch').value.trim();
+            const mbid = document.getElementById('artistSearch').dataset.mbid;
+            const year = document.getElementById('yearFilter').value;
+            const state = document.getElementById('stateFilter').value.trim();
+            const city = document.getElementById('cityFilter').value.trim();
+
+            if (!artistName && !mbid) { alert('Please enter an artist name'); return; }
+            if (!loadMore) { currentPage = 1; allSetlists = []; }
+            else currentPage++;
+
+            try {
+                let url = `${API_BASE_URL}/setlist/search?page=${currentPage}`;
+                if (mbid) url += `&artistMbid=${mbid}`;
+                else url += `&artistName=${encodeURIComponent(artistName)}`;
+                if (year) url += `&year=${year}`;
+                if (state) url += `&state=${encodeURIComponent(state)}`;
+                if (city) url += `&cityName=${encodeURIComponent(city)}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success && data.setlists) {
+                    allSetlists = loadMore ? [...allSetlists, ...data.setlists] : data.setlists;
+                    displaySearchResults(allSetlists, data.total > allSetlists.length);
+                    document.getElementById('searchResultsSection').style.display = 'block';
+                } else {
+                    document.getElementById('searchResults').innerHTML = `<p class="text-center text-slate-500 py-8">No setlists found. Try different search criteria.</p>`;
+                    document.getElementById('searchResultsSection').style.display = 'block';
+                }
+            } catch (error) { console.error('Search error:', error); alert('Error searching setlists. Please try again.'); }
+        }
+
+        function displaySearchResults(setlists, showLoadMore = false) {
+            const container = document.getElementById('searchResults');
+            let html = setlists.map(setlist => {
+                const date = new Date(setlist.eventDate.split('-').reverse().join('-'));
+                const venue = setlist.venue;
+                return `
+                    <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-lg text-slate-800">${setlist.artist?.name || 'Unknown Artist'}</h3>
+                                <p class="text-sm text-slate-600 mb-1">📅 ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                <p class="text-sm text-slate-600 mb-1">📍 ${venue?.name || 'Unknown Venue'}, ${venue?.city?.name || ''}${venue?.city?.state ? ', ' + venue.city.state : ''}</p>
+                                <p class="text-xs text-slate-500">${setlist.songCount || 0} songs performed</p>
+                            </div>
+                            <div class="flex flex-col gap-2 ml-4">
+                                <button onclick='openAddModal(${JSON.stringify(setlist).replace(/'/g, "&#39;")})' class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold">Saw It!</button>
+                                ${setlist.url ? `<a href="${setlist.url}" target="_blank" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm text-center">View Setlist</a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            if (showLoadMore) html += `<div class="text-center py-4"><button onclick="searchSetlists(true)" class="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">Load More</button></div>`;
+            container.innerHTML = html;
+        }
+
+        function openAddModal(setlist) {
+            selectedSetlist = setlist;
+            const date = new Date(setlist.eventDate.split('-').reverse().join('-'));
+            const venue = setlist.venue;
+            document.getElementById('modalConcertInfo').innerHTML = `<h4 class="font-bold text-lg text-slate-800">${setlist.artist?.name || 'Unknown Artist'}</h4><p class="text-slate-600">${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p><p class="text-slate-600">${venue?.name || 'Unknown Venue'}, ${venue?.city?.name || ''}</p>`;
+            document.querySelectorAll('input[name="rating"]').forEach(r => r.checked = false);
+            document.getElementById('concertNotes').value = '';
+            document.getElementById('addConcertModal').classList.remove('hidden');
+            document.getElementById('addConcertModal').classList.add('flex');
+        }
+
+        function closeModal() { document.getElementById('addConcertModal').classList.add('hidden'); document.getElementById('addConcertModal').classList.remove('flex'); selectedSetlist = null; }
+
+        async function saveConcert() {
+            if (!selectedSetlist) return;
+            const rating = document.querySelector('input[name="rating"]:checked')?.value;
+            const notes = document.getElementById('concertNotes').value.trim();
+            if (!rating) { alert('Please select a rating'); return; }
+            const date = new Date(selectedSetlist.eventDate.split('-').reverse().join('-'));
+            const venue = selectedSetlist.venue;
+            const concertData = { setlistId: selectedSetlist.id, artistName: selectedSetlist.artist?.name || 'Unknown Artist', artistMbid: selectedSetlist.artist?.mbid, eventDate: date.toISOString(), venueName: venue?.name || 'Unknown Venue', venueCity: venue?.city?.name || '', venueState: venue?.city?.state || '', venueCountry: venue?.city?.country?.name || '', rating: parseInt(rating), notes: notes, setlistUrl: selectedSetlist.url };
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/concert-history`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(concertData) });
+                const data = await response.json();
+                if (data.success) { closeModal(); loadConcertHistory(); alert('Concert added to your history!'); }
+                else alert(data.message || 'Error saving concert');
+            } catch (error) { console.error('Save concert error:', error); alert('Error saving concert. Please try again.'); }
+        }
+
+        async function loadConcertHistory() {
+            const sortBy = document.getElementById('historySortSelect').value;
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/concert-history?sort=${sortBy}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) { document.getElementById('concertCount').textContent = data.count || 0; displayConcertHistory(data.concerts || []); }
+            } catch (error) { console.error('Load concert history error:', error); document.getElementById('concertHistoryList').innerHTML = `<p class="text-center text-slate-500 py-8">Error loading concert history.</p>`; }
+        }
+
+        function displayConcertHistory(concerts) {
+            const container = document.getElementById('concertHistoryList');
+            if (concerts.length === 0) { container.innerHTML = `<p class="text-center text-slate-500 py-8">No concerts in your history yet. Search above to add your first!</p>`; return; }
+            container.innerHTML = concerts.map((concert, index) => {
+                const date = new Date(concert.eventDate);
+                const stars = '★'.repeat(concert.rating) + '☆'.repeat(5 - concert.rating);
+                return `
+                    <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-lg text-slate-800">${concert.artistName}</h3>
+                                <p class="text-sm text-slate-600 mb-1">📅 ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                <p class="text-sm text-slate-600 mb-2">📍 ${concert.venueName}, ${concert.venueCity}${concert.venueState ? ', ' + concert.venueState : ''}</p>
+                                <div class="star-display text-xl mb-2">${stars}</div>
+                                ${concert.notes ? `<p class="text-sm text-slate-700 italic">"${concert.notes}"</p>` : ''}
+                            </div>
+                            <div class="flex flex-col gap-2 ml-4">
+                                ${concert.setlistId ? `<button onclick="openServiceModalForHistory(${index})" class="px-3 py-1 bg-slate-700 text-white rounded text-sm hover:bg-slate-800 flex items-center gap-1">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                                    Create Playlist
+                                </button>` : ''}
+                                ${concert.setlistId ? `<button onclick="toggleHistorySetlist(${index}, '${concert.setlistId}')" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700" id="historyToggleBtn-${index}">Show Songs</button>` : ''}
+                                <button onclick="openEditModal('${concert._id}', ${concert.rating}, '${(concert.notes || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')" class="px-3 py-1 bg-amber-100 text-amber-700 rounded text-sm hover:bg-amber-200">Edit</button>
+                                <button onclick="deleteConcert('${concert._id}')" class="px-3 py-1 bg-rose-100 text-rose-700 rounded text-sm hover:bg-rose-200">Remove</button>
+                            </div>
+                        </div>
+                        <div id="historySetlist-${index}" class="hidden mt-4 pt-4 border-t border-slate-200">
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <div class="text-center py-4">
+                                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-slate-600"></div>
+                                    <p class="text-sm text-slate-500 mt-2">Loading setlist...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            // Store concerts for playlist creation
+            window.concertHistoryData = concerts;
+        }
+
+        function openEditModal(concertId, rating, notes) {
+            document.getElementById('editConcertId').value = concertId;
+            document.getElementById('editConcertNotes').value = notes || '';
+            document.querySelectorAll('input[name="editRating"]').forEach(r => r.checked = false);
+            const ratingInput = document.getElementById(`editStar${rating}`);
+            if (ratingInput) ratingInput.checked = true;
+            document.getElementById('editConcertModal').classList.remove('hidden');
+            document.getElementById('editConcertModal').classList.add('flex');
+        }
+
+        function closeEditModal() { document.getElementById('editConcertModal').classList.add('hidden'); document.getElementById('editConcertModal').classList.remove('flex'); }
+
+        async function updateConcert() {
+            const concertId = document.getElementById('editConcertId').value;
+            const rating = document.querySelector('input[name="editRating"]:checked')?.value;
+            const notes = document.getElementById('editConcertNotes').value.trim();
+            if (!rating) { alert('Please select a rating'); return; }
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/concert-history/${concertId}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ rating: parseInt(rating), notes }) });
+                const data = await response.json();
+                if (data.success) { closeEditModal(); loadConcertHistory(); }
+                else alert(data.message || 'Error updating concert');
+            } catch (error) { console.error('Update concert error:', error); alert('Error updating concert. Please try again.'); }
+        }
+
+        async function deleteConcert(concertId) {
+            if (!confirm('Remove this concert from your history?')) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/concert-history/${concertId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) loadConcertHistory();
+                else alert(data.message || 'Error removing concert');
+            } catch (error) { console.error('Delete concert error:', error); alert('Error removing concert'); }
+        }
+
+        function resetFilters() { document.getElementById('artistSearch').value = ''; document.getElementById('yearFilter').value = ''; document.getElementById('stateFilter').value = ''; document.getElementById('cityFilter').value = ''; document.getElementById('artistSuggestions').style.display = 'none'; allSetlists = []; currentPage = 1; }
+
+        // Setlist display for concert history
+        let loadedSetlists = {}; // Cache loaded setlists
+
+        async function toggleHistorySetlist(index, setlistId) {
+            const setlistDiv = document.getElementById(`historySetlist-${index}`);
+            const toggleBtn = document.getElementById(`historyToggleBtn-${index}`);
+            
+            if (setlistDiv.classList.contains('hidden')) {
+                setlistDiv.classList.remove('hidden');
+                toggleBtn.textContent = 'Hide Songs';
+                
+                // Load setlist if not cached
+                if (!loadedSetlists[setlistId]) {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/setlist/setlist/${setlistId}`);
+                        const data = await response.json();
+                        if (data.success && data.setlist) {
+                            loadedSetlists[setlistId] = data.setlist;
+                            displayHistorySetlist(index, data.setlist);
+                        } else {
+                            setlistDiv.querySelector('.bg-slate-50').innerHTML = '<p class="text-sm text-slate-500">Setlist not available</p>';
+                        }
+                    } catch (error) {
+                        console.error('Error loading setlist:', error);
+                        setlistDiv.querySelector('.bg-slate-50').innerHTML = '<p class="text-sm text-rose-500">Error loading setlist</p>';
+                    }
+                } else {
+                    displayHistorySetlist(index, loadedSetlists[setlistId]);
+                }
+            } else {
+                setlistDiv.classList.add('hidden');
+                toggleBtn.textContent = 'Show Songs';
+            }
+        }
+
+        function displayHistorySetlist(index, setlist) {
+            const setlistDiv = document.getElementById(`historySetlist-${index}`);
+            let setlistHtml = '';
+            
+            if (setlist.sets && setlist.sets.length > 0) {
+                setlistHtml = setlist.sets.map(set => `
+                    <div class="mb-4 last:mb-0">
+                        <h5 class="font-semibold text-slate-700 mb-2">${set.name || 'Main Set'}</h5>
+                        <ol class="list-decimal list-inside space-y-1">
+                            ${set.songs.map(song => `
+                                <li class="text-sm text-slate-700">
+                                    ${song.name}${song.cover ? ` <span class="text-slate-400">(${song.cover.name} cover)</span>` : ''}${song.info ? ` <span class="text-slate-400 italic">(${song.info})</span>` : ''}
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                `).join('');
+            } else if (setlist.songs && setlist.songs.length > 0) {
+                setlistHtml = `
+                    <ol class="list-decimal list-inside space-y-1">
+                        ${setlist.songs.map(song => `
+                            <li class="text-sm text-slate-700">
+                                ${song.name}${song.cover ? ` <span class="text-slate-400">(${song.cover.name} cover)</span>` : ''}${song.info ? ` <span class="text-slate-400 italic">(${song.info})</span>` : ''}
+                            </li>
+                        `).join('')}
+                    </ol>
+                `;
+            } else {
+                setlistHtml = '<p class="text-sm text-slate-500">No songs recorded for this setlist</p>';
+            }
+            
+            setlistDiv.querySelector('.bg-slate-50').innerHTML = setlistHtml;
+        }
+
+        // Playlist creation state
+        let selectedHistoryIndex = null;
+        let selectedService = null;
+        let createdPlaylistUrl = null;
+
+        async function openServiceModalForHistory(index) {
+            selectedHistoryIndex = index;
+            document.getElementById('serviceModal').classList.remove('hidden');
+            
+            // Check YouTube connection status
+            try {
+                const statusRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const status = await statusRes.json();
+                
+                const statusEl = document.getElementById('youtubeServiceStatus');
+                if (status.connected) {
+                    statusEl.innerHTML = '<span class="text-emerald-600">Connected</span>';
+                } else {
+                    statusEl.innerHTML = '<span class="text-slate-500">Not connected - <a href="account-details.html" class="text-blue-600 underline">Connect</a></span>';
+                }
+            } catch (error) {
+                document.getElementById('youtubeServiceStatus').innerHTML = '<span class="text-rose-600">Error checking status</span>';
+            }
+        }
+
+        function closeServiceModal(clearIndex = true) {
+            document.getElementById('serviceModal').classList.add('hidden');
+            if (clearIndex) {
+                selectedHistoryIndex = null;
+            }
+        }
+
+        async function selectService(service) {
+            selectedService = service;
+            
+            if (service === 'youtube') {
+                const statusRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const status = await statusRes.json();
+                
+                if (!status.connected) {
+                    alert('Please connect your YouTube account first in Account Details.');
+                    return;
+                }
+            }
+            
+            closeServiceModal(false);
+            await openNameModal();
+        }
+
+        async function openNameModal() {
+            const concert = window.concertHistoryData[selectedHistoryIndex];
+            const setlistId = concert.setlistId;
+            
+            // Load setlist if not cached
+            if (!loadedSetlists[setlistId]) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/setlist/setlist/${setlistId}`);
+                    const data = await response.json();
+                    if (data.success && data.setlist) {
+                        loadedSetlists[setlistId] = data.setlist;
+                    }
+                } catch (error) {
+                    console.error('Error loading setlist:', error);
+                    alert('Error loading setlist data');
+                    return;
+                }
+            }
+            
+            const setlist = loadedSetlists[setlistId];
+            if (!setlist || !setlist.songs || setlist.songs.length === 0) {
+                alert('No songs available for this setlist');
+                return;
+            }
+            
+            const date = new Date(concert.eventDate);
+            const suggestedName = `${concert.artistName} - ${concert.venueCity} ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            
+            // Count songs and covers
+            const totalSongs = setlist.songs.length;
+            const coverCount = setlist.songs.filter(s => s.cover).length;
+            const nonCoverCount = totalSongs - coverCount;
+            
+            // Store counts for checkbox toggle
+            window.playlistSongCounts = { total: totalSongs, nonCovers: nonCoverCount, covers: coverCount };
+            
+            document.getElementById('playlistNameInput').value = suggestedName;
+            document.getElementById('includeCoversCheckbox').checked = false;
+            updateSongCountPreview();
+            document.getElementById('nameModal').classList.remove('hidden');
+        }
+        
+        function updateSongCountPreview() {
+            const includeCovers = document.getElementById('includeCoversCheckbox').checked;
+            const counts = window.playlistSongCounts || { total: 0, nonCovers: 0, covers: 0 };
+            const songCount = includeCovers ? counts.total : counts.nonCovers;
+            document.getElementById('songCountPreview').textContent = songCount;
+        }
+
+        function closeNameModal() {
+            document.getElementById('nameModal').classList.add('hidden');
+            document.getElementById('includeCoversCheckbox').checked = false;
+            document.getElementById('songLimitInput').value = '';
+            selectedHistoryIndex = null;
+            selectedService = null;
+        }
+
+        async function startPlaylistCreation() {
+            const concert = window.concertHistoryData[selectedHistoryIndex];
+            const setlist = loadedSetlists[concert.setlistId];
+            const playlistName = document.getElementById('playlistNameInput').value.trim();
+            const includeCovers = document.getElementById('includeCoversCheckbox').checked;
+            const songLimitValue = document.getElementById('songLimitInput').value;
+            const songLimit = songLimitValue ? parseInt(songLimitValue, 10) : null;
+            
+            if (!playlistName) {
+                alert('Please enter a playlist name');
+                return;
+            }
+            
+            closeNameModal();
+            
+            // Show progress modal
+            document.getElementById('progressModal').classList.remove('hidden');
+            document.getElementById('progressTitle').textContent = 'Creating Playlist...';
+            document.getElementById('progressSubtitle').textContent = 'Adding songs to your playlist...';
+            document.getElementById('progressSpinner').style.display = 'block';
+            document.getElementById('progressFooter').style.display = 'none';
+            
+            // Build song list - filter out covers if not included
+            const allSongs = setlist.songs.map(song => ({
+                artist: concert.artistName,
+                title: song.name,
+                isCover: !!song.cover,
+                originalArtist: song.cover?.name || null
+            }));
+            
+            let songs = includeCovers ? allSongs : allSongs.filter(song => !song.isCover);
+            
+            // Apply song limit if set (dev feature)
+            if (songLimit && songLimit > 0) {
+                songs = songs.slice(0, songLimit);
+                console.log(`Dev: Limited to ${songLimit} songs`);
+            }
+            
+            document.getElementById('progressSongList').innerHTML = songs.map((song, i) => `
+                <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0" id="song-row-${i}">
+                    <div class="w-6 h-6 flex items-center justify-center" id="song-status-${i}">
+                        <svg class="animate-pulse text-slate-300" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700" id="song-title-${i}">${song.title}</p>
+                        <p class="text-xs text-slate-500">${song.artist}${song.isCover ? ` (${song.originalArtist} cover)` : ''}</p>
+                    </div>
+                </div>
+            `).join('');
+            
+            try {
+                const date = new Date(concert.eventDate);
+                const playlistDesc = `Setlist from ${concert.artistName} at ${concert.venueName}, ${concert.venueCity} on ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. Created by Event Tracker.`;
+                
+                const createRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/playlists`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: playlistName,
+                        description: playlistDesc,
+                        privacyStatus: 'private'
+                    })
+                });
+                
+                const playlist = await createRes.json();
+                
+                if (playlist.error) {
+                    throw new Error(playlist.error);
+                }
+                
+                createdPlaylistUrl = `https://www.youtube.com/playlist?list=${playlist.id}`;
+                let addedCount = 0;
+                let failedCount = 0;
+                let cachedCount = 0;
+                
+                // Add songs one by one
+                for (let i = 0; i < songs.length; i++) {
+                    const song = songs[i];
+                    let videoId = null;
+                    
+                    try {
+                        let fromCache = false;
+                        
+                        if (song.isCover) {
+                            // For covers: first try the performing artist's version
+                            const artistSearchRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}&maxResults=1`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            const artistSearchData = await artistSearchRes.json();
+                            
+                            // Check for API errors (quota, etc)
+                            if (artistSearchData.error) {
+                                throw new Error(artistSearchData.error);
+                            }
+                            
+                            fromCache = artistSearchData.fromCache || false;
+                            
+                            if (artistSearchData.items && artistSearchData.items.length > 0) {
+                                videoId = artistSearchData.items[0].id.videoId;
+                            } else {
+                                // Fall back to original artist's version
+                                const originalSearchRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(song.originalArtist)}&title=${encodeURIComponent(song.title)}&maxResults=1`, {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                const originalSearchData = await originalSearchRes.json();
+                                
+                                // Check for API errors
+                                if (originalSearchData.error) {
+                                    throw new Error(originalSearchData.error);
+                                }
+                                
+                                fromCache = originalSearchData.fromCache || false;
+                                
+                                if (originalSearchData.items && originalSearchData.items.length > 0) {
+                                    videoId = originalSearchData.items[0].id.videoId;
+                                }
+                            }
+                        } else {
+                            // Regular song search - use artist/title for caching
+                            const searchRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}&maxResults=1`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            const searchData = await searchRes.json();
+                            
+                            // Check for API errors
+                            if (searchData.error) {
+                                throw new Error(searchData.error);
+                            }
+                            
+                            fromCache = searchData.fromCache || false;
+                            
+                            if (searchData.items && searchData.items.length > 0) {
+                                videoId = searchData.items[0].id.videoId;
+                            }
+                        }
+                        
+                        if (videoId) {
+                            // Include artist and title for lazy invalidation support
+                            const addRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/playlists/${playlist.id}/items`, {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ 
+                                    videoId,
+                                    artist: song.isCover ? (fromCache ? song.artist : song.originalArtist) : song.artist,
+                                    title: song.title
+                                })
+                            });
+                            
+                            const addData = await addRes.json();
+                            
+                            // Handle video unavailable - re-search without cache
+                            if (addData.videoUnavailable) {
+                                console.log(`Video unavailable for "${song.title}", re-searching...`);
+                                const retryArtist = song.isCover ? song.originalArtist : song.artist;
+                                const retryRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(retryArtist)}&title=${encodeURIComponent(song.title)}&skipCache=true&maxResults=1`, {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                const retryData = await retryRes.json();
+                                
+                                if (retryData.items && retryData.items.length > 0) {
+                                    const newVideoId = retryData.items[0].id.videoId;
+                                    const retryAddRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/playlists/${playlist.id}/items`, {
+                                        method: 'POST',
+                                        headers: { 
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({ videoId: newVideoId })
+                                    });
+                                    const retryAddData = await retryAddRes.json();
+                                    
+                                    if (retryAddData.error) {
+                                        throw new Error(retryAddData.error);
+                                    }
+                                    
+                                    // Show purple for recovered from invalid cache
+                                    document.getElementById(`song-status-${i}`).innerHTML = `
+                                        <svg class="text-purple-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                            <path d="M20 6L9 17l-5-5"/>
+                                        </svg>
+                                    `;
+                                    document.getElementById(`song-title-${i}`).classList.add('text-purple-700');
+                                    addedCount++;
+                                    fromCache = false;
+                                } else {
+                                    throw new Error('No replacement video found');
+                                }
+                            } else if (addData.error) {
+                                throw new Error(addData.error);
+                            } else {
+                                // Show different icon for cached vs fresh
+                                if (fromCache) {
+                                    document.getElementById(`song-status-${i}`).innerHTML = `
+                                        <svg class="text-blue-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                            <path d="M20 6L9 17l-5-5"/>
+                                        </svg>
+                                    `;
+                                    document.getElementById(`song-title-${i}`).classList.add('text-blue-700');
+                                    cachedCount++;
+                                } else {
+                                    document.getElementById(`song-status-${i}`).innerHTML = `
+                                        <svg class="text-emerald-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                            <path d="M20 6L9 17l-5-5"/>
+                                        </svg>
+                                    `;
+                                    document.getElementById(`song-title-${i}`).classList.add('text-emerald-700');
+                                }
+                                addedCount++;
+                            }
+                        } else {
+                            throw new Error('No video found');
+                        }
+                    } catch (songError) {
+                        // Check if it's a quota error
+                        if (songError.message?.includes('quota') || songError.message?.includes('Quota')) {
+                            document.getElementById('progressSubtitle').textContent = 'YouTube API quota exceeded. Try again tomorrow.';
+                            document.getElementById(`song-status-${i}`).innerHTML = `
+                                <svg class="text-amber-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                            `;
+                            document.getElementById(`song-title-${i}`).classList.add('text-amber-600');
+                            failedCount++;
+                            break; // Stop processing
+                        }
+                        
+                        document.getElementById(`song-status-${i}`).innerHTML = `
+                            <svg class="text-rose-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        `;
+                        document.getElementById(`song-title-${i}`).classList.add('text-rose-600');
+                        failedCount++;
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Check for quota exceeded
+                    if (document.getElementById('progressSubtitle').textContent.includes('quota')) {
+                        break; // Stop processing if quota exceeded
+                    }
+                }
+                
+                document.getElementById('progressTitle').textContent = 'Playlist Created!';
+                let summaryParts = [`${addedCount} songs added`];
+                if (cachedCount > 0) {
+                    summaryParts.push(`${cachedCount} from cache`);
+                }
+                if (failedCount > 0) {
+                    summaryParts.push(`${failedCount} not found`);
+                }
+                document.getElementById('progressSubtitle').textContent = summaryParts.join(', ');
+                document.getElementById('progressSpinner').style.display = 'none';
+                document.getElementById('progressFooter').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Failed to create playlist:', error);
+                document.getElementById('progressTitle').textContent = 'Error';
+                document.getElementById('progressSubtitle').textContent = error.message;
+                document.getElementById('progressSpinner').style.display = 'none';
+                document.getElementById('progressFooter').style.display = 'block';
+                document.getElementById('openPlaylistBtn').style.display = 'none';
+            }
+        }
+
+        function closeProgressModal() {
+            document.getElementById('progressModal').classList.add('hidden');
+            createdPlaylistUrl = null;
+        }
+
+        function openPlaylistInYouTube() {
+            if (createdPlaylistUrl) {
+                window.open(createdPlaylistUrl, '_blank');
+            }
+        }
+    </script>
+</body>
+</html>

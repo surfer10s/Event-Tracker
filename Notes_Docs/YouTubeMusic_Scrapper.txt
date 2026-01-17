@@ -1,0 +1,34 @@
+(function() {
+  let artistName = document.querySelector('ytmusic-responsive-list-item-renderer .secondary-flex-columns yt-formatted-string a[href^="channel/"]')?.textContent?.trim()
+    || document.querySelector('yt-formatted-string a[href^="channel/"]')?.textContent?.trim();
+
+  if (!artistName) {
+    artistName = prompt('Could not detect artist. Enter the artist name:');
+  }
+
+  if (artistName) {
+    const songs = [];
+    document.querySelectorAll('ytmusic-responsive-list-item-renderer').forEach(item => {
+      const titleEl = item.querySelector('.title-column yt-formatted-string a, .title yt-formatted-string a');
+      const title = titleEl?.textContent?.trim();
+      const href = titleEl?.getAttribute('href');
+      const videoId = href?.match(/v=([^&]+)/)?.[1];
+      
+      if (title && videoId) {
+        songs.push({ 
+          artist: artistName,
+          title: title, 
+          videoId: videoId 
+        });
+      }
+    });
+
+    console.table(songs);
+    console.log(`Found ${songs.length} songs by ${artistName}`);
+    
+    copy(JSON.stringify(songs, null, 2));
+    console.log('✓ Copied to clipboard! Paste into cache admin bulk import.');
+  } else {
+    console.log('Cancelled - no artist name provided');
+  }
+})();

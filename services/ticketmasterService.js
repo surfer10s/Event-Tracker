@@ -1,0 +1,528 @@
+// Ticketmaster API Service
+// This handles all communication with Ticketmaster API
+// Think of this as a data access layer specifically for the TM API
+
+const axios = require('axios');
+const Artist = require('../models/Artist');
+const Event = require('../models/Event');
+const Tour = require('../models/Tour');
+
+// Base URL for Ticketmaster Discovery API
+const TM_BASE_URL = 'https://app.ticketmaster.com/discovery/v2';
+
+class TicketmasterService {
+  constructor() {
+    this.apiKey = process.env.TICKETMASTER_API_KEY;
+    this.affiliateId = process.env.TICKETMASTER_AFFILIATE_ID;
+    
+    if (!this.apiKey) {
+      console.warn('WARNING: Ticketmaster API key not found in environment variables');
+    }
+  }
+
+  // Build affiliate URL with your tracking ID
+  buildAffiliateUrl(originalUrl) {
+    if (!originalUrl) return null;
+    
+    // Add your affiliate ID to the URL
+    // Format depends on Ticketmaster's affiliate program requirements
+    if (this.affiliateId) {
+      const separator = originalUrl.includes('?') ? '&' : '?';
+      return `${originalUrl}${separator}affiliate=${this.affiliateId}`;
+    }
+    
+    return originalUrl;
+  }
+
+  // Search for events by keyword
+  async searchEvents(params = {}) {
+    try {
+      const {
+        keyword = '',
+        city = '',
+        stateCode = '',
+        startDateTime = '',
+        endDateTime = '',
+        size = 20,
+        page = 0,
+        sort = 'date,asc'
+      } = params;
+
+      // Build query parameters
+      const queryParams = {
+        apikey: this.apiKey,
+        size,
+        page,
+        sort
+      };
+
+      if (keyword) queryParams.keyword = keyword;
+      if (city) queryParams.city = city;
+      if (stateCode) queryParams.stateCode = stateCode;
+      if (startDateTime) queryParams.startDateTime = startDateTime;
+      if (endDateTime) queryParams.endDateTime = endDateTime;
+
+      // Make API request
+      const response = await axios.get(`${TM_BASE_URL}/events.json`, {
+        params: queryParams
+      });
+
+      // Extract events from response
+      const events = response.data._embedded?.events || [];
+      
+      return {
+        success: true,
+        events: events.map(event => this.formatEvent(event)),
+        pagination: {
+          page: response.data.page?.number || 0,
+          size: response.data.page?.size || 0,
+          totalElements: response.data.page?.totalElements || 0,
+          totalPages: response.data.page?.totalPages || 0
+        }
+      };
+
+    } catch (error) {
+      console.error('Ticketmaster API Error:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.fault?.faultstring || error.message,
+        events: []
+      };
+    }
+  }
+
+  // Get events by artist name
+  async getEventsByArtist(artistName, params = {}) {
+    return await this.searchEvents({
+      keyword: artistName,
+      ...params
+    });
+  }
+
+  // Format Ticketmaster event data to match our Event schema
+  formatEvent(tmEvent) {
+    // Extract venue info
+    const venue = tmEvent._embedded?.venues?.[0] || {};
+    
+    // Extract ALL price ranges (can include standard, resale, VIP, etc.)
+    const priceRanges = (tmEvent.priceRanges || []).map(pr => ({
+      type: pr.type || 'standard',
+      min: pr.min,
+      max: pr.max,
+      currency: pr.currency || 'USD'
+    }));
+    
+    // Get the standard/primary price range for backwards compatibility
+    const primaryPriceRange = priceRanges.find(pr => pr.type === 'standard') || priceRanges[0] || {};
+    
+    // Extract presale info
+    const presales = [];
+    if (tmEvent.sales?.presales) {
+      for (const presale of tmEvent.sales.presales) {
+        presales.push({
+          name: presale.name,
+          startDateTime: presale.startDateTime ? new Date(presale.startDateTime) : undefined,
+          endDateTime: presale.endDateTime ? new Date(presale.endDateTime) : undefined
+        });
+      }
+    }
+    
+    // Extract artist info
+    const attractions = tmEvent._embedded?.attractions || [];
+    const mainAttraction = attractions[0] || {};
+
+    // Build venue location in GeoJSON format
+    let venueLocation = undefined;
+    if (venue.location?.latitude && venue.location?.longitude) {
+      venueLocation = {
+        type: 'Point',
+        coordinates: [
+          parseFloat(venue.location.longitude), // longitude first
+          parseFloat(venue.location.latitude)   // latitude second
+        ]
+      };
+    }
+
+    return {
+      // External ID for syncing
+      externalIds: {
+        ticketmaster: tmEvent.id
+      },
+      
+      // Basic info
+      name: tmEvent.name,
+      date: new Date(tmEvent.dates?.start?.dateTime || tmEvent.dates?.start?.localDate),
+      
+      // Venue - with TBA fallbacks for missing data
+      venue: {
+        name: venue.name || 'Venue TBA',
+        address: venue.address?.line1,
+        city: venue.city?.name || 'TBA',
+        state: venue.state?.stateCode,
+        country: venue.country?.countryCode || 'US',
+        zipCode: venue.postalCode,
+        location: venueLocation
+      },
+      
+      // Ticket info - enhanced!
+      ticketInfo: {
+        minPrice: primaryPriceRange.min,
+        maxPrice: primaryPriceRange.max,
+        currency: primaryPriceRange.currency || 'USD',
+        priceRanges: priceRanges,
+        status: this.mapTicketStatus(tmEvent.dates?.status?.code),
+        resaleStatus: 'unknown', // Would need Inventory Status API for this
+        onSaleDate: tmEvent.sales?.public?.startDateTime ? 
+          new Date(tmEvent.sales.public.startDateTime) : undefined,
+        offSaleDate: tmEvent.sales?.public?.endDateTime ? 
+          new Date(tmEvent.sales.public.endDateTime) : undefined,
+        presales: presales,
+        ticketLimit: this.parseTicketLimit(tmEvent.ticketLimit),
+        allInclusivePricing: tmEvent.allInclusivePricing || false,
+        lastInventoryCheck: new Date()
+      },
+      
+      // Affiliate links
+      affiliateLinks: {
+        ticketmaster: {
+          url: this.buildAffiliateUrl(tmEvent.url),
+          affiliateId: this.affiliateId,
+          lastChecked: new Date()
+        }
+      },
+      
+      // Images
+      images: {
+        thumbnail: tmEvent.images?.find(img => img.width < 500)?.url,
+        medium: tmEvent.images?.find(img => img.width >= 500 && img.width < 1000)?.url,
+        large: tmEvent.images?.find(img => img.width >= 1000)?.url
+      },
+      
+      // Artist info (for creating/linking Artist records)
+      artistInfo: {
+        name: mainAttraction.name || 'Unknown Artist',
+        externalId: mainAttraction.id,
+        genre: mainAttraction.classifications?.[0]?.genre?.name,
+        images: mainAttraction.images
+      },
+      
+      // Supporting acts
+      supportingActs: attractions.slice(1).map(act => ({
+        name: act.name
+      })),
+      
+      description: tmEvent.info || tmEvent.pleaseNote,
+      
+      lastUpdated: new Date()
+    };
+  }
+
+  // Map Ticketmaster status codes to our schema
+  mapTicketStatus(statusCode) {
+    const statusMap = {
+      'onsale': 'on_sale',
+      'offsale': 'sold_out',
+      'cancelled': 'cancelled',
+      'postponed': 'postponed',
+      'rescheduled': 'rescheduled'
+    };
+    
+    return statusMap[statusCode] || 'not_yet_on_sale';
+  }
+
+  // Parse ticket limit from Ticketmaster data
+  parseTicketLimit(ticketLimitData) {
+    if (!ticketLimitData) return undefined;
+    
+    // Try to get the numeric limit directly
+    if (typeof ticketLimitData === 'number') {
+      return ticketLimitData;
+    }
+    
+    // Try info field - might be a string like "8" or "8 tickets per customer"
+    const info = ticketLimitData.info;
+    if (info) {
+      // Extract the first number from the string
+      const match = String(info).match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (!isNaN(num) && num > 0) {
+          return num;
+        }
+      }
+    }
+    
+    return undefined;
+  }
+
+  // Save events to database (with duplicate checking)
+  async saveEventToDatabase(formattedEvent) {
+    try {
+      // Check if event already exists
+      let event = await Event.findOne({
+        'externalIds.ticketmaster': formattedEvent.externalIds.ticketmaster
+      });
+
+      // Find or create the artist
+      let artist = await Artist.findOne({
+        'externalIds.ticketmaster': formattedEvent.artistInfo.externalId
+      });
+
+      if (!artist) {
+        artist = await Artist.create({
+          name: formattedEvent.artistInfo.name,
+          externalIds: {
+            ticketmaster: formattedEvent.artistInfo.externalId
+          },
+          genre: formattedEvent.artistInfo.genre ? [formattedEvent.artistInfo.genre] : [],
+          images: {
+            large: formattedEvent.artistInfo.images?.[0]?.url
+          },
+          tourStatus: 'active',
+          lastUpdated: new Date()
+        });
+      }
+
+      // Update artist stats
+      artist.stats.upcomingEvents = await Event.countDocuments({
+        artist: artist._id,
+        date: { $gte: new Date() }
+      });
+      await artist.save();
+
+      // Create or update event
+      if (event) {
+        // Update existing event
+        Object.assign(event, {
+          ...formattedEvent,
+          artist: artist._id,
+          lastUpdated: new Date()
+        });
+        await event.save();
+        return { success: true, event, artist, created: false };
+      } else {
+        // Create new event
+        event = await Event.create({
+          ...formattedEvent,
+          artist: artist._id
+        });
+        return { success: true, event, artist, created: true };
+      }
+
+    } catch (error) {
+      console.error('Error saving event to database:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Bulk import events (useful for populating database)
+  async importEvents(searchParams) {
+    try {
+      const result = await this.searchEvents(searchParams);
+      
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      const savedEvents = [];
+      const errors = [];
+
+      // Save each event
+      for (const eventData of result.events) {
+        const saveResult = await this.saveEventToDatabase(eventData);
+        
+        if (saveResult.success) {
+          savedEvents.push(saveResult.event);
+        } else {
+          errors.push({
+            eventName: eventData.name,
+            error: saveResult.error
+          });
+        }
+      }
+
+      return {
+        success: true,
+        imported: savedEvents.length,
+        errors: errors.length,
+        details: {
+          savedEvents,
+          errors
+        }
+      };
+
+    } catch (error) {
+      console.error('Error importing events:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get upcoming events for a specific artist (from TM API)
+  async getArtistUpcomingEvents(artistId) {
+    try {
+      const response = await axios.get(`${TM_BASE_URL}/events.json`, {
+        params: {
+          apikey: this.apiKey,
+          attractionId: artistId,
+          sort: 'date,asc'
+        }
+      });
+
+      const events = response.data._embedded?.events || [];
+      
+      return {
+        success: true,
+        events: events.map(event => this.formatEvent(event))
+      };
+
+    } catch (error) {
+      console.error('Error fetching artist events:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        events: []
+      };
+    }
+  }
+
+  // Search for artists/attractions
+  async searchArtists(keyword, options = {}) {
+    try {
+      const { musicOnly = true } = options;
+      
+      const params = {
+        apikey: this.apiKey,
+        keyword: keyword,
+        size: 20
+      };
+      
+      // Filter to music only by default (excludes sports, theater, etc.)
+      if (musicOnly) {
+        params.classificationName = 'music';
+      }
+      
+      const response = await axios.get(`${TM_BASE_URL}/attractions.json`, { params });
+
+      const attractions = response.data._embedded?.attractions || [];
+      
+      return {
+        success: true,
+        artists: attractions.map(attraction => ({
+          name: attraction.name,
+          externalId: attraction.id,
+          genre: attraction.classifications?.[0]?.genre?.name,
+          segment: attraction.classifications?.[0]?.segment?.name,
+          images: attraction.images,
+          url: attraction.url
+        }))
+      };
+
+    } catch (error) {
+      console.error('Error searching artists:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        artists: []
+      };
+    }
+  }
+
+  // Check inventory status for events (requires Inventory Status API access)
+  // Contact devportalinquiry@ticketmaster.com to request access
+  async checkInventoryStatus(eventIds) {
+    try {
+      // eventIds should be an array of Ticketmaster event IDs
+      const ids = Array.isArray(eventIds) ? eventIds.join(',') : eventIds;
+      
+      const response = await axios.get('https://app.ticketmaster.com/inventory-status/v1/availability', {
+        params: {
+          apikey: this.apiKey,
+          events: ids
+        }
+      });
+
+      // Response format:
+      // [{ 
+      //   eventId: "xxx",
+      //   status: "TICKETS_AVAILABLE" | "TICKETS_NOT_AVAILABLE",
+      //   resaleStatus: "TICKETS_AVAILABLE" | "TICKETS_NOT_AVAILABLE",
+      //   currency: "USD",
+      //   priceRanges: [
+      //     { type: "primary", minPrice: 59.00, maxPrice: 249.00, listingsExtendBeyondMax: false },
+      //     { type: "resale", minPrice: 69.00, maxPrice: 2000.00, listingsExtendBeyondMax: true }
+      //   ]
+      // }]
+      
+      return {
+        success: true,
+        inventory: response.data
+      };
+
+    } catch (error) {
+      // If 403, likely don't have access to this API
+      if (error.response?.status === 403) {
+        console.log('Inventory Status API requires authorization. Contact devportalinquiry@ticketmaster.com');
+      }
+      return {
+        success: false,
+        error: error.message,
+        needsAuth: error.response?.status === 403
+      };
+    }
+  }
+
+  // Update events in database with inventory status
+  async updateEventInventory(eventId) {
+    try {
+      // Find event in our database
+      const event = await Event.findOne({ 'externalIds.ticketmaster': eventId });
+      if (!event) {
+        return { success: false, error: 'Event not found' };
+      }
+
+      // Check inventory status
+      const inventoryResult = await this.checkInventoryStatus(eventId);
+      if (!inventoryResult.success) {
+        return inventoryResult;
+      }
+
+      const inventory = inventoryResult.inventory[0];
+      if (!inventory) {
+        return { success: false, error: 'No inventory data returned' };
+      }
+
+      // Update event with inventory data
+      event.ticketInfo.status = inventory.status === 'TICKETS_AVAILABLE' ? 'on_sale' : 'sold_out';
+      event.ticketInfo.resaleStatus = inventory.resaleStatus === 'TICKETS_AVAILABLE' ? 'available' : 'not_available';
+      
+      // Update price ranges from inventory API (more accurate/real-time)
+      if (inventory.priceRanges) {
+        event.ticketInfo.priceRanges = inventory.priceRanges.map(pr => ({
+          type: pr.type,
+          min: pr.minPrice,
+          max: pr.maxPrice,
+          currency: inventory.currency
+        }));
+        
+        // Update main min/max from primary prices
+        const primary = inventory.priceRanges.find(pr => pr.type === 'primary');
+        if (primary) {
+          event.ticketInfo.minPrice = primary.minPrice;
+          event.ticketInfo.maxPrice = primary.maxPrice;
+        }
+      }
+      
+      event.ticketInfo.lastInventoryCheck = new Date();
+      await event.save();
+
+      return { success: true, event };
+
+    } catch (error) {
+      console.error('Error updating event inventory:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+// Export singleton instance
+module.exports = new TicketmasterService();

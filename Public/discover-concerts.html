@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discover Concerts - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen">
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-3xl font-bold text-gray-900">Discover Concerts</h1>
+                <div class="flex items-center gap-3">
+                    <a href="Event-Tracker.html" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        Home
+                    </a>
+                    <a href="favorites.html" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                        Favorites
+                    </a>
+                    <div class="relative" id="userMenuContainer" style="z-index: 9999;">
+                        <button id="userMenuButton" onclick="toggleUserMenu()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 font-semibold text-gray-700">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span id="userMenuName">Account</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        
+                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-gray-200">
+                            <a href="account-details.html" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Account Details
+                            </a>
+                            <hr class="my-1">
+                            <button onclick="logout()" class="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Info Banner -->
+        <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6 mb-6">
+            <div class="flex items-start gap-4">
+                <svg class="text-indigo-600 flex-shrink-0 mt-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <div>
+                    <h3 class="font-bold text-indigo-900 mb-1">Find Concerts You'll Love</h3>
+                    <p class="text-indigo-800">Search for concerts by artists similar to your favorites in any location and timeframe.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Filters -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">Search Criteria</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Location -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">Location</label>
+                    <select id="stateSelect" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Select a state...</option>
+                        <option value="AL">Alabama</option>
+                        <option value="AK">Alaska</option>
+                        <option value="AZ">Arizona</option>
+                        <option value="AR">Arkansas</option>
+                        <option value="CA">California</option>
+                        <option value="CO">Colorado</option>
+                        <option value="CT">Connecticut</option>
+                        <option value="DE">Delaware</option>
+                        <option value="FL">Florida</option>
+                        <option value="GA">Georgia</option>
+                        <option value="HI">Hawaii</option>
+                        <option value="ID">Idaho</option>
+                        <option value="IL">Illinois</option>
+                        <option value="IN">Indiana</option>
+                        <option value="IA">Iowa</option>
+                        <option value="KS">Kansas</option>
+                        <option value="KY">Kentucky</option>
+                        <option value="LA">Louisiana</option>
+                        <option value="ME">Maine</option>
+                        <option value="MD">Maryland</option>
+                        <option value="MA">Massachusetts</option>
+                        <option value="MI">Michigan</option>
+                        <option value="MN">Minnesota</option>
+                        <option value="MS">Mississippi</option>
+                        <option value="MO">Missouri</option>
+                        <option value="MT">Montana</option>
+                        <option value="NE">Nebraska</option>
+                        <option value="NV">Nevada</option>
+                        <option value="NH">New Hampshire</option>
+                        <option value="NJ">New Jersey</option>
+                        <option value="NM">New Mexico</option>
+                        <option value="NY">New York</option>
+                        <option value="NC">North Carolina</option>
+                        <option value="ND">North Dakota</option>
+                        <option value="OH">Ohio</option>
+                        <option value="OK">Oklahoma</option>
+                        <option value="OR">Oregon</option>
+                        <option value="PA">Pennsylvania</option>
+                        <option value="RI">Rhode Island</option>
+                        <option value="SC">South Carolina</option>
+                        <option value="SD">South Dakota</option>
+                        <option value="TN">Tennessee</option>
+                        <option value="TX">Texas</option>
+                        <option value="UT">Utah</option>
+                        <option value="VT">Vermont</option>
+                        <option value="VA">Virginia</option>
+                        <option value="WA">Washington</option>
+                        <option value="WV">West Virginia</option>
+                        <option value="WI">Wisconsin</option>
+                        <option value="WY">Wyoming</option>
+                    </select>
+                </div>
+
+                <!-- Timeframe -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">Timeframe</label>
+                    <select id="timeframeSelect" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="7">This Week</option>
+                        <option value="14">Next 2 Weeks</option>
+                        <option value="30" selected>Next Month</option>
+                        <option value="60">Next 2 Months</option>
+                        <option value="90">Next 3 Months</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Based On -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium mb-2">Based On</label>
+                <div class="flex gap-4 mb-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="basedOn" value="all" checked onchange="updateBasedOnOptions()" class="w-4 h-4">
+                        <span>All My Favorites</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="basedOn" value="single" onchange="updateBasedOnOptions()" class="w-4 h-4">
+                        <span>Single Artist</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="basedOn" value="category" onchange="updateBasedOnOptions()" class="w-4 h-4">
+                        <span>Category</span>
+                    </label>
+                </div>
+
+                <!-- Single Artist Selector -->
+                <div id="singleArtistSelector" class="hidden">
+                    <select id="artistSelect" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Select an artist...</option>
+                    </select>
+                </div>
+
+                <!-- Category Selector -->
+                <div id="categorySelector" class="hidden">
+                    <select id="categorySelect" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Select a category...</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="searchConcerts()" class="w-full md:w-auto px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-lg">
+                Find Concerts
+            </button>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsContainer" style="display:none;">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-bold mb-4">Suggested Concerts</h2>
+                <div id="concertsList" class="space-y-4">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden bg-white rounded-lg shadow p-12 text-center">
+            <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mb-4"></div>
+            <p class="text-lg text-gray-600">Finding concerts for you...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const LASTFM_API_KEY = '2d73454fb2aa08812279f5bb18303a01'; // ← Replace with your Last.fm API key
+        const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUser();
+            loadFavorites();
+            loadCategories();
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#userMenuContainer')) {
+                    document.getElementById('userDropdown').classList.add('hidden');
+                }
+            });
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('userMenuName').textContent = data.user.firstName || data.user.username;
+                }
+            } catch (error) {
+                console.error('Load user error:', error);
+            }
+        }
+
+        async function loadFavorites() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/favorites`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.artists) {
+                    const artistSelect = document.getElementById('artistSelect');
+                    artistSelect.innerHTML = '<option value="">Select an artist...</option>' +
+                        data.artists.sort((a, b) => a.name.localeCompare(b.name))
+                            .map(artist => `<option value="${artist._id}" data-name="${artist.name}">${artist.name}</option>`)
+                            .join('');
+                }
+            } catch (error) {
+                console.error('Load favorites error:', error);
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/categories`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.categories) {
+                    const categorySelect = document.getElementById('categorySelect');
+                    categorySelect.innerHTML = '<option value="">Select a category...</option>' +
+                        data.categories.map(cat => `<option value="${cat._id}">${cat.name}</option>`)
+                            .join('');
+                }
+            } catch (error) {
+                console.error('Load categories error:', error);
+            }
+        }
+
+        function updateBasedOnOptions() {
+            const basedOn = document.querySelector('input[name="basedOn"]:checked').value;
+            
+            document.getElementById('singleArtistSelector').classList.toggle('hidden', basedOn !== 'single');
+            document.getElementById('categorySelector').classList.toggle('hidden', basedOn !== 'category');
+        }
+
+        async function searchConcerts() {
+            const state = document.getElementById('stateSelect').value;
+            const timeframe = parseInt(document.getElementById('timeframeSelect').value);
+            const basedOn = document.querySelector('input[name="basedOn"]:checked').value;
+
+            if (!state) {
+                alert('Please select a location');
+                return;
+            }
+
+            // Get source artists based on selection
+            let sourceArtists = [];
+            
+            if (basedOn === 'single') {
+                const artistId = document.getElementById('artistSelect').value;
+                const artistName = document.getElementById('artistSelect').selectedOptions[0]?.dataset.name;
+                if (!artistId) {
+                    alert('Please select an artist');
+                    return;
+                }
+                sourceArtists = [{ _id: artistId, name: artistName }];
+            } else if (basedOn === 'category') {
+                const categoryId = document.getElementById('categorySelect').value;
+                if (!categoryId) {
+                    alert('Please select a category');
+                    return;
+                }
+                // Get artists in category
+                const response = await fetch(`${API_BASE_URL}/categories/${categoryId}/artists`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                sourceArtists = data.artists || [];
+            } else {
+                // All favorites
+                const response = await fetch(`${API_BASE_URL}/users/favorites`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                sourceArtists = data.artists || [];
+            }
+
+            if (sourceArtists.length === 0) {
+                alert('No artists found to base recommendations on');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('resultsContainer').style.display = 'none';
+
+            try {
+                // Step 1: Get similar artists from Last.fm for each source artist
+                const similarArtistsMap = new Map(); // artist name -> similarity score
+                const limitPerArtist = Math.min(30, Math.ceil(100 / sourceArtists.length));
+
+                for (const artist of sourceArtists.slice(0, 10)) {
+                    try {
+                        const response = await fetch(
+                            `${LASTFM_API_URL}?method=artist.getsimilar&artist=${encodeURIComponent(artist.name)}&api_key=${LASTFM_API_KEY}&format=json&limit=${limitPerArtist}`
+                        );
+                        const data = await response.json();
+
+                        if (data.similarartists?.artist) {
+                            data.similarartists.artist.forEach(similar => {
+                                const normalizedName = similar.name.toLowerCase().trim();
+                                const currentScore = similarArtistsMap.get(normalizedName) || 0;
+                                similarArtistsMap.set(normalizedName, currentScore + parseFloat(similar.match || 1));
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`Error getting similar artists for ${artist.name}:`, error);
+                    }
+                }
+
+                console.log(`Found ${similarArtistsMap.size} similar artists from Last.fm`);
+
+                // Step 2: Search Ticketmaster for each similar artist
+                const startDate = new Date();
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() + timeframe);
+                endDate.setHours(23, 59, 59, 999);
+
+                const allConcerts = [];
+                const artistNames = Array.from(similarArtistsMap.keys());
+                
+                // Search for up to 50 similar artists (to avoid too many API calls)
+                for (const artistName of artistNames.slice(0, 50)) {
+                    try {
+                        const response = await fetch(
+                            `${API_BASE_URL}/ticketmaster/search?keyword=${encodeURIComponent(artistName)}&stateCode=${state}&startDateTime=${startDate.toISOString()}&endDateTime=${endDate.toISOString()}`
+                        );
+                        const data = await response.json();
+
+                        if (data.success && data.events) {
+                            // Add similarity score to each event
+                            data.events.forEach(event => {
+                                event.similarityScore = similarArtistsMap.get(artistName);
+                                event.searchedArtist = artistName;
+                            });
+                            allConcerts.push(...data.events);
+                        }
+                    } catch (error) {
+                        console.error(`Error searching for ${artistName}:`, error);
+                    }
+                }
+
+                console.log(`Found ${allConcerts.length} total events from Ticketmaster`);
+
+                // Debug: show first event structure
+                if (allConcerts.length > 0) {
+                    console.log('Sample event structure:', JSON.stringify(allConcerts[0], null, 2));
+                }
+
+                // Step 3: Filter out sports and non-music events
+                const sportsKeywords = ['nba', 'nfl', 'mlb', 'nhl', 'mls', 'ncaa', 'ufc', 'wwe', 
+                                       'basketball', 'football', 'baseball', 'hockey', 'soccer',
+                                       'vs', 'vs.', 'game', 'playoff', 'championship'];
+                
+                const musicConcerts = allConcerts.filter(event => {
+                    const eventName = (event.name || '').toLowerCase();
+                    const classifications = event.classifications || [];
+                    
+                    // Check classifications for sports
+                    const isSportsByClassification = classifications.some(c => 
+                        c.segment?.name?.toLowerCase() === 'sports' ||
+                        c.segment?.name?.toLowerCase() === 'sport'
+                    );
+                    
+                    // Check event name for sports keywords
+                    const isSportsByKeyword = sportsKeywords.some(keyword => 
+                        eventName.includes(keyword)
+                    );
+                    
+                    // Check if it's explicitly music
+                    const isMusicByClassification = classifications.some(c =>
+                        c.segment?.name?.toLowerCase() === 'music'
+                    );
+                    
+                    // Include if: (music classification OR not sports) AND not sports keywords
+                    return !isSportsByClassification && !isSportsByKeyword;
+                });
+
+                console.log(`Filtered to ${musicConcerts.length} non-sports concerts (was ${allConcerts.length})`);
+
+                // Sort by similarity score (highest first)
+                musicConcerts.sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0));
+
+                displayConcerts(musicConcerts, state, timeframe);
+            } catch (error) {
+                console.error('Search error:', error);
+                alert('Error searching for concerts. Please try again.');
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        function displayConcerts(concerts, state, timeframe) {
+            document.getElementById('resultsContainer').style.display = 'block';
+            const container = document.getElementById('concertsList');
+
+            // Filter out concerts without valid URLs
+            const concertsWithUrls = concerts.filter(concert => {
+                const eventUrl = concert.url || concert.ticketUrl || concert.affiliateLinks?.ticketmaster?.url || concert._links?.self?.href;
+                return eventUrl && eventUrl !== '#' && eventUrl.startsWith('http');
+            });
+
+            if (concertsWithUrls.length === 0) {
+                container.innerHTML = `
+                    <p class="text-center text-gray-600 py-8">No concerts found matching your criteria. Try different filters!</p>
+                `;
+                return;
+            }
+
+            // Sort by date - handle different date formats
+            concertsWithUrls.sort((a, b) => {
+                const dateA = new Date(a.dates?.start?.localDate || a.date || a.localDate);
+                const dateB = new Date(b.dates?.start?.localDate || b.date || b.localDate);
+                return dateA - dateB;
+            });
+
+            container.innerHTML = concertsWithUrls.map(concert => {
+                const dateStr = concert.dates?.start?.localDate || concert.date || concert.localDate;
+                const date = new Date(dateStr);
+                const artistName = concert._embedded?.attractions?.[0]?.name || concert.name || 'Various Artists';
+                const venueName = concert._embedded?.venues?.[0]?.name || concert.venue?.name || 'Venue TBA';
+                const city = concert._embedded?.venues?.[0]?.city?.name || concert.venue?.city || '';
+                const stateCode = concert._embedded?.venues?.[0]?.state?.stateCode || concert.venue?.state || state;
+                
+                // Get URL (we know it exists because we filtered above)
+                const eventUrl = concert.url || concert.ticketUrl || concert.affiliateLinks?.ticketmaster?.url || concert._links?.self?.href;
+                
+                return `
+                    <div class="border rounded-lg p-4 hover:bg-gray-50">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-lg mb-1">${concert.name}</h3>
+                                <p class="text-indigo-600 font-semibold mb-2">${artistName}</p>
+                                <p class="text-sm text-gray-600 mb-1">
+                                    📅 ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                </p>
+                                <p class="text-sm text-gray-600">
+                                    📍 ${venueName}, ${city}${city && stateCode ? ', ' : ''}${stateCode}
+                                </p>
+                            </div>
+                            <div class="flex flex-col gap-2 ml-4">
+                                <a href="${eventUrl}" target="_blank" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm text-center whitespace-nowrap">
+                                    View Event
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function addArtistToFavorites(artistName, event) {
+            if (event) event.preventDefault();
+            
+            try {
+                // Search for artist first
+                const searchResponse = await fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(artistName)}`);
+                const searchData = await searchResponse.json();
+
+                if (!searchData.success || !searchData.artists || searchData.artists.length === 0) {
+                    alert('Could not find artist to add');
+                    return;
+                }
+
+                const artist = searchData.artists[0];
+
+                // Add to favorites
+                const response = await fetch(`${API_BASE_URL}/users/favorites/ticketmaster/${artist.externalId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: artist.name,
+                        genre: artist.genre,
+                        images: artist.images
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`${artist.name} added to your favorites!`);
+                } else {
+                    alert(data.message || 'Error adding artist');
+                }
+            } catch (error) {
+                console.error('Error adding artist:', error);
+                alert('Error adding artist to favorites');
+            }
+        }
+
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('hidden');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'auth.html';
+        }
+    </script>
+</body>
+</html>

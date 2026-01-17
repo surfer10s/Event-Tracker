@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artist Cache - Admin Portal</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <!-- Page Content -->
+        <div class="p-4 lg:p-6">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                <a href="admin-portal.html" class="hover:text-slate-700">Admin Portal</a>
+                <span>→</span>
+                <span class="text-slate-800 font-medium">Artist Cache</span>
+            </div>
+
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">Artist Cache</h1>
+            <p class="text-slate-600 mb-6">Cache music taste artists from Ticketmaster to improve artist profile lookups.</p>
+
+            <!-- Cache Coverage -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Cache Coverage</h2>
+                <div id="cacheCoverage" class="mb-4">
+                    <p class="text-sm text-slate-600">Loading coverage...</p>
+                </div>
+                <button onclick="loadCacheCoverage()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">Refresh</button>
+            </div>
+
+            <!-- Run Cache Job -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Run Cache Job</h2>
+                <p class="text-sm text-slate-600 mb-4">
+                    Search Ticketmaster for uncached music taste artists and add them to the database.
+                    Each artist uses 1 API call.
+                </p>
+                
+                <div id="cacheJobStatus" class="mb-4 p-4 bg-slate-50 rounded-lg hidden">
+                    <p class="text-sm text-slate-600">No job has been run yet</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button onclick="runCacheJob(50)" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                        Cache 50 Artists
+                        <span class="block text-xs font-normal opacity-80">~12 seconds</span>
+                    </button>
+                    <button onclick="runCacheJob(100)" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                        Cache 100 Artists
+                        <span class="block text-xs font-normal opacity-80">~25 seconds</span>
+                    </button>
+                    <button onclick="runCacheJob(500)" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                        Cache 500 Artists
+                        <span class="block text-xs font-normal opacity-80">~2 minutes</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cache Single Artist -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Cache Single Artist</h2>
+                <div class="relative">
+                    <div class="flex gap-2 mb-4">
+                        <div class="flex-1 relative">
+                            <input type="text" id="singleArtistName" class="w-full px-3 py-2 border border-slate-200 rounded-lg" placeholder="Search for an artist..." oninput="handleArtistSearch(this.value)" autocomplete="off">
+                            <!-- Artist Suggestions Dropdown -->
+                            <div id="artistSuggestions" class="absolute w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-40" style="display: none;"></div>
+                        </div>
+                        <button onclick="cacheSingleArtist()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">Cache</button>
+                    </div>
+                </div>
+                <p id="singleResult" class="text-sm"></p>
+            </div>
+
+            <!-- Uncached Artists -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Uncached Artists</h2>
+                <p class="text-sm text-slate-600 mb-4">Artists from music taste that are not yet in the database.</p>
+                <button onclick="loadUncachedArtists()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm mb-4">Load List</button>
+                <div id="uncachedArtists" class="text-sm text-slate-600"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+        let searchTimeout = null;
+        let cachedArtistResults = {};
+        let selectedArtistData = null;
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('Admin Portal');
+            loadUser();
+            loadCacheCoverage();
+            
+            // Close suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#singleArtistName') && !e.target.closest('#artistSuggestions')) {
+                    document.getElementById('artistSuggestions').style.display = 'none';
+                }
+            });
+        });
+
+        // ============================================
+        // Artist Autocomplete Functions
+        // ============================================
+        
+        function handleArtistSearch(query) {
+            clearTimeout(searchTimeout);
+            const suggestionsEl = document.getElementById('artistSuggestions');
+            
+            if (query.length < 2) {
+                suggestionsEl.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => fetchArtistSuggestions(query), 300);
+        }
+        
+        async function fetchArtistSuggestions(query) {
+            if (cachedArtistResults[query]) {
+                displayArtistSuggestions(cachedArtistResults[query]);
+                return;
+            }
+
+            try {
+                // Search both database and Ticketmaster in parallel
+                const [dbResponse, tmResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/artists/search?q=${encodeURIComponent(query)}&limit=10`).catch(() => null),
+                    fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(query)}`).catch(() => null)
+                ]);
+                
+                const dbData = dbResponse ? await dbResponse.json().catch(() => ({})) : {};
+                const tmData = tmResponse ? await tmResponse.json().catch(() => ({})) : {};
+                
+                // Normalize database results
+                const dbArtists = (dbData.success && dbData.artists) ? dbData.artists.map(a => ({
+                    ...a,
+                    _id: a._id,
+                    name: a.name,
+                    genre: a.genre?.[0] || a.genres?.[0],
+                    images: a.images || {},
+                    source: 'database'
+                })) : [];
+                
+                // Normalize Ticketmaster results
+                const tmArtists = (tmData.success && tmData.artists) ? tmData.artists.map(a => ({
+                    ...a,
+                    externalId: a.externalId,
+                    name: a.name,
+                    genre: a.genre,
+                    images: a.images ? { small: a.images.find(img => img.width < 500)?.url, large: a.images.find(img => img.width >= 500)?.url } : {},
+                    source: 'ticketmaster'
+                })) : [];
+                
+                // Merge and dedupe - prioritize database results (they're already cached)
+                const seenNames = new Set();
+                const mergedArtists = [];
+                
+                // Add database artists first (higher priority - already cached)
+                for (const artist of dbArtists) {
+                    const nameLower = artist.name.toLowerCase();
+                    if (!seenNames.has(nameLower)) {
+                        seenNames.add(nameLower);
+                        mergedArtists.push(artist);
+                    }
+                }
+                
+                // Add Ticketmaster artists that aren't already in results
+                for (const artist of tmArtists) {
+                    const nameLower = artist.name.toLowerCase();
+                    if (!seenNames.has(nameLower)) {
+                        seenNames.add(nameLower);
+                        mergedArtists.push(artist);
+                    }
+                }
+                
+                // Limit to 10 results
+                const finalResults = mergedArtists.slice(0, 10);
+                
+                cachedArtistResults[query] = finalResults;
+                displayArtistSuggestions(finalResults);
+            } catch (error) {
+                console.error('Artist search error:', error);
+            }
+        }
+        
+        function displayArtistSuggestions(artists) {
+            const container = document.getElementById('artistSuggestions');
+            
+            if (!artists || artists.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = artists.map(artist => {
+                const artistImage = artist.images?.small || artist.images?.large || (Array.isArray(artist.images) ? artist.images.find(img => img.width < 500)?.url : null);
+                const genres = artist.genres || (artist.genre ? [artist.genre] : []);
+                const isFromDatabase = artist.source === 'database' || artist._id;
+                
+                // Escape the artist data for onclick
+                const artistJson = JSON.stringify(artist).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
+                return `
+                <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b last:border-b-0" onclick='selectArtist(${JSON.stringify(artist)})'>
+                    ${artistImage ? 
+                        `<img src="${artistImage}" class="w-10 h-10 rounded-full object-cover">` :
+                        `<div class="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
+                            <svg class="text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>`
+                    }
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <p class="font-medium text-slate-800">${artist.name}</p>
+                            ${isFromDatabase ? 
+                                `<span class="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Cached</span>` : 
+                                `<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Live</span>`
+                            }
+                        </div>
+                        <p class="text-xs text-slate-500">${genres.slice(0, 2).join(', ') || 'Artist'}</p>
+                    </div>
+                </div>
+            `}).join('');
+            
+            container.style.display = 'block';
+        }
+        
+        function selectArtist(artist) {
+            document.getElementById('singleArtistName').value = artist.name;
+            document.getElementById('artistSuggestions').style.display = 'none';
+            selectedArtistData = artist;
+            
+            // Update result to show status
+            const resultEl = document.getElementById('singleResult');
+            if (artist.source === 'database' || artist._id) {
+                resultEl.textContent = `○ "${artist.name}" is already cached in the database`;
+                resultEl.className = 'text-sm text-slate-600';
+            } else {
+                resultEl.textContent = `→ "${artist.name}" found on Ticketmaster - click Cache to add`;
+                resultEl.className = 'text-sm text-blue-600';
+            }
+        }
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateAdminSidebarUser(data.user);
+                }
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        async function loadCacheCoverage() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-cache/coverage`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                const coverageEl = document.getElementById('cacheCoverage');
+                if (data.success && data.coverage) {
+                    const c = data.coverage;
+                    const barColor = c.percentage >= 80 ? 'bg-emerald-500' : c.percentage >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+                    coverageEl.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-700">Music Taste Artists Cached</span>
+                            <span class="text-2xl font-bold text-slate-800">${c.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-4 mb-3">
+                            <div class="${barColor} h-4 rounded-full transition-all" style="width: ${c.percentage}%"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div class="bg-slate-50 rounded-lg p-3">
+                                <p class="text-xl font-bold text-emerald-600">${c.cached}</p>
+                                <p class="text-xs text-slate-500">Cached</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-3">
+                                <p class="text-xl font-bold text-amber-600">${c.uncached}</p>
+                                <p class="text-xs text-slate-500">Uncached</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-3">
+                                <p class="text-xl font-bold text-slate-600">${c.total}</p>
+                                <p class="text-xs text-slate-500">Total</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Load coverage error:', err);
+            }
+        }
+
+        async function runCacheJob(maxArtists) {
+            const statusEl = document.getElementById('cacheJobStatus');
+            statusEl.classList.remove('hidden');
+            statusEl.innerHTML = `<p class="text-sm text-blue-600 text-center">⏳ Caching up to ${maxArtists} artists... This may take a few minutes.</p>`;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-cache/run`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ maxArtists })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statusEl.innerHTML = `
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <p class="text-2xl font-bold text-slate-800">${data.processed}</p>
+                                <p class="text-xs text-slate-500">Processed</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-emerald-600">${data.found}</p>
+                                <p class="text-xs text-slate-500">New Cached</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-amber-600">${data.notFound}</p>
+                                <p class="text-xs text-slate-500">Not Found</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-slate-400">${data.alreadyCached}</p>
+                                <p class="text-xs text-slate-500">Already Cached</p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-3 text-center">Completed in ${(data.duration / 1000).toFixed(1)}s</p>
+                    `;
+                    loadCacheCoverage();
+                } else {
+                    statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<p class="text-sm text-rose-600 text-center">✗ ${err.message}</p>`;
+            }
+        }
+
+        async function cacheSingleArtist() {
+            const artistName = document.getElementById('singleArtistName').value.trim();
+            const resultEl = document.getElementById('singleResult');
+            
+            if (!artistName) {
+                resultEl.textContent = '❌ Please enter an artist name';
+                resultEl.className = 'text-sm text-rose-600';
+                return;
+            }
+            
+            resultEl.textContent = '⏳ Searching...';
+            resultEl.className = 'text-sm text-blue-600';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-cache/single`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ artistName })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (data.alreadyCached) {
+                        resultEl.textContent = `○ Already cached: ${data.artist?.name || artistName}`;
+                        resultEl.className = 'text-sm text-slate-600';
+                    } else if (data.isNew) {
+                        resultEl.textContent = `✓ Cached: ${data.artist?.name || artistName}`;
+                        resultEl.className = 'text-sm text-emerald-600';
+                        loadCacheCoverage();
+                    }
+                } else if (data.notFound) {
+                    resultEl.textContent = `✗ Not found on Ticketmaster: ${artistName}`;
+                    resultEl.className = 'text-sm text-amber-600';
+                } else {
+                    resultEl.textContent = `✗ ${data.error || 'Failed to cache'}`;
+                    resultEl.className = 'text-sm text-rose-600';
+                }
+            } catch (err) {
+                resultEl.textContent = `✗ ${err.message}`;
+                resultEl.className = 'text-sm text-rose-600';
+            }
+        }
+
+        async function loadUncachedArtists() {
+            const container = document.getElementById('uncachedArtists');
+            container.innerHTML = '<p class="text-slate-500">Loading...</p>';
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-cache/uncached?limit=100`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.artists?.length > 0) {
+                    container.innerHTML = `
+                        <p class="mb-3"><strong>${data.total}</strong> artists need caching. Showing top 100 by popularity:</p>
+                        <div class="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2 bg-slate-50 rounded-lg">
+                            ${data.artists.map(a => `
+                                <span class="px-3 py-1 rounded-full text-xs bg-white border border-slate-200 text-slate-700 cursor-pointer hover:bg-slate-100" onclick="document.getElementById('singleArtistName').value='${a.name.replace(/'/g, "\\'")}'; document.getElementById('singleArtistName').scrollIntoView();">
+                                    ${a.name} <span class="text-slate-400">(${a.userCount})</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">Click an artist to add to the single cache field above</p>
+                    `;
+                } else {
+                    container.innerHTML = '<p class="text-emerald-600">✓ All music taste artists are cached!</p>';
+                }
+            } catch (err) {
+                container.innerHTML = `<p class="text-rose-600">${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

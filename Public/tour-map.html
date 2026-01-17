@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tour Map - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 600px; width: 100%; border-radius: 0.5rem; }
+        .event-marker { background-color: #475569; border: 3px solid white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .leaflet-popup-content-wrapper { border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Search Section -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Search Artist Tour</h2>
+                <div class="flex gap-4">
+                    <div class="flex-1 relative">
+                        <input type="text" id="artistSearch" placeholder="Search for an artist..." class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                        <div id="artistSearchResults" class="absolute w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-50" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selected Artist Info -->
+            <div id="selectedArtistInfo" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6" style="display:none;">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800" id="selectedArtistName"></h3>
+                        <p class="text-slate-600" id="selectedArtistGenre"></p>
+                        <p class="text-sm text-slate-500" id="eventCount"></p>
+                    </div>
+                    <button onclick="clearSelection()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">Clear</button>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <div id="map"></div>
+            </div>
+
+            <!-- Instructions -->
+            <div id="instructions" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
+                <svg class="mx-auto mb-4 text-slate-400" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <h3 class="text-lg font-bold text-slate-700 mb-2">Search for an Artist</h3>
+                <p class="text-slate-500">Enter an artist name above to view their tour map</p>
+            </div>
+
+            <!-- Event List -->
+            <div id="eventList" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6" style="display:none;">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Tour Dates</h3>
+                <div id="eventListContent" class="space-y-4"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let token = localStorage.getItem('token');
+        let map;
+        let markers = [];
+        let polyline = null;
+        let selectedArtistId = null;
+        let searchTimeout = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Tour Map');
+            loadUser();
+            initMap();
+
+            document.getElementById('artistSearch').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                if (query.length < 2) { document.getElementById('artistSearchResults').style.display = 'none'; return; }
+                searchTimeout = setTimeout(() => searchArtists(query), 300);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#artistSearch') && !e.target.closest('#artistSearchResults')) {
+                    document.getElementById('artistSearchResults').style.display = 'none';
+                }
+            });
+        });
+
+        function initMap() {
+            map = L.map('map').setView([39.8283, -98.5795], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+        }
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                }
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function searchArtists(query) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/events?limit=100`);
+                const data = await response.json();
+                if (data.success) {
+                    const artistMap = new Map();
+                    data.events.forEach(event => {
+                        if (event.artist && event.artist.name.toLowerCase().includes(query.toLowerCase())) artistMap.set(event.artist.id, event.artist);
+                    });
+                    const artists = Array.from(artistMap.values());
+                    displayArtistResults(artists);
+                }
+            } catch (error) { console.error('Error searching artists:', error); }
+        }
+
+        function displayArtistResults(artists) {
+            const container = document.getElementById('artistSearchResults');
+            if (artists.length === 0) { container.style.display = 'none'; return; }
+            container.innerHTML = artists.map(artist => `
+                <div onclick='selectArtist(${JSON.stringify(artist).replace(/'/g, "\\'")})' class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100">
+                    <div class="font-semibold text-slate-800">${artist.name}</div>
+                    <div class="text-xs text-slate-500">${artist.genre ? artist.genre.join(', ') : 'Unknown Genre'}</div>
+                </div>
+            `).join('');
+            container.style.display = 'block';
+        }
+
+        async function selectArtist(artist) {
+            selectedArtistId = artist.id;
+            document.getElementById('artistSearch').value = artist.name;
+            document.getElementById('artistSearchResults').style.display = 'none';
+            document.getElementById('selectedArtistInfo').style.display = 'block';
+            document.getElementById('selectedArtistName').textContent = artist.name;
+            document.getElementById('selectedArtistGenre').textContent = artist.genre ? artist.genre.join(', ') : '';
+            document.getElementById('instructions').style.display = 'none';
+            await loadTourMap(artist.id);
+        }
+
+        function clearSelection() {
+            selectedArtistId = null;
+            document.getElementById('artistSearch').value = '';
+            document.getElementById('selectedArtistInfo').style.display = 'none';
+            document.getElementById('eventList').style.display = 'none';
+            document.getElementById('instructions').style.display = 'block';
+            clearMap();
+        }
+
+        async function loadTourMap(artistId) {
+            try {
+                const url = `${API_BASE_URL}/events/tour-map/${artistId}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success && data.events.length > 0) {
+                    displayTourOnMap(data.events, data.artist);
+                    displayEventList(data.events);
+                    document.getElementById('eventCount').textContent = `${data.events.length} tour stops`;
+                } else { alert(`No tour data found for this artist.`); clearMap(); }
+            } catch (error) { console.error('Error loading tour map:', error); alert('Error loading tour data: ' + error.message); }
+        }
+
+        function displayTourOnMap(events, artist) {
+            clearMap();
+            if (events.length === 0) return;
+            const bounds = [];
+            events.forEach((event, index) => {
+                const [lng, lat] = event.venue.coordinates;
+                bounds.push([lat, lng]);
+                const markerIcon = L.divIcon({ className: 'event-marker', html: `${index + 1}`, iconSize: [30, 30] });
+                const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+                const popupContent = `
+                    <div class="p-2">
+                        <h3 class="font-bold text-gray-900 mb-1">${event.venue.city}, ${event.venue.state || event.venue.country}</h3>
+                        <p class="text-sm text-gray-600 mb-1">${event.venue.name}</p>
+                        <p class="text-sm text-gray-600 mb-2">${new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        ${event.affiliateUrl ? `<a href="${event.affiliateUrl}" target="_blank" class="inline-block px-3 py-1 bg-slate-600 text-white text-sm rounded hover:bg-slate-700">Get Tickets</a>` : ''}
+                    </div>`;
+                marker.bindPopup(popupContent);
+                markers.push(marker);
+            });
+            if (events.length > 1) {
+                const routeCoords = events.map(e => [e.venue.coordinates[1], e.venue.coordinates[0]]);
+                polyline = L.polyline(routeCoords, { color: '#475569', weight: 3, opacity: 0.6, dashArray: '10, 10' }).addTo(map);
+            }
+            if (bounds.length > 0) map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        function displayEventList(events) {
+            const container = document.getElementById('eventListContent');
+            container.innerHTML = events.map((event, index) => `
+                <div class="flex items-start gap-4 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div class="flex-shrink-0 w-10 h-10 bg-slate-600 text-white rounded-full flex items-center justify-center font-bold">${index + 1}</div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-slate-800">${event.venue.city}, ${event.venue.state || event.venue.country}</h4>
+                        <p class="text-sm text-slate-600">${event.venue.name}</p>
+                        <p class="text-sm text-slate-500">${new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                    </div>
+                    ${event.affiliateUrl ? `<a href="${event.affiliateUrl}" target="_blank" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 text-sm font-semibold">Tickets</a>` : ''}
+                </div>
+            `).join('');
+            document.getElementById('eventList').style.display = 'block';
+        }
+
+        function clearMap() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            if (polyline) { map.removeLayer(polyline); polyline = null; }
+            map.setView([39.8283, -98.5795], 4);
+            document.getElementById('eventCount').textContent = '';
+        }
+    </script>
+</body>
+</html>

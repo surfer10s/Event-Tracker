@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Integration Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background-color: #1e293b;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #f8fafc;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 2rem;
+    }
+
+    /* Connection Status Card */
+    .status-card {
+      background: #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+
+    .status-dot.connected {
+      background: #22c55e;
+    }
+
+    .status-text {
+      font-size: 1.1rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #b91c1c;
+    }
+
+    .btn-secondary {
+      background: #475569;
+      color: #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+      background: #64748b;
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Sections */
+    .section {
+      background: #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section h2 {
+      color: #f8fafc;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-icon {
+      font-size: 1.5rem;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #dc2626;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Playlists Grid */
+    .playlists-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .playlist-card {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+    }
+
+    .playlist-thumbnail {
+      width: 80px;
+      height: 80px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: #475569;
+    }
+
+    .playlist-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .playlist-title {
+      font-weight: 600;
+      color: #f8fafc;
+      margin-bottom: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .playlist-count {
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+
+    /* Search Results */
+    .search-results {
+      margin-top: 1rem;
+    }
+
+    .video-item {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      background: #1e293b;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      align-items: center;
+    }
+
+    .video-thumbnail {
+      width: 120px;
+      height: 68px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: #475569;
+    }
+
+    .video-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .video-title {
+      color: #f8fafc;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .video-channel {
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+
+    .video-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    /* Messages */
+    .message {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .message-success {
+      background: #14532d;
+      color: #86efac;
+    }
+
+    .message-error {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    .message-info {
+      background: #1e3a5f;
+      color: #93c5fd;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #94a3b8;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #475569;
+      border-top-color: #dc2626;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Hidden */
+    .hidden {
+      display: none;
+    }
+
+    /* Bulk Add Section */
+    .bulk-input {
+      width: 100%;
+      min-height: 150px;
+      padding: 0.75rem;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      font-family: monospace;
+      resize: vertical;
+    }
+
+    .bulk-input:focus {
+      outline: none;
+      border-color: #dc2626;
+    }
+
+    .help-text {
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Results Summary */
+    .results-summary {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #1e293b;
+      border-radius: 8px;
+    }
+
+    .results-summary h4 {
+      color: #f8fafc;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-item {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #334155;
+      font-size: 0.9rem;
+    }
+
+    .result-item:last-child {
+      border-bottom: none;
+    }
+
+    .result-success {
+      color: #86efac;
+    }
+
+    .result-failed {
+      color: #fca5a5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎵 YouTube Integration Test</h1>
+    <p class="subtitle">Test your YouTube OAuth connection and playlist features</p>
+
+    <!-- Connection Status -->
+    <div class="status-card">
+      <div class="status-info">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">Checking connection...</span>
+      </div>
+      <div>
+        <button class="btn btn-primary" id="connectBtn" onclick="connectYouTube()">Connect YouTube</button>
+        <button class="btn btn-secondary hidden" id="disconnectBtn" onclick="disconnectYouTube()">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Message Area -->
+    <div id="messageArea"></div>
+
+    <!-- Your Playlists -->
+    <div class="section" id="playlistsSection">
+      <h2><span class="section-icon">📋</span> Your Playlists</h2>
+      <button class="btn btn-secondary" onclick="loadPlaylists()">Refresh Playlists</button>
+      <div class="playlists-grid" id="playlistsGrid">
+        <p style="color: #64748b;">Connect to YouTube to see your playlists</p>
+      </div>
+    </div>
+
+    <!-- Create Playlist -->
+    <div class="section">
+      <h2><span class="section-icon">➕</span> Create New Playlist</h2>
+      <div class="form-group">
+        <label>Playlist Name</label>
+        <input type="text" id="newPlaylistName" placeholder="My Awesome Playlist">
+      </div>
+      <div class="form-group">
+        <label>Description (optional)</label>
+        <input type="text" id="newPlaylistDesc" placeholder="A collection of great songs">
+      </div>
+      <div class="form-group">
+        <label>Privacy</label>
+        <select id="newPlaylistPrivacy">
+          <option value="private">Private</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="public">Public</option>
+        </select>
+      </div>
+      <button class="btn btn-success" onclick="createPlaylist()">Create Playlist</button>
+    </div>
+
+    <!-- Search for Songs -->
+    <div class="section">
+      <h2><span class="section-icon">🔍</span> Search for Songs</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Artist</label>
+          <input type="text" id="searchArtist" placeholder="Artist name">
+        </div>
+        <div class="form-group">
+          <label>Song Title</label>
+          <input type="text" id="searchTitle" placeholder="Song title">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Add to Playlist</label>
+        <select id="targetPlaylist">
+          <option value="">-- Select a playlist --</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="searchSong()">Search</button>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+
+    <!-- Bulk Create Playlist -->
+    <div class="section">
+      <h2><span class="section-icon">📝</span> Create Playlist from Setlist</h2>
+      <div class="form-group">
+        <label>Playlist Name</label>
+        <input type="text" id="bulkPlaylistName" placeholder="Concert Setlist - Artist Name">
+      </div>
+      <div class="form-group">
+        <label>Songs (one per line: Artist - Song Title)</label>
+        <textarea class="bulk-input" id="bulkSongs" placeholder="The Beatles - Hey Jude
+Queen - Bohemian Rhapsody
+Led Zeppelin - Stairway to Heaven"></textarea>
+        <p class="help-text">Enter each song on a new line in the format: Artist - Song Title</p>
+      </div>
+      <button class="btn btn-success" onclick="createBulkPlaylist()">Create Playlist with Songs</button>
+      <div id="bulkResults"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000';
+    let isConnected = false;
+    let playlists = [];
+
+    // Check for URL params (redirect from OAuth)
+    window.onload = function() {
+      const params = new URLSearchParams(window.location.search);
+      
+      if (params.get('youtube_connected') === 'true') {
+        showMessage('Successfully connected to YouTube!', 'success');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
+      if (params.get('youtube_error')) {
+        showMessage('Failed to connect: ' + params.get('youtube_error'), 'error');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
+      checkStatus();
+    };
+
+    // Show message
+    function showMessage(text, type = 'info') {
+      const messageArea = document.getElementById('messageArea');
+      messageArea.innerHTML = `<div class="message message-${type}">${text}</div>`;
+      setTimeout(() => { messageArea.innerHTML = ''; }, 5000);
+    }
+
+    // Check connection status
+    async function checkStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/api/youtube/status`);
+        const data = await response.json();
+        
+        isConnected = data.connected && !data.expired;
+        updateStatusUI();
+        
+        if (isConnected) {
+          loadPlaylists();
+        }
+      } catch (err) {
+        console.error('Status check failed:', err);
+        document.getElementById('statusText').textContent = 'Could not connect to server';
+      }
+    }
+
+    // Update connection status UI
+    function updateStatusUI() {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const connectBtn = document.getElementById('connectBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      
+      if (isConnected) {
+        dot.classList.add('connected');
+        text.textContent = 'Connected to YouTube';
+        connectBtn.classList.add('hidden');
+        disconnectBtn.classList.remove('hidden');
+      } else {
+        dot.classList.remove('connected');
+        text.textContent = 'Not connected';
+        connectBtn.classList.remove('hidden');
+        disconnectBtn.classList.add('hidden');
+      }
+    }
+
+    // Connect to YouTube
+    function connectYouTube() {
+      window.location.href = `${API_BASE}/auth/youtube`;
+    }
+
+    // Disconnect from YouTube
+    async function disconnectYouTube() {
+      try {
+        await fetch(`${API_BASE}/api/youtube/disconnect`, { method: 'POST' });
+        isConnected = false;
+        updateStatusUI();
+        document.getElementById('playlistsGrid').innerHTML = '<p style="color: #64748b;">Connect to YouTube to see your playlists</p>';
+        document.getElementById('targetPlaylist').innerHTML = '<option value="">-- Select a playlist --</option>';
+        showMessage('Disconnected from YouTube', 'info');
+      } catch (err) {
+        showMessage('Failed to disconnect: ' + err.message, 'error');
+      }
+    }
+
+    // Load user's playlists
+    async function loadPlaylists() {
+      if (!isConnected) {
+        showMessage('Please connect to YouTube first', 'error');
+        return;
+      }
+
+      const grid = document.getElementById('playlistsGrid');
+      grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading playlists...</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/youtube/playlists`);
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        playlists = data.items || [];
+        
+        if (playlists.length === 0) {
+          grid.innerHTML = '<p style="color: #64748b;">No playlists found. Create one below!</p>';
+        } else {
+          grid.innerHTML = playlists.map(p => `
+            <div class="playlist-card">
+              <img class="playlist-thumbnail" 
+                   src="${p.snippet.thumbnails?.medium?.url || ''}" 
+                   alt="${p.snippet.title}"
+                   onerror="this.style.display='none'">
+              <div class="playlist-info">
+                <div class="playlist-title">${p.snippet.title}</div>
+                <div class="playlist-count">${p.contentDetails.itemCount} videos</div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Update target playlist dropdown
+        const select = document.getElementById('targetPlaylist');
+        select.innerHTML = '<option value="">-- Select a playlist --</option>' +
+          playlists.map(p => `<option value="${p.id}">${p.snippet.title}</option>`).join('');
+
+      } catch (err) {
+        grid.innerHTML = `<p style="color: #fca5a5;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Create a new playlist
+    async function createPlaylist() {
+      const name = document.getElementById('newPlaylistName').value.trim();
+      const description = document.getElementById('newPlaylistDesc').value.trim();
+      const privacy = document.getElementById('newPlaylistPrivacy').value;
+
+      if (!name) {
+        showMessage('Please enter a playlist name', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/youtube/playlists`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: name,
+            description: description,
+            privacyStatus: privacy
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        showMessage(`Playlist "${name}" created successfully!`, 'success');
+        document.getElementById('newPlaylistName').value = '';
+        document.getElementById('newPlaylistDesc').value = '';
+        loadPlaylists();
+
+      } catch (err) {
+        showMessage('Failed to create playlist: ' + err.message, 'error');
+      }
+    }
+
+    // Search for a song
+    async function searchSong() {
+      const artist = document.getElementById('searchArtist').value.trim();
+      const title = document.getElementById('searchTitle').value.trim();
+      const resultsDiv = document.getElementById('searchResults');
+
+      if (!artist && !title) {
+        showMessage('Please enter an artist or song title', 'error');
+        return;
+      }
+
+      resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Searching...</div>';
+
+      try {
+        const query = artist && title ? `artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}` 
+                                       : `q=${encodeURIComponent(artist || title)}`;
+        
+        const endpoint = artist && title ? 'search-song' : 'search';
+        const response = await fetch(`${API_BASE}/api/youtube/${endpoint}?${query}`);
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        const items = data.items || [];
+
+        if (items.length === 0) {
+          resultsDiv.innerHTML = '<p style="color: #64748b; margin-top: 1rem;">No results found</p>';
+          return;
+        }
+
+        resultsDiv.innerHTML = items.map(item => `
+          <div class="video-item">
+            <img class="video-thumbnail" 
+                 src="${item.snippet.thumbnails?.medium?.url || ''}" 
+                 alt="${item.snippet.title}">
+            <div class="video-info">
+              <div class="video-title">${item.snippet.title}</div>
+              <div class="video-channel">${item.snippet.channelTitle}</div>
+            </div>
+            <div class="video-actions">
+              <button class="btn btn-success btn-small" onclick="addToPlaylist('${item.id.videoId}', '${escapeHtml(item.snippet.title)}')">
+                Add to Playlist
+              </button>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        resultsDiv.innerHTML = `<p style="color: #fca5a5; margin-top: 1rem;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Add video to playlist
+    async function addToPlaylist(videoId, videoTitle) {
+      const playlistId = document.getElementById('targetPlaylist').value;
+
+      if (!playlistId) {
+        showMessage('Please select a playlist first', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/youtube/playlists/${playlistId}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId })
+        });
+
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        showMessage(`Added "${videoTitle}" to playlist!`, 'success');
+        loadPlaylists(); // Refresh to update count
+
+      } catch (err) {
+        showMessage('Failed to add video: ' + err.message, 'error');
+      }
+    }
+
+    // Create playlist with multiple songs (bulk)
+    async function createBulkPlaylist() {
+      const name = document.getElementById('bulkPlaylistName').value.trim();
+      const songsText = document.getElementById('bulkSongs').value.trim();
+      const resultsDiv = document.getElementById('bulkResults');
+
+      if (!name) {
+        showMessage('Please enter a playlist name', 'error');
+        return;
+      }
+
+      if (!songsText) {
+        showMessage('Please enter at least one song', 'error');
+        return;
+      }
+
+      // Parse songs
+      const songs = songsText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.includes('-'))
+        .map(line => {
+          const parts = line.split('-');
+          return {
+            artist: parts[0].trim(),
+            title: parts.slice(1).join('-').trim()
+          };
+        });
+
+      if (songs.length === 0) {
+        showMessage('Could not parse any songs. Use format: Artist - Song Title', 'error');
+        return;
+      }
+
+      resultsDiv.innerHTML = `
+        <div class="loading" style="margin-top: 1rem;">
+          <div class="spinner"></div> 
+          Creating playlist and adding ${songs.length} songs... This may take a moment.
+        </div>
+      `;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/youtube/create-playlist-with-songs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: name,
+            description: `Created with Event Tracker - ${songs.length} songs`,
+            songs: songs
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        // Show results
+        resultsDiv.innerHTML = `
+          <div class="results-summary">
+            <h4>✅ Playlist Created: ${name}</h4>
+            <p style="color: #94a3b8; margin-bottom: 1rem;">
+              Added ${data.added.length} of ${songs.length} songs
+            </p>
+            ${data.added.length > 0 ? `
+              <div style="margin-bottom: 1rem;">
+                <strong style="color: #86efac;">Successfully Added:</strong>
+                ${data.added.map(a => `
+                  <div class="result-item result-success">
+                    ${a.song.artist} - ${a.song.title}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+            ${data.failed.length > 0 ? `
+              <div>
+                <strong style="color: #fca5a5;">Failed:</strong>
+                ${data.failed.map(f => `
+                  <div class="result-item result-failed">
+                    ${f.song.artist} - ${f.song.title} (${f.error})
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        showMessage(`Playlist "${name}" created with ${data.added.length} songs!`, 'success');
+        document.getElementById('bulkPlaylistName').value = '';
+        document.getElementById('bulkSongs').value = '';
+        loadPlaylists();
+
+      } catch (err) {
+        resultsDiv.innerHTML = `<p style="color: #fca5a5; margin-top: 1rem;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Helper to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML.replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>

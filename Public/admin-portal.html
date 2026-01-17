@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <!-- Page Content -->
+        <div class="p-4 lg:p-6">
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">Admin Portal</h1>
+            <p class="text-slate-600 mb-6">System administration and cache management tools</p>
+
+            <!-- Quick Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-800" id="statSongCache">-</p>
+                            <p class="text-sm text-slate-500">Songs Cached</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-800" id="statArtistCache">-</p>
+                            <p class="text-sm text-slate-500">Artists Cached</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-800" id="statEvents">-</p>
+                            <p class="text-sm text-slate-500">Events</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-800" id="statNotifications">-</p>
+                            <p class="text-sm text-slate-500">Notifications</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Sections Grid -->
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Admin Tools</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Song Cache -->
+                <a href="admin-song-cache.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                            <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Song Cache</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Manage YouTube video ID cache for songs. Add single songs or bulk import.</p>
+                </a>
+
+                <!-- Artist Cache -->
+                <a href="admin-artist-cache.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                            <svg class="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Artist Cache</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Cache music taste artists from Ticketmaster. View coverage and run cache jobs.</p>
+                </a>
+
+                <!-- Background Sync -->
+                <a href="admin-sync.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center group-hover:bg-cyan-200 transition-colors">
+                            <svg class="w-6 h-6 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Background Sync</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Sync events from Ticketmaster for all favorite and music taste artists.</p>
+                </a>
+
+                <!-- Notifications -->
+                <a href="admin-notifications.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                            <svg class="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Notifications</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Test notification system, check events for users, and send email digests.</p>
+                </a>
+
+                <!-- Music Taste -->
+                <a href="admin-music-taste.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center group-hover:bg-rose-200 transition-colors">
+                            <svg class="w-6 h-6 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Music Taste</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">View all users' music taste data, top artists, and sync statistics.</p>
+                </a>
+
+                <!-- Users -->
+                <a href="admin-users.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                            <svg class="w-6 h-6 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Users</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">View registered users, their favorites, and account status.</p>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('Admin Portal');
+            loadUser();
+            loadDashboardStats();
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateAdminSidebarUser(data.user);
+                }
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        async function loadDashboardStats() {
+            // Song cache stats
+            try {
+                const res = await fetch(`${API_BASE_URL}/song-cache/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statSongCache').textContent = data.stats?.total || 0;
+                }
+            } catch (err) {
+                document.getElementById('statSongCache').textContent = '0';
+            }
+
+            // Artist cache coverage
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-cache/coverage`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statArtistCache').textContent = data.coverage?.cached || 0;
+                }
+            } catch (err) {
+                document.getElementById('statArtistCache').textContent = '0';
+            }
+
+            // Events count
+            try {
+                const res = await fetch(`${API_BASE_URL}/events?limit=1`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statEvents').textContent = data.total || 0;
+                }
+            } catch (err) {
+                document.getElementById('statEvents').textContent = '0';
+            }
+
+            // Notifications count
+            try {
+                const res = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statNotifications').textContent = data.count || 0;
+                }
+            } catch (err) {
+                document.getElementById('statNotifications').textContent = '0';
+            }
+        }
+    </script>
+</body>
+</html>

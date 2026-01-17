@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Favorite Artists - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container - populated by sidebar.js -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Add Artist Section -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Add Artist to Favorites</h2>
+                <div class="flex gap-4">
+                    <div class="flex-1 relative">
+                        <input type="text" id="artistSearch" placeholder="Search for artists to follow..."
+                            class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                        <div id="searchResults" class="absolute w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto z-50" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorites List -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="mb-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-lg font-bold text-slate-800">Following <span id="favoriteCount" class="text-slate-600"></span></h2>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="activeOnlyToggle" onchange="toggleActiveOnly()" class="w-4 h-4 text-slate-600 rounded focus:ring-2 focus:ring-slate-400">
+                                <span class="text-sm font-medium text-slate-700">Active Only</span>
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <select id="sortSelect" onchange="sortFavorites()" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 text-slate-700">
+                                <option value="name">Sort by Name</option>
+                                <option value="dateAdded">Sort by Date Added</option>
+                            </select>
+                            <select id="categoryFilter" onchange="filterByCategory()" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 text-slate-700">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="manage-categories.html" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2 text-sm">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            Manage Categories
+                        </a>
+                        <a href="discover-artists.html" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                            Discover Artists
+                        </a>
+                        <a href="favorites-activity.html" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 flex items-center gap-2 text-sm">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            Favorites Activity
+                        </a>
+                    </div>
+                </div>
+                <div id="favoritesList" class="space-y-4">
+                    <div class="text-center py-8 text-slate-500">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-2"></div>
+                        <p>Loading your favorites...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let token = localStorage.getItem('token');
+        let searchTimeout = null;
+        let currentArtists = [];
+        let allCategories = [];
+
+        if (!token) { window.location.href = 'auth.html'; }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('My Favorite Artists');
+            loadUser();
+            loadCategories();
+            loadFavorites();
+
+            document.getElementById('artistSearch').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                if (query.length < 2) { document.getElementById('searchResults').style.display = 'none'; return; }
+                searchTimeout = setTimeout(() => searchArtists(query), 300);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#artistSearch') && !e.target.closest('#searchResults')) document.getElementById('searchResults').style.display = 'none';
+            });
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    updateSidebarUser(data.user);
+                } else { logout(); }
+            } catch (error) { console.error('Load user error:', error); logout(); }
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/categories`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    allCategories = data.categories;
+                    document.getElementById('categoryFilter').innerHTML = `<option value="">All Categories</option>${allCategories.map(cat => `<option value="${cat._id}">${cat.name}</option>`).join('')}`;
+                }
+            } catch (error) { console.error('Load categories error:', error); }
+        }
+
+        async function loadArtistCategories(artistId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/categories/artists/${artistId}/categories`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success && data.categories) {
+                    const container = document.getElementById(`categories-${artistId}`);
+                    if (container) {
+                        const colorMap = { blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700', pink: 'bg-pink-100 text-pink-700', green: 'bg-green-100 text-green-700', yellow: 'bg-yellow-100 text-yellow-700', red: 'bg-red-100 text-red-700', indigo: 'bg-indigo-100 text-indigo-700', orange: 'bg-orange-100 text-orange-700' };
+                        container.innerHTML = data.categories.map(cat => `<span class="px-2 py-1 ${colorMap[cat.color] || colorMap.blue} text-xs rounded-full">${cat.name}</span>`).join('');
+                    }
+                }
+            } catch (error) { console.error('Load artist categories error:', error); }
+        }
+
+        async function loadArtistEventCount(artistId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/events/artist/${artistId}`);
+                const data = await response.json();
+                const statsContainer = document.getElementById(`stats-${artistId}`);
+                if (statsContainer) {
+                    const eventCount = data.success && data.events ? data.events.length : 0;
+                    statsContainer.innerHTML = `${eventCount} upcoming show${eventCount !== 1 ? 's' : ''}`;
+                }
+            } catch (error) {
+                const statsContainer = document.getElementById(`stats-${artistId}`);
+                if (statsContainer) statsContainer.innerHTML = '0 upcoming shows';
+            }
+        }
+
+        async function loadFavorites() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/favorites`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    currentArtists = data.artists;
+                    currentArtists.sort((a, b) => a.name.localeCompare(b.name));
+                    displayFavorites(currentArtists);
+                    document.getElementById('favoriteCount').textContent = `(${data.count})`;
+                    currentArtists.forEach(artist => { loadArtistCategories(artist._id); loadArtistEventCount(artist._id); });
+                }
+            } catch (error) { console.error('Load favorites error:', error); }
+        }
+
+        function displayFavorites(artists) {
+            const container = document.getElementById('favoritesList');
+            if (artists.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-500"><p class="text-lg mb-2">No favorite artists yet</p><p class="text-sm">Search and add artists to start following them!</p></div>`;
+                return;
+            }
+            container.innerHTML = artists.map(artist => `
+                <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-4 flex-1">
+                            ${artist.images?.large ? `<img src="${artist.images.large}" alt="${artist.name}" class="w-16 h-16 rounded-lg object-cover">` : `<div class="w-16 h-16 rounded-lg bg-slate-200 flex items-center justify-center"><svg class="text-slate-400" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></div>`}
+                            <div class="flex-1">
+                                <h3 class="font-bold text-lg text-slate-800">${artist.name}</h3>
+                                <p class="text-sm text-slate-600">${artist.genre?.join(', ') || 'Unknown Genre'}</p>
+                                <p class="text-xs text-slate-500 mb-2" id="stats-${artist._id}"><span class="inline-block animate-pulse">Loading events...</span></p>
+                                <div class="flex flex-wrap gap-2" id="categories-${artist._id}"></div>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 ml-4">
+                            <a href="discover-artists.html?artist=${artist._id}&name=${encodeURIComponent(artist.name)}" class="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm whitespace-nowrap">Find Similar</a>
+                            <a href="artist-profile.html?id=${artist._id}&name=${encodeURIComponent(artist.name)}" class="px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 text-sm whitespace-nowrap">View Artist</a>
+                            <button onclick="removeFavorite('${artist._id}')" class="px-3 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 text-sm whitespace-nowrap">Unfollow</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function searchArtists(query) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                if (data.success && data.artists && data.artists.length > 0) displaySearchResults(data.artists);
+                else document.getElementById('searchResults').style.display = 'none';
+            } catch (error) { console.error('Search error:', error); }
+        }
+
+        function displaySearchResults(artists) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = artists.map(artist => `
+                <div onclick='addFavorite(${JSON.stringify(artist).replace(/'/g, "&#39;")})' class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 flex items-center gap-3">
+                    ${artist.images && artist.images[0] ? `<img src="${artist.images[0].url}" alt="${artist.name}" class="w-10 h-10 rounded-full object-cover">` : `<div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center"><svg class="text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></div>`}
+                    <div class="flex-1"><div class="font-semibold text-slate-800">${artist.name}</div>${artist.genre ? `<div class="text-xs text-slate-500">${artist.genre}</div>` : ''}</div>
+                    <div class="text-slate-600 text-sm font-medium">+ Add</div>
+                </div>
+            `).join('');
+            container.style.display = 'block';
+        }
+
+        async function addFavorite(artist) {
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('artistSearch').value = '';
+            try {
+                const loadingToast = showToast('Adding artist...', 'info');
+                const response = await fetch(`${API_BASE_URL}/users/favorites/ticketmaster/${artist.externalId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: artist.name, genre: artist.genre, images: artist.images })
+                });
+                const data = await response.json();
+                if (loadingToast) loadingToast.remove();
+                if (data.success) { showToast(`${artist.name} added to favorites!`, 'success'); loadFavorites(); }
+                else showToast(data.message || 'Failed to add favorite', 'error');
+            } catch (error) { console.error('Add favorite error:', error); showToast('Failed to add favorite. Please try again.', 'error'); }
+        }
+
+        async function removeFavorite(artistId) {
+            if (!confirm('Remove this artist from favorites?')) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/favorites/${artistId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) { showToast('Artist removed from favorites', 'success'); loadFavorites(); }
+                else showToast(data.message, 'error');
+            } catch (error) { console.error('Remove favorite error:', error); showToast('Failed to remove favorite', 'error'); }
+        }
+
+        function showToast(message, type = 'info') {
+            const colors = { success: 'bg-emerald-500', error: 'bg-rose-500', info: 'bg-slate-600' };
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+            return toast;
+        }
+
+        function sortFavorites() {
+            const sortBy = document.getElementById('sortSelect').value;
+            if (sortBy === 'name') currentArtists.sort((a, b) => a.name.localeCompare(b.name));
+            else currentArtists.reverse();
+            displayFavorites(currentArtists);
+        }
+
+        async function filterByCategory() {
+            const categoryId = document.getElementById('categoryFilter').value;
+            if (!categoryId) { applyFilters(); return; }
+            try {
+                const response = await fetch(`${API_BASE_URL}/categories/${categoryId}/artists`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    displayFavorites(data.artists || []);
+                    (data.artists || []).forEach(artist => { loadArtistCategories(artist._id); loadArtistEventCount(artist._id); });
+                }
+            } catch (error) { console.error('Filter by category error:', error); alert('Error filtering by category'); }
+        }
+
+        async function toggleActiveOnly() { await applyFilters(); }
+
+        async function applyFilters() {
+            const activeOnly = document.getElementById('activeOnlyToggle').checked;
+            const categoryId = document.getElementById('categoryFilter').value;
+            let filtered = [...currentArtists];
+            if (activeOnly) {
+                const artistsWithEvents = [];
+                for (const artist of filtered) {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
+                        const data = await response.json();
+                        if (data.success && data.events && data.events.length > 0) { artist.liveEventCount = data.events.length; artistsWithEvents.push(artist); }
+                    } catch (error) { console.error('Error checking events for', artist.name); }
+                }
+                filtered = artistsWithEvents;
+            }
+            if (!categoryId) {
+                displayFavorites(filtered);
+                filtered.forEach(artist => { loadArtistCategories(artist._id); loadArtistEventCount(artist._id); });
+            }
+        }
+    </script>
+</body>
+</html>

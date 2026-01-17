@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Details - Event Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container - populated by sidebar.js -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Top Header -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+            <div class="px-4 lg:px-6 py-4 flex items-center justify-between">
+                <button id="headerHamburger" onclick="toggleSidebar()" class="p-2 hover:bg-slate-100 rounded-lg mr-4 hidden">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                
+                <h1 class="text-2xl font-bold text-slate-800">Account Details</h1>
+                
+                <div class="flex items-center gap-4">
+                    <div class="relative" id="userMenuContainer">
+                        <button id="userMenuButton" onclick="toggleUserMenu()" class="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg">
+                            <div class="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center text-white font-semibold text-sm" id="headerUserInitial">?</div>
+                            <span class="text-slate-700 font-medium hidden md:inline" id="headerUserName">Account</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        
+                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-slate-200">
+                            <a href="account-details.html" class="block px-4 py-2 text-slate-700 bg-slate-100 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Account Details
+                            </a>
+                            <hr class="my-1">
+                            <button onclick="logout()" class="block w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-4 lg:p-6 max-w-4xl">
+            <!-- Profile Information -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-6">
+                <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Profile Information
+                </h2>
+
+                <form id="profileForm" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">First Name</label>
+                            <input type="text" id="firstName" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="Enter first name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Last Name</label>
+                            <input type="text" id="lastName" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="Enter last name">
+                        </div>
+                    </div>
+
+                    <!-- Address Section -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Street Address</label>
+                        <input type="text" id="streetAddress" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="123 Main Street">
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">City</label>
+                            <input type="text" id="city" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="City">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">State</label>
+                            <select id="state" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                                <option value="">Select</option>
+                                <option value="AL">AL</option>
+                                <option value="AK">AK</option>
+                                <option value="AZ">AZ</option>
+                                <option value="AR">AR</option>
+                                <option value="CA">CA</option>
+                                <option value="CO">CO</option>
+                                <option value="CT">CT</option>
+                                <option value="DE">DE</option>
+                                <option value="FL">FL</option>
+                                <option value="GA">GA</option>
+                                <option value="HI">HI</option>
+                                <option value="ID">ID</option>
+                                <option value="IL">IL</option>
+                                <option value="IN">IN</option>
+                                <option value="IA">IA</option>
+                                <option value="KS">KS</option>
+                                <option value="KY">KY</option>
+                                <option value="LA">LA</option>
+                                <option value="ME">ME</option>
+                                <option value="MD">MD</option>
+                                <option value="MA">MA</option>
+                                <option value="MI">MI</option>
+                                <option value="MN">MN</option>
+                                <option value="MS">MS</option>
+                                <option value="MO">MO</option>
+                                <option value="MT">MT</option>
+                                <option value="NE">NE</option>
+                                <option value="NV">NV</option>
+                                <option value="NH">NH</option>
+                                <option value="NJ">NJ</option>
+                                <option value="NM">NM</option>
+                                <option value="NY">NY</option>
+                                <option value="NC">NC</option>
+                                <option value="ND">ND</option>
+                                <option value="OH">OH</option>
+                                <option value="OK">OK</option>
+                                <option value="OR">OR</option>
+                                <option value="PA">PA</option>
+                                <option value="RI">RI</option>
+                                <option value="SC">SC</option>
+                                <option value="SD">SD</option>
+                                <option value="TN">TN</option>
+                                <option value="TX">TX</option>
+                                <option value="UT">UT</option>
+                                <option value="VT">VT</option>
+                                <option value="VA">VA</option>
+                                <option value="WA">WA</option>
+                                <option value="WV">WV</option>
+                                <option value="WI">WI</option>
+                                <option value="WY">WY</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Zipcode</label>
+                            <input type="text" id="zipcode" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="12345" maxlength="10">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
+                        <input type="email" id="email" class="w-full px-4 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-500" placeholder="your@email.com" readonly>
+                        <p class="text-sm text-slate-500 mt-1">Email cannot be changed</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Mobile Number</label>
+                        <input type="tel" id="mobileNumber" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="(555) 123-4567">
+                    </div>
+
+                    <div class="border-t border-slate-200 pt-6">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="smsOptIn" class="w-5 h-5 text-slate-600 rounded focus:ring-2 focus:ring-slate-400">
+                            <div>
+                                <span class="text-sm font-medium text-slate-800">Opt-in to text messaging</span>
+                                <p class="text-sm text-slate-500">Receive notifications about your favorite artists' tours</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button type="submit" class="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Save Changes</button>
+                        <button type="button" onclick="loadUserData()" class="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Reset</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Concert Preferences -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-6">
+                <h2 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    Concert Preferences
+                    <div class="relative group">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 cursor-help">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <div class="absolute left-0 bottom-full mb-2 w-72 p-3 bg-slate-800 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                            We all have our own ideal concert experience, this will help us to provide the most personalized concert offerings based upon your preferences.
+                            <div class="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-slate-800"></div>
+                        </div>
+                    </div>
+                </h2>
+                <p class="text-sm text-slate-500 mb-6">Help us find the perfect seats for you</p>
+
+                <form id="preferencesForm" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Concert Budget</label>
+                            <select id="concertBudget" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                                <option value="">Select preference</option>
+                                <option value="spare_no_expense">Spare No Expense</option>
+                                <option value="good_views">Good Views Only</option>
+                                <option value="just_get_me_there">Just Get Me There</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Seat Section</label>
+                            <select id="seatSection" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                                <option value="">Select preference</option>
+                                <option value="ga_floor">GA or Floor</option>
+                                <option value="lower_section">Lower Section</option>
+                                <option value="upper_section">Upper Section</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">View</label>
+                            <select id="viewPreference" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                                <option value="">Select preference</option>
+                                <option value="straight_on">Straight On</option>
+                                <option value="side_view">Side View</option>
+                                <option value="limited_obstructed">Limited/Obstructed is fine</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-3">Seat Features</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="firstRow" class="w-5 h-5 text-slate-600 rounded focus:ring-2 focus:ring-slate-400">
+                                <span class="text-sm text-slate-700">1st row of section</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="secondRow" class="w-5 h-5 text-slate-600 rounded focus:ring-2 focus:ring-slate-400">
+                                <span class="text-sm text-slate-700">2nd row of section</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="thirdRow" class="w-5 h-5 text-slate-600 rounded focus:ring-2 focus:ring-slate-400">
+                                <span class="text-sm text-slate-700">3rd row of section</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="aisleSeat" class="w-5 h-5 text-slate-600 rounded focus:ring-2 focus:ring-slate-400">
+                                <span class="text-sm text-slate-700">Aisle seat</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button type="submit" class="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Save Preferences</button>
+                        <button type="button" onclick="resetPreferences()" class="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Reset</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Connected Services -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-6">
+                <h2 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
+                        <path d="M9 17H7A5 5 0 0 1 7 7h2"></path>
+                        <path d="M15 7h2a5 5 0 1 1 0 10h-2"></path>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Connected Services
+                </h2>
+                <p class="text-sm text-slate-500 mb-6">Link your streaming services to get personalized concert recommendations based on your music taste</p>
+
+                <div class="space-y-4">
+                    <!-- YouTube Music -->
+                    <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:border-slate-300 transition-colors" id="ytMusicCard">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-rose-600 rounded-xl flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-800">YouTube Music</h3>
+                                <p class="text-sm text-slate-500" id="ytMusicStatus">Checking connection...</p>
+                            </div>
+                        </div>
+                        <div id="ytMusicActions">
+                            <!-- Actions will be populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Spotify (Coming Soon) -->
+                    <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 opacity-60">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Spotify</h3>
+                                <p class="text-sm text-slate-400">Coming Soon</p>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="px-4 py-2 bg-slate-200 text-slate-500 rounded-lg text-sm font-medium">Coming Soon</span>
+                        </div>
+                    </div>
+
+                    <!-- Apple Music (Coming Soon) -->
+                    <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 opacity-60">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-gradient-to-br from-rose-500 via-pink-500 to-red-500 rounded-xl flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                    <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.802.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.36-2.354-1.112-.508-.672-.608-1.432-.392-2.233.27-.998.972-1.614 1.912-1.973.637-.243 1.302-.36 1.974-.456.302-.043.607-.074.91-.112.117-.015.17-.066.17-.186V8.372c0-.14-.05-.2-.188-.177-.937.16-1.874.318-2.81.48l-3.453.597c-.022.003-.043.01-.087.02v7.36c0 .397-.047.79-.213 1.157-.294.647-.793 1.063-1.47 1.262-.377.11-.764.17-1.157.186-.86.04-1.62-.25-2.192-.91-.655-.754-.795-1.636-.535-2.576.282-.994.997-1.59 1.913-1.936.612-.232 1.25-.35 1.898-.432.355-.044.71-.085 1.064-.132.126-.017.18-.074.18-.206V6.1c0-.127.033-.2.154-.225.4-.083.798-.174 1.198-.26l3.682-.797 2.488-.54c.292-.063.585-.124.878-.188.032-.007.066-.01.1-.01.102 0 .15.056.15.16v5.875z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Apple Music</h3>
+                                <p class="text-sm text-slate-400">Coming Soon</p>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="px-4 py-2 bg-slate-200 text-slate-500 rounded-lg text-sm font-medium">Coming Soon</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Change -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-6">
+                <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    Change Password
+                </h2>
+
+                <form id="passwordForm" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Current Password</label>
+                        <input type="password" id="currentPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="Enter current password">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">New Password</label>
+                        <input type="password" id="newPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="Enter new password">
+                        <p class="text-sm text-slate-500 mt-1">Minimum 6 characters</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700" placeholder="Confirm new password">
+                    </div>
+                    <button type="submit" class="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Update Password</button>
+                </form>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="bg-white rounded-xl shadow-sm border-2 border-rose-200 p-8">
+                <h2 class="text-xl font-bold text-rose-600 mb-6 flex items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    Danger Zone
+                </h2>
+                <button onclick="logout()" class="w-full px-6 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-semibold flex items-center justify-center gap-2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let token = localStorage.getItem('token');
+
+        if (!token) { window.location.href = 'auth.html'; }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize sidebar from sidebar.js
+            initSidebar('Account Details');
+            
+            loadUserData();
+            document.getElementById('profileForm').addEventListener('submit', async (e) => { e.preventDefault(); await updateProfile(); });
+            document.getElementById('passwordForm').addEventListener('submit', async (e) => { e.preventDefault(); await updatePassword(); });
+            document.getElementById('preferencesForm').addEventListener('submit', async (e) => { e.preventDefault(); await updatePreferences(); });
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#userMenuContainer')) document.getElementById('userDropdown').classList.add('hidden');
+            });
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) {
+                    const user = data.user;
+                    const name = user.firstName || user.username;
+                    const initial = name.charAt(0).toUpperCase();
+                    
+                    // Profile fields
+                    document.getElementById('firstName').value = user.firstName || '';
+                    document.getElementById('lastName').value = user.lastName || '';
+                    document.getElementById('email').value = user.email || '';
+                    document.getElementById('mobileNumber').value = user.mobileNumber || '';
+                    document.getElementById('smsOptIn').checked = user.smsOptIn || false;
+                    
+                    // Address fields
+                    document.getElementById('streetAddress').value = user.streetAddress || '';
+                    document.getElementById('city').value = user.city || '';
+                    document.getElementById('state').value = user.state || '';
+                    document.getElementById('zipcode').value = user.zipcode || '';
+                    
+                    // Concert preferences
+                    const prefs = user.concertPreferences || {};
+                    document.getElementById('concertBudget').value = prefs.budget || '';
+                    document.getElementById('seatSection').value = prefs.seatSection || '';
+                    document.getElementById('viewPreference').value = prefs.view || '';
+                    document.getElementById('firstRow').checked = prefs.seatFeatures?.firstRow || false;
+                    document.getElementById('secondRow').checked = prefs.seatFeatures?.secondRow || false;
+                    document.getElementById('thirdRow').checked = prefs.seatFeatures?.thirdRow || false;
+                    document.getElementById('aisleSeat').checked = prefs.seatFeatures?.aisleSeat || false;
+                    
+                    // UI updates
+                    document.getElementById('headerUserName').textContent = name;
+                    document.getElementById('headerUserInitial').textContent = initial;
+                    
+                    // Update sidebar user info using sidebar.js function
+                    updateSidebarUser(user);
+                } else { showToast('Failed to load user data', 'error'); logout(); }
+            } catch (error) { console.error('Load user error:', error); showToast('Failed to load user data', 'error'); }
+        }
+
+        async function updateProfile() {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const mobileNumber = document.getElementById('mobileNumber').value.trim();
+            const smsOptIn = document.getElementById('smsOptIn').checked;
+            const streetAddress = document.getElementById('streetAddress').value.trim();
+            const city = document.getElementById('city').value.trim();
+            const state = document.getElementById('state').value;
+            const zipcode = document.getElementById('zipcode').value.trim();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/profile`, { 
+                    method: 'PUT', 
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ firstName, lastName, mobileNumber, smsOptIn, streetAddress, city, state, zipcode }) 
+                });
+                const data = await response.json();
+                if (data.success) { showToast('Profile updated successfully!', 'success'); loadUserData(); }
+                else showToast(data.message || 'Failed to update profile', 'error');
+            } catch (error) { console.error('Update profile error:', error); showToast('Failed to update profile', 'error'); }
+        }
+
+        async function updatePreferences() {
+            const concertPreferences = {
+                budget: document.getElementById('concertBudget').value,
+                seatSection: document.getElementById('seatSection').value,
+                view: document.getElementById('viewPreference').value,
+                seatFeatures: {
+                    firstRow: document.getElementById('firstRow').checked,
+                    secondRow: document.getElementById('secondRow').checked,
+                    thirdRow: document.getElementById('thirdRow').checked,
+                    aisleSeat: document.getElementById('aisleSeat').checked
+                }
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/profile`, { 
+                    method: 'PUT', 
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ concertPreferences }) 
+                });
+                const data = await response.json();
+                if (data.success) { showToast('Preferences saved successfully!', 'success'); loadUserData(); }
+                else showToast(data.message || 'Failed to save preferences', 'error');
+            } catch (error) { console.error('Update preferences error:', error); showToast('Failed to save preferences', 'error'); }
+        }
+
+        function resetPreferences() {
+            document.getElementById('concertBudget').value = '';
+            document.getElementById('seatSection').value = '';
+            document.getElementById('viewPreference').value = '';
+            document.getElementById('firstRow').checked = false;
+            document.getElementById('secondRow').checked = false;
+            document.getElementById('thirdRow').checked = false;
+            document.getElementById('aisleSeat').checked = false;
+        }
+
+        async function updatePassword() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            if (!currentPassword || !newPassword || !confirmPassword) { showToast('Please fill in all password fields', 'error'); return; }
+            if (newPassword.length < 6) { showToast('New password must be at least 6 characters', 'error'); return; }
+            if (newPassword !== confirmPassword) { showToast('New passwords do not match', 'error'); return; }
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/password`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword, newPassword }) });
+                const data = await response.json();
+                if (data.success) { showToast('Password updated successfully!', 'success'); document.getElementById('currentPassword').value = ''; document.getElementById('newPassword').value = ''; document.getElementById('confirmPassword').value = ''; }
+                else showToast(data.message || 'Failed to update password', 'error');
+            } catch (error) { console.error('Update password error:', error); showToast('Failed to update password', 'error'); }
+        }
+
+        function showToast(message, type = 'info') {
+            const colors = { success: 'bg-emerald-500', error: 'bg-rose-500', info: 'bg-slate-500' };
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('hidden'); }
+        function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'auth.html'; }
+
+        // === YouTube Music Connection ===
+        const YT_API_BASE = 'http://localhost:5000/api/youtube'; // YouTube routes use different prefix
+        
+        async function checkYouTubeMusicStatus() {
+            try {
+                const response = await fetch(`${YT_API_BASE}/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('ytMusicStatus');
+                const actionsEl = document.getElementById('ytMusicActions');
+                const cardEl = document.getElementById('ytMusicCard');
+                
+                if (data.connected) {
+                    // Connected state
+                    cardEl.classList.add('border-emerald-200', 'bg-emerald-50/50');
+                    cardEl.classList.remove('border-slate-200');
+                    
+                    const channelName = data.channelTitle || 'Connected';
+                    const lastSync = data.lastSync ? new Date(data.lastSync).toLocaleDateString() : 'Never';
+                    
+                    statusEl.innerHTML = `
+                        <span class="text-emerald-600 font-medium">Connected</span>
+                        <span class="text-slate-400 mx-1">•</span>
+                        <span class="text-slate-500">${channelName}</span>
+                    `;
+                    
+                    actionsEl.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <button onclick="syncMusicTaste()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm">
+                                Sync Library
+                            </button>
+                            <button onclick="disconnectYouTubeMusic()" class="px-4 py-2 text-rose-600 hover:bg-rose-50 rounded-lg font-medium text-sm">
+                                Disconnect
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // Not connected state
+                    statusEl.textContent = 'Not connected';
+                    actionsEl.innerHTML = `
+                        <button onclick="connectYouTubeMusic()" class="px-5 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-medium">
+                            Connect
+                        </button>
+                    `;
+                }
+            } catch (error) {
+                console.error('Check YouTube status error:', error);
+                document.getElementById('ytMusicStatus').textContent = 'Unable to check status';
+                document.getElementById('ytMusicActions').innerHTML = `
+                    <button onclick="connectYouTubeMusic()" class="px-5 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-medium">
+                        Connect
+                    </button>
+                `;
+            }
+        }
+
+        function connectYouTubeMusic() {
+            // Redirect to OAuth flow with token
+            window.location.href = `http://localhost:5000/auth/youtube?token=${token}`;
+        }
+
+        async function disconnectYouTubeMusic() {
+            if (!confirm('Are you sure you want to disconnect YouTube Music? Your synced music taste data will be preserved.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${YT_API_BASE}/disconnect`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('YouTube Music disconnected', 'success');
+                    checkYouTubeMusicStatus();
+                } else {
+                    showToast(data.error || 'Failed to disconnect', 'error');
+                }
+            } catch (error) {
+                console.error('Disconnect error:', error);
+                showToast('Failed to disconnect', 'error');
+            }
+        }
+
+        async function syncMusicTaste() {
+            const actionsEl = document.getElementById('ytMusicActions');
+            const originalContent = actionsEl.innerHTML;
+            
+            actionsEl.innerHTML = `
+                <div class="flex items-center gap-2 text-slate-500">
+                    <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm">Syncing...</span>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch(`${YT_API_BASE}/music-taste/sync`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`Synced ${data.artistCount} artists from your library!`, 'success');
+                } else {
+                    showToast(data.error || 'Failed to sync', 'error');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                showToast('Failed to sync music taste', 'error');
+            }
+            
+            // Restore actions and refresh status
+            checkYouTubeMusicStatus();
+        }
+
+        // Check YouTube status on page load
+        checkYouTubeMusicStatus();
+    </script>
+</body>
+</html>
