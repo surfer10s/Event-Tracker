@@ -294,10 +294,11 @@
                             const eventData = await eventResponse.json();
                             console.log(`Events for ${artist.name}:`, eventData);
                             if (eventData.success && eventData.events) {
-                                eventData.events.forEach(event => {
-                                    favoriteEvents.push({ 
-                                        ...event, 
-                                        artistName: artist.name, 
+                                const now = new Date();
+                                eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
+                                    favoriteEvents.push({
+                                        ...event,
+                                        artistName: artist.name,
                                         artistId: artist._id,
                                         source: 'favorite',
                                         reason: '⭐ Favorite'
@@ -350,16 +351,17 @@
                             const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
                             const eventData = await eventResponse.json();
                             if (eventData.success && eventData.events) {
-                                const reasonBadge = artist.source === 'liked_song' ? '🎵 Liked Song' : 
+                                const now = new Date();
+                                const reasonBadge = artist.source === 'liked_song' ? '🎵 Liked Song' :
                                                    artist.source === 'playlist' ? '📋 Playlist' : '🎧 Music Library';
-                                eventData.events.forEach(event => { 
-                                    musicTasteEvents.push({ 
-                                        ...event, 
-                                        artistName: artist.name, 
+                                eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
+                                    musicTasteEvents.push({
+                                        ...event,
+                                        artistName: artist.name,
                                         artistId: artist._id,
                                         source: 'music_taste',
                                         reason: reasonBadge
-                                    }); 
+                                    });
                                 });
                             }
                         } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
@@ -607,49 +609,89 @@
             }
 
             const sortedEvents = events.sort((a, b) => new Date(a.date) - new Date(b.date));
-            document.getElementById('eventsList').innerHTML = sortedEvents.map(event => {
-                const date = new Date(event.date);
-                const sourceBadge = event.source === 'music_taste' 
-                    ? `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">${event.reason}</span>`
+
+            // Group events by artist, preserving order of earliest event per artist
+            const artistGroups = new Map();
+            sortedEvents.forEach(event => {
+                const key = event.artistName;
+                if (!artistGroups.has(key)) artistGroups.set(key, []);
+                artistGroups.get(key).push(event);
+            });
+
+            let html = '';
+            let groupIndex = 0;
+            artistGroups.forEach((artistEvents, artistName) => {
+                const id = `artist-group-${groupIndex++}`;
+                const earliestDate = new Date(artistEvents[0].date);
+                const source = artistEvents[0].source;
+                const sourceBadge = source === 'music_taste'
+                    ? `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">${artistEvents[0].reason}</span>`
                     : `<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">⭐ Favorite</span>`;
-                
-                // Build price and status pills
-                const ticketInfo = event.ticketInfo || {};
-                const statusBadge = getStatusBadge(ticketInfo.status);
-                const pricePill = getPricePill(ticketInfo);
-                const resalePill = ticketInfo.resaleStatus === 'available' 
-                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Resale available</span>` 
-                    : '';
-                
-                return `
-                    <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
-                        <div class="flex items-start justify-between flex-wrap gap-4">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-2 flex-wrap">
-                                    <span class="text-lg font-bold text-slate-700">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                    <span class="px-2 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-semibold">${event.artistName}</span>
-                                    ${sourceBadge}
-                                    ${statusBadge}
-                                </div>
-                                <h3 class="font-bold text-slate-800">${event.name}</h3>
-                                <p class="text-sm font-semibold text-slate-700">${event.venue.name}</p>
-                                <p class="text-sm text-slate-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p>
-                                
-                                <!-- Price Info Row -->
-                                <div class="flex flex-wrap items-center gap-2 mt-3">
-                                    ${pricePill}
-                                    ${resalePill}
-                                    ${ticketInfo.allInclusivePricing ? '<span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs">✓ Fees included</span>' : ''}
+
+                html += `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <div onclick="toggleArtist('${id}')" class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <span id="${id}-chevron" class="text-slate-400 transition-transform duration-200" style="display:inline-block;">&#9654;</span>
+                                <span class="text-lg font-bold text-slate-800">${artistName}</span>
+                                <span class="px-2 py-0.5 bg-slate-600 text-white rounded-full text-xs font-semibold">${artistEvents.length} event${artistEvents.length > 1 ? 's' : ''}</span>
+                                ${sourceBadge}
+                                <span class="text-sm text-slate-500">Next: ${earliestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            </div>
+                        </div>
+                        <div id="${id}" style="display:none;" class="border-t border-slate-100 bg-slate-50/50 p-3 flex flex-col gap-3">
+                `;
+
+                artistEvents.forEach(event => {
+                    const date = new Date(event.date);
+                    const ticketInfo = event.ticketInfo || {};
+                    const statusBadge = getStatusBadge(ticketInfo.status);
+                    const pricePill = getPricePill(ticketInfo);
+                    const resalePill = ticketInfo.resaleStatus === 'available'
+                        ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Resale available</span>`
+                        : '';
+
+                    html += `
+                            <div class="border border-slate-200 rounded-xl p-4 bg-white hover:bg-slate-50 transition-colors">
+                                <div class="flex items-start justify-between flex-wrap gap-4">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                            <span class="text-lg font-bold text-slate-700">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            ${statusBadge}
+                                        </div>
+                                        <h3 class="font-bold text-slate-800">${event.name}</h3>
+                                        <p class="text-sm font-semibold text-slate-700">${event.venue.name}</p>
+                                        <p class="text-sm text-slate-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p>
+                                        <div class="flex flex-wrap items-center gap-2 mt-3">
+                                            ${pricePill}
+                                            ${resalePill}
+                                            ${ticketInfo.allInclusivePricing ? '<span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs">✓ Fees included</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <a href="event-details.html?id=${event._id}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
+                                        ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex flex-col gap-2">
-                                <a href="event-details.html?id=${event._id}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
-                                ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
-                            </div>
+                    `;
+                });
+
+                html += `
                         </div>
                     </div>
                 `;
-            }).join('');
+            });
+
+            document.getElementById('eventsList').innerHTML = html;
+        }
+
+        function toggleArtist(id) {
+            const container = document.getElementById(id);
+            const chevron = document.getElementById(id + '-chevron');
+            const isHidden = container.style.display === 'none';
+            container.style.display = isHidden ? 'flex' : 'none';
+            chevron.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
         }
 
         function getStatusBadge(status) {

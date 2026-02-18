@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeatGeek API Test - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <h1 class="text-2xl font-bold text-slate-800 mb-6">SeatGeek API Test</h1>
+
+            <!-- Connection Test -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">1. Connection Test</h2>
+                    <button onclick="testConnection()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">
+                        Test Connection
+                    </button>
+                </div>
+                <div id="connectionResult" class="text-sm text-slate-600">
+                    Click "Test Connection" to verify your SeatGeek API key is working.
+                </div>
+            </div>
+
+            <!-- Search Performers -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">2. Search Performers</h2>
+                <div class="flex gap-4 mb-4">
+                    <input type="text" id="performerSearch" placeholder="Artist name (e.g., Bon Jovi)" 
+                        class="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400">
+                    <button onclick="searchPerformers()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">
+                        Search
+                    </button>
+                </div>
+                <div id="performerResults" class="space-y-2"></div>
+            </div>
+
+            <!-- Search Events -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">3. Search Events by Performer</h2>
+                <div class="flex gap-4 mb-4">
+                    <input type="text" id="eventSearch" placeholder="Artist name (e.g., Taylor Swift)" 
+                        class="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400">
+                    <button onclick="searchEvents()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">
+                        Search Events
+                    </button>
+                </div>
+                <div id="eventResults" class="space-y-3"></div>
+            </div>
+
+            <!-- Price Comparison -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">4. Compare with Ticketmaster Event</h2>
+                <p class="text-sm text-slate-600 mb-4">
+                    Enter details of a Ticketmaster event to find matching SeatGeek pricing.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <input type="text" id="compareArtist" placeholder="Artist name" 
+                        class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400">
+                    <input type="date" id="compareDate" 
+                        class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400">
+                    <input type="text" id="compareVenue" placeholder="Venue name (optional)" 
+                        class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400">
+                </div>
+                <button onclick="compareEvent()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 mb-4">
+                    Find SeatGeek Pricing
+                </button>
+                <div id="compareResults"></div>
+            </div>
+
+            <!-- Raw API Response -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">Raw API Response</h2>
+                    <button onclick="document.getElementById('rawResponse').textContent = ''" 
+                        class="text-sm text-slate-500 hover:text-slate-700">Clear</button>
+                </div>
+                <pre id="rawResponse" class="bg-slate-50 rounded-lg p-4 text-xs overflow-auto max-h-96 text-slate-700"></pre>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const token = localStorage.getItem('token');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('SeatGeek Test');
+            loadUser();
+        });
+
+        async function loadUser() {
+            if (!token) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await response.json();
+                if (data.success) updateSidebarUser(data.user);
+            } catch (error) { console.error('Load user error:', error); }
+        }
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.innerHTML = '<span class="text-slate-500">Testing...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/seatgeek/test`);
+                const data = await response.json();
+                
+                showRawResponse(data);
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center gap-2 text-emerald-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="font-semibold">Connection successful!</span>
+                        </div>
+                        <p class="text-slate-500 mt-1">Total events available: ${data.meta?.total?.toLocaleString() || 'N/A'}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center gap-2 text-rose-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            <span class="font-semibold">Connection failed</span>
+                        </div>
+                        <p class="text-slate-500 mt-1">${data.error || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="text-rose-600">Error: ${error.message}</span>`;
+            }
+        }
+
+        async function searchPerformers() {
+            const query = document.getElementById('performerSearch').value.trim();
+            if (!query) return alert('Please enter an artist name');
+            
+            const resultsDiv = document.getElementById('performerResults');
+            resultsDiv.innerHTML = '<span class="text-slate-500">Searching...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/seatgeek/performers/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                showRawResponse(data);
+                
+                if (data.success && data.performers.length > 0) {
+                    resultsDiv.innerHTML = data.performers.slice(0, 10).map(p => `
+                        <div class="flex items-center gap-4 p-3 border border-slate-200 rounded-lg">
+                            ${p.image ? `<img src="${p.image}" class="w-12 h-12 rounded-lg object-cover">` : '<div class="w-12 h-12 bg-slate-200 rounded-lg"></div>'}
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-800">${p.name}</p>
+                                <p class="text-sm text-slate-500">${p.type || 'Performer'} • ${p.numUpcomingEvents || 0} upcoming events</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-400">Score: ${p.score?.toFixed(2) || 'N/A'}</p>
+                                <p class="text-xs text-slate-400">Popularity: ${p.popularity?.toLocaleString() || 'N/A'}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    resultsDiv.innerHTML = '<p class="text-slate-500">No performers found</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="text-rose-600">Error: ${error.message}</span>`;
+            }
+        }
+
+        async function searchEvents() {
+            const query = document.getElementById('eventSearch').value.trim();
+            if (!query) return alert('Please enter an artist name');
+            
+            const resultsDiv = document.getElementById('eventResults');
+            resultsDiv.innerHTML = '<span class="text-slate-500">Searching...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/seatgeek/events/performer/${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                showRawResponse(data);
+                
+                if (data.success && data.events.length > 0) {
+                    resultsDiv.innerHTML = data.events.slice(0, 10).map(event => `
+                        <div class="border border-slate-200 rounded-lg p-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="text-lg font-bold text-slate-700">${formatDate(event.date)}</span>
+                                        ${event.score ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs">Score: ${(event.score * 100).toFixed(0)}</span>` : ''}
+                                    </div>
+                                    <h3 class="font-bold text-slate-800">${event.name}</h3>
+                                    <p class="text-sm text-slate-600">${event.venue?.name || 'Venue TBA'}</p>
+                                    <p class="text-sm text-slate-500">${event.venue?.city || ''}, ${event.venue?.state || ''}</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="space-y-1">
+                                        ${event.stats?.lowestPrice ? `
+                                            <p class="text-lg font-bold text-emerald-600">$${event.stats.lowestPrice}</p>
+                                            <p class="text-xs text-slate-500">lowest price</p>
+                                        ` : '<p class="text-sm text-slate-400">No pricing</p>'}
+                                        ${event.stats?.listingCount ? `
+                                            <p class="text-xs text-slate-400">${event.stats.listingCount} listings</p>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            ${event.stats?.lowestPrice ? `
+                                <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-3 text-xs">
+                                    <span class="px-2 py-1 bg-slate-100 rounded">Low: $${event.stats.lowestPrice}</span>
+                                    <span class="px-2 py-1 bg-slate-100 rounded">Avg: $${event.stats.averagePrice || 'N/A'}</span>
+                                    <span class="px-2 py-1 bg-slate-100 rounded">High: $${event.stats.highestPrice || 'N/A'}</span>
+                                    <span class="px-2 py-1 bg-slate-100 rounded">Median: $${event.stats.medianPrice || 'N/A'}</span>
+                                </div>
+                            ` : ''}
+                            ${event.url ? `
+                                <a href="${event.url}" target="_blank" class="inline-block mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                                    View on SeatGeek
+                                </a>
+                            ` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    resultsDiv.innerHTML = '<p class="text-slate-500">No events found for this performer</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="text-rose-600">Error: ${error.message}</span>`;
+            }
+        }
+
+        async function compareEvent() {
+            const artist = document.getElementById('compareArtist').value.trim();
+            const date = document.getElementById('compareDate').value;
+            const venue = document.getElementById('compareVenue').value.trim();
+            
+            if (!artist || !date) {
+                return alert('Please enter at least artist name and date');
+            }
+            
+            const resultsDiv = document.getElementById('compareResults');
+            resultsDiv.innerHTML = '<span class="text-slate-500">Searching for matching event...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/seatgeek/enrich`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        artist: { name: artist },
+                        date: new Date(date).toISOString(),
+                        venue: { name: venue, city: '' }
+                    })
+                });
+                
+                const data = await response.json();
+                showRawResponse(data);
+                
+                if (data.success && data.enriched) {
+                    const sg = data.data.seatgeek;
+                    resultsDiv.innerHTML = `
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                            <div class="flex items-center gap-2 mb-3">
+                                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span class="font-semibold text-emerald-700">Match found! (${sg.matchConfidence} confidence)</span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                <div class="bg-white rounded-lg p-3 text-center">
+                                    <p class="text-2xl font-bold text-emerald-600">$${sg.pricing.lowestPrice || 'N/A'}</p>
+                                    <p class="text-xs text-slate-500">Lowest</p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3 text-center">
+                                    <p class="text-2xl font-bold text-slate-700">$${sg.pricing.averagePrice || 'N/A'}</p>
+                                    <p class="text-xs text-slate-500">Average</p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3 text-center">
+                                    <p class="text-2xl font-bold text-slate-700">$${sg.pricing.medianPrice || 'N/A'}</p>
+                                    <p class="text-xs text-slate-500">Median</p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3 text-center">
+                                    <p class="text-2xl font-bold text-rose-600">$${sg.pricing.highestPrice || 'N/A'}</p>
+                                    <p class="text-xs text-slate-500">Highest</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm text-slate-600">${sg.pricing.listingCount || 0} listings available</p>
+                                ${sg.url ? `<a href="${sg.url}" target="_blank" class="text-blue-600 hover:underline text-sm">View on SeatGeek →</a>` : ''}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <p class="text-amber-700">${data.error || 'No matching event found on SeatGeek'}</p>
+                            <p class="text-sm text-amber-600 mt-1">Try adjusting the artist name or date.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="text-rose-600">Error: ${error.message}</span>`;
+            }
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function showRawResponse(data) {
+            document.getElementById('rawResponse').textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Allow Enter key to trigger searches
+        document.getElementById('performerSearch')?.addEventListener('keypress', e => { if (e.key === 'Enter') searchPerformers(); });
+        document.getElementById('eventSearch')?.addEventListener('keypress', e => { if (e.key === 'Enter') searchEvents(); });
+    </script>
+</body>
+</html>
