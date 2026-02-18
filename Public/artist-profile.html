@@ -6,6 +6,86 @@
     <title>Artist Profile - Event Tracker</title>
     <link href="/css/output.css" rel="stylesheet">
     <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #tourMap { height: 350px; border-radius: 0.5rem; }
+        .map-container { position: relative; }
+        .map-interact-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .map-interact-overlay:hover {
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            color: #1e293b;
+        }
+        .map-interact-overlay.hidden { display: none; }
+        .tour-bus-icon {
+            background: #059669;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+            50% { transform: scale(1.15); box-shadow: 0 4px 16px rgba(5, 150, 105, 0.6); }
+        }
+        .timeline-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #059669 0%, #475569 100%);
+            outline: none;
+            cursor: pointer;
+        }
+        .timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #059669;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .timeline-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .timeline-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #059669;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+    </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
     <!-- Sidebar Container - populated by sidebar.js -->
@@ -215,6 +295,73 @@
                         <p class="mt-2 text-slate-600">Loading upcoming concerts...</p>
                     </div>
                 </div>
+
+                <!-- Tour Map -->
+                <div class="mt-6 map-container">
+                    <div id="tourMapInteractOverlay" class="map-interact-overlay" onclick="enableTourMapInteraction()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                        </svg>
+                        Click to interact with map
+                    </div>
+                    <div id="tourMap"></div>
+                </div>
+
+                <!-- Tour Controls -->
+                <div id="tourControls" class="mt-4" style="display: none;">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-slate-800">Tour Progress</h3>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm text-slate-600">Speed:</label>
+                            <select id="speedControl" onchange="changeSpeed()" class="px-2 py-1 border border-slate-200 rounded text-sm">
+                                <option value="2000">Slow</option>
+                                <option value="1000" selected>Normal</option>
+                                <option value="500">Fast</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Current Show Info -->
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-emerald-600 font-semibold" id="currentShowNumber">Stop 1 of X</p>
+                                <h4 class="text-xl font-bold text-slate-800" id="currentShowName">Loading...</h4>
+                                <p class="text-slate-600" id="currentShowVenue"></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-emerald-600" id="currentShowDate"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playback Controls -->
+                    <div class="flex items-center justify-center gap-4 mb-4">
+                        <button onclick="skipToStart()" class="p-2 hover:bg-slate-100 rounded-lg" title="First">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                        </button>
+                        <button onclick="previousStop()" class="p-2 hover:bg-slate-100 rounded-lg" title="Previous">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon></svg>
+                        </button>
+                        <button onclick="togglePlayback()" class="p-4 bg-emerald-600 text-white rounded-full hover:bg-emerald-700" title="Play/Pause">
+                            <svg id="playIcon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            <svg id="pauseIcon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" class="hidden"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                        </button>
+                        <button onclick="nextStop()" class="p-2 hover:bg-slate-100 rounded-lg" title="Next">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon></svg>
+                        </button>
+                        <button onclick="skipToEnd()" class="p-2 hover:bg-slate-100 rounded-lg" title="Last">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                        </button>
+                    </div>
+
+                    <!-- Timeline Slider -->
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm text-slate-600" id="tourStartDate"></span>
+                        <input type="range" id="timelineSlider" min="0" max="100" value="0" class="timeline-slider flex-1" oninput="scrubTimeline(this.value)">
+                        <span class="text-sm text-slate-600" id="tourEndDate"></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Past Concerts Section (Hidden by default) -->
@@ -251,6 +398,18 @@
         
         let artistData = null;
         let mbid = null;
+
+        // Tour map/animation state
+        let tourMap = null;
+        let tourMarkers = [];
+        let tourPolyline = null;
+        let eventCoordinates = [];
+        let tourBusMarker = null;
+        let animatedPolyline = null;
+        let currentStopIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1000;
 
         document.addEventListener('DOMContentLoaded', () => {
             if (!artistId && !ticketmasterId && !artistNameParam) { alert('No artist selected'); window.location.href = 'Event-Tracker.html'; return; }
@@ -502,7 +661,9 @@
 
         async function showPastConcerts() {
             if (!mbid) { alert('Past concert data not available for this artist'); return; }
+            pauseAnimation();
             document.getElementById('pastConcertsSection').style.display = 'block';
+            document.getElementById('upcomingConcertsSection').style.display = 'none';
             try {
                 const response = await fetch(`${API_BASE_URL}/setlist/artist/${mbid}/recent?limit=20`);
                 const data = await response.json();
@@ -969,17 +1130,185 @@
         }
 
         function hidePastConcerts() { document.getElementById('pastConcertsSection').style.display = 'none'; }
-        function hideUpcomingConcerts() { document.getElementById('upcomingConcertsSection').style.display = 'none'; }
+        function hideUpcomingConcerts() {
+            pauseAnimation();
+            document.getElementById('upcomingConcertsSection').style.display = 'none';
+        }
+
+        // --- Tour Map & Animation Functions ---
+
+        function initTourMap() {
+            if (tourMap) { tourMap.remove(); tourMap = null; }
+            tourMap = L.map('tourMap', { scrollWheelZoom: false }).setView([39.8283, -98.5795], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(tourMap);
+        }
+
+        function setupTourAnimation(events) {
+            const sorted = events.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+            const withCoords = sorted.filter(e => e.venue?.location?.coordinates);
+            if (withCoords.length === 0) {
+                document.getElementById('tourControls').style.display = 'none';
+                document.getElementById('tourMap').style.display = 'none';
+                document.getElementById('tourMapInteractOverlay').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('tourMap').style.display = 'block';
+            document.getElementById('tourMapInteractOverlay').style.display = 'flex';
+            initTourMap();
+
+            // Clear previous state
+            tourMarkers = [];
+            eventCoordinates = [];
+            tourBusMarker = null;
+            animatedPolyline = null;
+            tourPolyline = null;
+            currentStopIndex = 0;
+
+            const bounds = [];
+
+            withCoords.forEach((event, index) => {
+                const [lng, lat] = event.venue.location.coordinates;
+                bounds.push([lat, lng]);
+                eventCoordinates.push({ lat, lng, event, index });
+
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 10, fillColor: '#475569', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.7
+                }).addTo(tourMap);
+                const date = new Date(event.date);
+                marker.bindPopup(`<div class="p-2"><p class="font-bold">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p><p class="text-sm">${event.venue.name}</p><p class="text-sm text-gray-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p></div>`);
+                tourMarkers.push(marker);
+            });
+
+            if (bounds.length > 1) {
+                tourPolyline = L.polyline(bounds, { color: '#94a3b8', weight: 2, opacity: 0.5, dashArray: '5, 10' }).addTo(tourMap);
+                tourMap.fitBounds(bounds, { padding: [50, 50] });
+            } else if (bounds.length === 1) {
+                tourMap.setView(bounds[0], 8);
+            }
+
+            if (eventCoordinates.length > 1) {
+                document.getElementById('tourControls').style.display = 'block';
+                initTourAnimation();
+            } else {
+                document.getElementById('tourControls').style.display = 'none';
+            }
+        }
+
+        function initTourAnimation() {
+            if (eventCoordinates.length < 2) return;
+
+            document.getElementById('timelineSlider').max = eventCoordinates.length - 1;
+
+            const firstDate = new Date(eventCoordinates[0].event.date);
+            const lastDate = new Date(eventCoordinates[eventCoordinates.length - 1].event.date);
+            document.getElementById('tourStartDate').textContent = firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            document.getElementById('tourEndDate').textContent = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            const tourBusIcon = L.divIcon({
+                className: 'tour-bus-icon',
+                html: `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z"/></svg>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            const firstCoord = eventCoordinates[0];
+            tourBusMarker = L.marker([firstCoord.lat, firstCoord.lng], { icon: tourBusIcon, zIndexOffset: 1000 }).addTo(tourMap);
+
+            currentStopIndex = 0;
+            updateCurrentStop(0);
+        }
+
+        function updateCurrentStop(index) {
+            if (index < 0 || index >= eventCoordinates.length) return;
+
+            currentStopIndex = index;
+            const coord = eventCoordinates[index];
+            const event = coord.event;
+            const venue = event.venue;
+            const date = new Date(event.date);
+
+            document.getElementById('currentShowName').textContent = `${venue.city}, ${venue.state || venue.country}`;
+            document.getElementById('currentShowVenue').textContent = venue.name;
+            document.getElementById('currentShowDate').textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            document.getElementById('currentShowNumber').textContent = `Stop ${index + 1} of ${eventCoordinates.length}`;
+
+            document.getElementById('timelineSlider').value = index;
+
+            if (tourBusMarker) tourBusMarker.setLatLng([coord.lat, coord.lng]);
+
+            if (animatedPolyline) tourMap.removeLayer(animatedPolyline);
+
+            if (index > 0) {
+                const traveledPath = eventCoordinates.slice(0, index + 1).map(c => [c.lat, c.lng]);
+                animatedPolyline = L.polyline(traveledPath, { color: '#059669', weight: 4, opacity: 0.9 }).addTo(tourMap);
+            }
+
+            tourMarkers.forEach((marker, i) => {
+                if (i < index) marker.setStyle({ fillColor: '#059669', fillOpacity: 1, radius: 10 });
+                else if (i === index) marker.setStyle({ fillColor: '#059669', fillOpacity: 1, radius: 14 });
+                else marker.setStyle({ fillColor: '#475569', fillOpacity: 0.5, radius: 10 });
+            });
+
+            document.querySelectorAll('#upcomingConcertsList .event-list-item').forEach((el, i) => {
+                if (i === index) el.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50');
+                else el.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-50');
+            });
+        }
+
+        function togglePlayback() { if (isPlaying) pauseAnimation(); else playAnimation(); }
+
+        function playAnimation() {
+            isPlaying = true;
+            document.getElementById('playIcon').classList.add('hidden');
+            document.getElementById('pauseIcon').classList.remove('hidden');
+            if (currentStopIndex >= eventCoordinates.length - 1) { currentStopIndex = 0; updateCurrentStop(0); }
+            animationInterval = setInterval(() => {
+                if (currentStopIndex < eventCoordinates.length - 1) { currentStopIndex++; updateCurrentStop(currentStopIndex); }
+                else pauseAnimation();
+            }, animationSpeed);
+        }
+
+        function pauseAnimation() {
+            isPlaying = false;
+            document.getElementById('playIcon')?.classList.remove('hidden');
+            document.getElementById('pauseIcon')?.classList.add('hidden');
+            if (animationInterval) { clearInterval(animationInterval); animationInterval = null; }
+        }
+
+        function previousStop() { pauseAnimation(); if (currentStopIndex > 0) updateCurrentStop(currentStopIndex - 1); }
+        function nextStop() { pauseAnimation(); if (currentStopIndex < eventCoordinates.length - 1) updateCurrentStop(currentStopIndex + 1); }
+        function skipToStart() { pauseAnimation(); updateCurrentStop(0); }
+        function skipToEnd() { pauseAnimation(); updateCurrentStop(eventCoordinates.length - 1); }
+        function scrubTimeline(value) { pauseAnimation(); updateCurrentStop(parseInt(value)); }
+
+        function goToTourStop(index) {
+            pauseAnimation();
+            updateCurrentStop(index);
+            document.getElementById('tourMap').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function changeSpeed() {
+            animationSpeed = parseInt(document.getElementById('speedControl').value);
+            if (isPlaying) { pauseAnimation(); playAnimation(); }
+        }
+
+        function enableTourMapInteraction() {
+            if (tourMap) tourMap.scrollWheelZoom.enable();
+            document.getElementById('tourMapInteractOverlay').classList.add('hidden');
+        }
         
         async function showScheduledConcerts() {
             document.getElementById('upcomingConcertsSection').style.display = 'block';
+            document.getElementById('pastConcertsSection').style.display = 'none';
             
             try {
                 let response;
                 if (artistId) {
                     response = await fetch(`${API_BASE_URL}/events/artist/${artistId}?includePast=false`);
-                } else if (ticketmasterId) {
-                    response = await fetch(`${API_BASE_URL}/ticketmaster/artist/${ticketmasterId}/events`);
+                } else if (ticketmasterId || window.ticketmasterIdForName) {
+                    const tmId = ticketmasterId || window.ticketmasterIdForName;
+                    response = await fetch(`${API_BASE_URL}/ticketmaster/artist/${tmId}/events`);
                 } else {
                     document.getElementById('upcomingConcertsList').innerHTML = `<p class="text-center text-slate-600 py-8">No upcoming concerts found</p>`;
                     return;
@@ -989,8 +1318,12 @@
                 
                 if (data.success && data.events && data.events.length > 0) {
                     displayUpcomingConcerts(data.events);
+                    setupTourAnimation(data.events);
                 } else {
                     document.getElementById('upcomingConcertsList').innerHTML = `<p class="text-center text-slate-600 py-8">No upcoming concerts scheduled</p>`;
+                    document.getElementById('tourControls').style.display = 'none';
+                    document.getElementById('tourMap').style.display = 'none';
+                    document.getElementById('tourMapInteractOverlay').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error loading upcoming concerts:', error);
@@ -1001,15 +1334,15 @@
         function displayUpcomingConcerts(events) {
             const sortedEvents = events.sort((a, b) => new Date(a.date) - new Date(b.date));
             
-            document.getElementById('upcomingConcertsList').innerHTML = sortedEvents.map(event => {
+            document.getElementById('upcomingConcertsList').innerHTML = sortedEvents.map((event, index) => {
                 const date = new Date(event.date);
                 const ticketInfo = event.ticketInfo || {};
                 const statusBadge = getEventStatusBadge(ticketInfo.status);
                 const pricePill = getEventPricePill(ticketInfo);
-                const resalePill = ticketInfo.resaleStatus === 'available' 
-                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Resale available</span>` 
+                const resalePill = ticketInfo.resaleStatus === 'available'
+                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Resale available</span>`
                     : '';
-                
+
                 // Build presale indicator
                 let presaleIndicator = '';
                 if (ticketInfo.presales && ticketInfo.presales.length > 0) {
@@ -1023,11 +1356,11 @@
                         presaleIndicator = `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">🎫 Presale Active</span>`;
                     }
                 }
-                
+
                 const location = [event.venue?.city, event.venue?.state, event.venue?.country].filter(Boolean).join(', ');
-                
+
                 return `
-                    <div class="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors mb-3">
+                    <div class="event-list-item border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors mb-3 cursor-pointer" onclick="goToTourStop(${index})">
                         <div class="flex items-start justify-between flex-wrap gap-4">
                             <div class="flex-1">
                                 <div class="flex items-center gap-2 mb-2 flex-wrap">
@@ -1038,7 +1371,7 @@
                                 <h3 class="font-bold text-slate-800 mb-1">${event.name}</h3>
                                 <p class="text-sm font-semibold text-slate-600">${event.venue?.name || 'Venue TBA'}</p>
                                 <p class="text-sm text-slate-500">${location || 'Location TBA'}</p>
-                                
+
                                 <!-- Price Info Row -->
                                 <div class="flex flex-wrap items-center gap-2 mt-3">
                                     ${pricePill}
@@ -1047,8 +1380,8 @@
                                 </div>
                             </div>
                             <div class="flex flex-col gap-2">
-                                <a href="event-details.html?id=${event._id || ''}&tmId=${event.externalIds?.ticketmaster || ''}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
-                                ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
+                                <a href="Event-details.html?id=${event._id || event.id || ''}&tmId=${event.externalIds?.ticketmaster || event.ticketmasterId || event.tmId || ''}" onclick="event.stopPropagation()" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
+                                ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" onclick="event.stopPropagation()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
                             </div>
                         </div>
                     </div>
