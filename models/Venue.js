@@ -44,16 +44,43 @@ const venueSchema = new mongoose.Schema({
     },
 
     capacity: { type: Number },
+    venueType: { type: String }, // e.g. "Arena", "Club", "Theater", "Outdoor"
+    openAir: { type: Boolean }, // true = outdoor/open-air, false = indoor, null = unknown
 
     images: {
         thumbnail: String,
         medium: String,
-        large: String
+        large: String,
+        hero: String // wide banner image
     },
 
     links: {
         website: String,
         googleMaps: String
+    },
+
+    url: { type: String }, // Ticketmaster venue page link
+
+    generalInfo: {
+        generalRule: String,
+        childRule: String
+    },
+
+    boxOfficeInfo: {
+        phoneNumber: String,
+        openHours: String,
+        acceptedPayment: String,
+        willCall: String
+    },
+
+    parkingDetail: { type: String },
+    accessibleSeatingDetail: { type: String },
+
+    social: {
+        twitter: String,
+        facebook: String,
+        instagram: String,
+        wiki: String
     },
 
     // Aggregate stats
@@ -64,7 +91,9 @@ const venueSchema = new mongoose.Schema({
     },
 
     // Cooldown tracking for live TM API sync
-    lastSyncedAt: { type: Date }
+    lastSyncedAt: { type: Date },
+    // Cooldown tracking for venue detail enrichment (7-day cooldown)
+    lastEnrichedAt: { type: Date }
 }, { timestamps: true });
 
 // Geospatial index
@@ -107,7 +136,14 @@ venueSchema.statics.findOrCreateFromEventVenue = async function (venueData) {
         country: venueData.country || 'US',
         zipCode: venueData.zipCode,
         location,
-        capacity: venueData.capacity
+        capacity: venueData.capacity,
+        ...(venueData.venueType && { venueType: venueData.venueType }),
+        ...(venueData.url && { url: venueData.url }),
+        ...(venueData.generalInfo && { generalInfo: venueData.generalInfo }),
+        ...(venueData.boxOfficeInfo && { boxOfficeInfo: venueData.boxOfficeInfo }),
+        ...(venueData.parkingDetail && { parkingDetail: venueData.parkingDetail }),
+        ...(venueData.accessibleSeatingDetail && { accessibleSeatingDetail: venueData.accessibleSeatingDetail }),
+        ...(venueData.social && { social: venueData.social })
     });
 
     return venue;

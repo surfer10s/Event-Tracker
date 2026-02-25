@@ -33,12 +33,13 @@
 - PostCSS + Autoprefixer for CSS processing
 
 **External APIs:**
-- Ticketmaster - Event discovery and tickets
+- Ticketmaster - Event discovery, tickets, and venue details (`/discovery/v2/venues/{id}`)
 - SeatGeek - Ticket pricing
 - Setlist.fm - Concert setlists
 - Last.fm - Artist recommendations
 - YouTube OAuth - Music taste extraction
 - Google Geocoding - Location services
+- Wikidata SPARQL - Venue capacity, type classification, indoor/outdoor detection
 
 ## Directory Structure
 
@@ -53,6 +54,7 @@ event-tracker-backend/
 │   ├── Tour.js                  # Tour groupings
 │   ├── category.js              # User-defined artist categories
 │   ├── artistcategory.js        # Category assignments
+│   ├── Venue.js                 # Venue profiles with enrichment
 │   ├── concerthistory.js        # Attended concerts
 │   ├── notification.js          # Event alerts
 │   ├── UserMusicTaste.js        # YouTube-extracted taste
@@ -63,6 +65,7 @@ event-tracker-backend/
 │   ├── EventController.js
 │   ├── categorycontroller.js
 │   ├── concerthistorycontroller.js
+│   ├── venueController.js       # Venue profiles, follow/unfollow, event listing
 │   ├── TicketmasterController.js
 │   └── setlistController.js
 ├── routes/                      # API endpoint definitions
@@ -75,12 +78,13 @@ event-tracker-backend/
 │   ├── notifications.js         # /api/v1/notifications/*
 │   ├── sync.js                  # /api/v1/sync/*
 │   ├── lastfm.js                # /api/v1/lastfm/*
+│   ├── venues.js                # /api/v1/venues/*
 │   ├── seatgeek.js              # /api/v1/seatgeek/*
 │   ├── artistCache.js           # /api/v1/artist-cache/*
 │   ├── test.js                  # /api/v1/test/*
 │   └── youtube.js               # /auth/youtube/*, /api/youtube/*
 ├── services/                    # Reusable business logic
-│   ├── ticketmasterService.js
+│   ├── ticketmasterService.js   # TM API + venue enrichment + Wikidata lookup
 │   ├── seatgeekService.js
 │   ├── setlistService.js
 │   ├── notificationService.js
@@ -98,6 +102,7 @@ event-tracker-backend/
 │   ├── Favorites-Activity.html  # Favorites activity feed (grouped by artist)
 │   ├── Favorites-activity-location.html  # Location-based favorites activity
 │   ├── artist-profile.html      # Artist details + embedded tour map
+│   ├── venue-profile.html        # Venue profile (enriched via TM + Wikidata)
 │   ├── Event-details.html       # Event details
 │   ├── Discover-Artists.html    # Artist discovery/search
 │   ├── discover-concerts.html   # Concert discovery
@@ -143,6 +148,17 @@ event-tracker-backend/
 - Standalone tour map page (`future-concerts.html`) with date filtering
 - Setlist integration from Setlist.fm
 - Favorites activity feeds (grouped by artist, location-filtered)
+
+### Venue Profiles & Enrichment
+- Lazy enrichment on profile view (fetches on first visit, 7-day cooldown)
+- **TM Venue Detail API**: images, box office info, parking, accessibility, general rules, child policy, social links
+- **TM Venue Lookup**: Venues without a TM ID are auto-matched by name/city search
+- **Wikidata SPARQL**: Capacity, venue type classification (Arena, Amphitheater, Stadium, etc.), indoor/outdoor detection
+- Open-air detection via Wikidata instance types + venue name keyword fallback
+- TM venue images are small (640px logos) — displayed as thumbnails, not hero banners (hero requires >= 1024px)
+- Collapsible Details and Venue Information sections on profile page
+- Follow/unfollow venues with follower counts
+- Live event backfill from TM on venue event listing (2-hour cooldown, separate from enrichment)
 
 ### Favorites & Categories
 - Add/remove favorite artists
@@ -240,6 +256,17 @@ event-tracker-backend/
 - Video counts and sources
 - Sync history
 
+### Venue
+- Name, address, city, state, country, zipCode
+- GeoJSON location (2dsphere index) + normalizedKey for dedup
+- External IDs (Ticketmaster)
+- Capacity, venueType (Arena, Amphitheater, etc.), openAir (boolean)
+- Images (thumbnail, medium, large, hero)
+- Enrichment data: generalInfo, boxOfficeInfo, parkingDetail, accessibleSeatingDetail, social links
+- Stats: totalEvents, upcomingEvents, followers
+- Cooldowns: `lastSyncedAt` (2hr, for event backfill), `lastEnrichedAt` (7-day, for venue detail enrichment)
+- Static method: `findOrCreateFromEventVenue()` for dedup on event import
+
 ### SongCache
 - YouTube video cache
 - Artist + title → videoId mapping
@@ -277,6 +304,15 @@ event-tracker-backend/
 - `GET /api/v1/notifications/unread-count` - Get unread count
 - `PUT /api/v1/notifications/:id/read` - Mark as read
 - `POST /api/v1/notifications/check` - Trigger notification check
+
+### Venues
+- `GET /api/v1/venues` - List/search venues (query: q, city, state)
+- `GET /api/v1/venues/nearby` - Geospatial search (query: longitude, latitude, maxDistance)
+- `GET /api/v1/venues/following` - User's followed venues (auth required)
+- `GET /api/v1/venues/:venueId` - Venue profile (triggers lazy enrichment via TM + Wikidata)
+- `GET /api/v1/venues/:venueId/events` - Events at venue (with live TM backfill, supports grouped mode)
+- `POST /api/v1/venues/:venueId/follow` - Follow venue (auth required)
+- `DELETE /api/v1/venues/:venueId/follow` - Unfollow venue (auth required)
 
 ### Background Sync
 - `GET /api/v1/sync/progress` - SSE progress stream
@@ -423,15 +459,24 @@ node scripts/make-admin.js <email>
 - Categories are user-scoped (userId + name must be unique)
 - ArtistCategory is join table with compound unique index
 
+### Venue Enrichment
+- Two separate cooldowns: `lastSyncedAt` (2hr) for event backfill, `lastEnrichedAt` (7-day) for venue detail enrichment
+- TM has multiple venue IDs for the same venue — IDs starting with `KovZ` tend to have rich data; `Za5ju3r` prefix IDs are often sparse
+- `lookupVenueTmId()` searches TM by name to find the best ID when none is stored
+- Wikidata queries use exact English label matching — renamed venues may not match
+- TM venue `type` field always returns `"venue"` — useless; real type comes from Wikidata instance classifications
+- SeatGeek API now requires an API key (no longer free anonymous access)
+
 ### API Rate Limits
 - Ticketmaster: 5000 requests/day per key
 - YouTube: 10,000 quota units/day (search = 100 units)
 - Setlist.fm: No official limit, respect rate limiting
+- Wikidata SPARQL: No API key needed, requires User-Agent header, 5-second timeout in code
 - Song cache reduces YouTube API usage
 
 ## Frontend Pages Summary
 
-- **User Pages**: auth, index, account-details, favorites, Favorites-Activity, Favorites-activity-location, Discover-Artists, discover-concerts, artist-profile, future-concerts, tour-map, Event-details, concert-history, Notifications, manage-categories
+- **User Pages**: auth, index, account-details, favorites, Favorites-Activity, Favorites-activity-location, Discover-Artists, discover-concerts, artist-profile, venue-profile, venues, future-concerts, tour-map, Event-details, concert-history, Notifications, manage-categories
 - **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-music-taste, admin-song-cache
 - **Testing Pages**: YouTubeTest, SeatGeek-test, cache-admin, music-taste-admin
 
@@ -480,6 +525,6 @@ node scripts/make-admin.js <email>
 
 ---
 
-**Last Updated**: 2026-02-18
-**Version**: 1.1.0
+**Last Updated**: 2026-02-25
+**Version**: 1.2.0
 **Author**: Billy Wagner

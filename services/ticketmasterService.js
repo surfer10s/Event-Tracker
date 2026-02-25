@@ -6,6 +6,7 @@ const axios = require('axios');
 const Artist = require('../models/Artist');
 const Event = require('../models/Event');
 const Tour = require('../models/Tour');
+const Venue = require('../models/Venue');
 
 // Base URL for Ticketmaster Discovery API
 const TM_BASE_URL = 'https://app.ticketmaster.com/discovery/v2';
@@ -500,6 +501,247 @@ class TicketmasterService {
         needsAuth: error.response?.status === 403
       };
     }
+  }
+
+  // Fetch detailed venue info from TM Discovery API
+  async getVenueDetails(tmVenueId) {
+    try {
+      const response = await axios.get(`${TM_BASE_URL}/venues/${tmVenueId}.json`, {
+        params: { apikey: this.apiKey }
+      });
+
+      const v = response.data;
+
+      // Pick best image sizes
+      const images = {};
+      if (v.images && v.images.length > 0) {
+        const sorted = [...v.images].sort((a, b) => (b.width || 0) - (a.width || 0));
+        // Hero requires a genuinely large image (>= 1024px) — don't stretch small logos
+        images.hero = sorted.find(img => img.width >= 1024 && img.ratio === '16_9')?.url
+          || sorted.find(img => img.width >= 1024)?.url;
+        images.large = sorted.find(img => img.width >= 1000)?.url;
+        images.medium = sorted.find(img => img.width >= 500)?.url
+          || sorted.find(img => img.width >= 300)?.url;
+        images.thumbnail = sorted.find(img => img.width < 500)?.url
+          || sorted[sorted.length - 1]?.url; // smallest available
+      }
+
+      // Extract social links from externalLinks and social
+      const social = {};
+      const extLinks = v.externalLinks || {};
+      if (extLinks.twitter?.length) social.twitter = extLinks.twitter[0].url;
+      if (extLinks.facebook?.length) social.facebook = extLinks.facebook[0].url;
+      if (extLinks.instagram?.length) social.instagram = extLinks.instagram[0].url;
+      if (extLinks.wiki?.length) social.wiki = extLinks.wiki[0].url;
+      // Also check social object
+      if (v.social) {
+        if (v.social.twitter?.handle && !social.twitter) social.twitter = `https://twitter.com/${v.social.twitter.handle}`;
+      }
+
+      return {
+        success: true,
+        // v.type is always "venue" — only use classifications if meaningful
+        venueType: v.classifications?.[0]?.segment?.name || (v.type && v.type !== 'venue' ? v.type : undefined),
+        url: v.url,
+        images,
+        capacity: v.capacity,
+        generalInfo: v.generalInfo ? {
+          generalRule: v.generalInfo.generalRule,
+          childRule: v.generalInfo.childRule
+        } : undefined,
+        boxOfficeInfo: v.boxOfficeInfo ? {
+          phoneNumber: v.boxOfficeInfo.phoneNumberDetail,
+          openHours: v.boxOfficeInfo.openHoursDetail,
+          acceptedPayment: v.boxOfficeInfo.acceptedPaymentDetail,
+          willCall: v.boxOfficeInfo.willCallDetail
+        } : undefined,
+        parkingDetail: v.parkingDetail,
+        accessibleSeatingDetail: v.accessibleSeatingDetail,
+        social,
+        address: v.address?.line1,
+        city: v.city?.name,
+        state: v.state?.stateCode,
+        country: v.country?.countryCode,
+        zipCode: v.postalCode,
+        location: v.location ? {
+          latitude: parseFloat(v.location.latitude),
+          longitude: parseFloat(v.location.longitude)
+        } : undefined
+      };
+    } catch (error) {
+      console.error('Error fetching venue details from TM:', error.response?.data || error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Search TM for a venue by name/city and return the best-matching venue ID
+  async lookupVenueTmId(name, city) {
+    try {
+      const response = await axios.get(`${TM_BASE_URL}/venues.json`, {
+        params: {
+          apikey: this.apiKey,
+          keyword: name,
+          size: 5
+        }
+      });
+
+      const venues = response.data._embedded?.venues || [];
+      if (venues.length === 0) return null;
+
+      // Prefer a venue whose city matches
+      const cityLower = (city || '').toLowerCase();
+      const match = venues.find(v => (v.city?.name || '').toLowerCase() === cityLower) || venues[0];
+      return match.id;
+    } catch (error) {
+      console.error('[Venue Lookup] TM search failed:', error.message);
+      return null;
+    }
+  }
+
+  // Query Wikidata for venue capacity and type (indoor/outdoor)
+  async getWikidataVenueInfo(venueName) {
+    try {
+      // Sanitize venue name for SPARQL (escape quotes)
+      const safeName = venueName.replace(/"/g, '\\"');
+      const sparql = `
+        SELECT ?item ?itemLabel ?capacity ?instanceLabel WHERE {
+          ?item rdfs:label "${safeName}"@en .
+          OPTIONAL { ?item wdt:P1083 ?capacity . }
+          OPTIONAL { ?item wdt:P31 ?instance . }
+          SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
+        } LIMIT 10
+      `;
+      const response = await axios.get('https://query.wikidata.org/sparql', {
+        params: { query: sparql, format: 'json' },
+        headers: { 'User-Agent': 'EventTracker/1.0' },
+        timeout: 5000
+      });
+
+      const results = response.data.results.bindings;
+      if (!results.length) return null;
+
+      // Get max capacity (Wikidata often has multiple configs)
+      const capacities = results.map(r => parseInt(r.capacity?.value)).filter(n => n > 0);
+      const capacity = capacities.length ? Math.max(...capacities) : null;
+
+      // Collect all instance types
+      const types = [...new Set(results.map(r => r.instanceLabel?.value).filter(Boolean))];
+
+      // Determine indoor/outdoor from instance types
+      const OUTDOOR_TYPES = ['sylvan theater', 'outdoor concert venue', 'amphitheatre', 'amphitheater', 'stadium', 'baseball venue', 'football venue'];
+      const INDOOR_TYPES = ['arena', 'multi-purpose hall', 'concert hall', 'theatre building', 'performing arts center', 'nightclub', 'music venue'];
+
+      const typesLower = types.map(t => t.toLowerCase());
+      let openAir = null;
+      if (typesLower.some(t => OUTDOOR_TYPES.some(ot => t.includes(ot)))) {
+        openAir = true;
+      } else if (typesLower.some(t => INDOOR_TYPES.some(it => t.includes(it)))) {
+        openAir = false;
+      }
+
+      // Also check venue name as a fallback for open-air detection
+      const nameLower = venueName.toLowerCase();
+      if (openAir === null) {
+        const outdoorKeywords = ['amphitheatre', 'amphitheater', 'pavilion', 'bowl', 'field', 'stadium', 'park', 'outdoor'];
+        if (outdoorKeywords.some(kw => nameLower.includes(kw))) openAir = true;
+      }
+
+      // Derive a readable venueType from Wikidata instance types
+      let venueType = null;
+      const typeMap = {
+        'arena': 'Arena', 'multi-purpose hall': 'Arena',
+        'stadium': 'Stadium', 'baseball venue': 'Stadium', 'football venue': 'Stadium',
+        'concert hall': 'Concert Hall', 'performing arts center': 'Concert Hall',
+        'theatre building': 'Theater', 'theater': 'Theater',
+        'sylvan theater': 'Amphitheater', 'outdoor concert venue': 'Amphitheater', 'amphitheatre': 'Amphitheater',
+        'nightclub': 'Club', 'music venue': 'Music Venue'
+      };
+      for (const t of typesLower) {
+        for (const [key, label] of Object.entries(typeMap)) {
+          if (t.includes(key)) { venueType = label; break; }
+        }
+        if (venueType) break;
+      }
+
+      return { capacity, openAir, venueType, wikidataTypes: types };
+    } catch (error) {
+      console.error('[Wikidata] Query failed:', error.message);
+      return null;
+    }
+  }
+
+  // Enrich a Venue document with detailed TM data (7-day cooldown)
+  async enrichVenueFromTM(venueDoc) {
+    const ENRICH_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    // Skip if enriched recently
+    if (venueDoc.lastEnrichedAt && (Date.now() - venueDoc.lastEnrichedAt.getTime()) < ENRICH_COOLDOWN_MS) {
+      return venueDoc;
+    }
+
+    // If no TM ID, try to find one by name/city
+    let tmId = venueDoc.externalIds?.ticketmaster;
+    if (!tmId) {
+      tmId = await this.lookupVenueTmId(venueDoc.name, venueDoc.city);
+      if (!tmId) {
+        // No match found — set cooldown so we don't keep searching
+        venueDoc.lastEnrichedAt = new Date();
+        await venueDoc.save();
+        return venueDoc;
+      }
+      if (!venueDoc.externalIds) venueDoc.externalIds = {};
+      venueDoc.externalIds.ticketmaster = tmId;
+    }
+
+    const details = await this.getVenueDetails(tmId);
+    if (!details.success) return venueDoc;
+
+    // Update fields (only overwrite with non-null values)
+    if (details.venueType) venueDoc.venueType = details.venueType;
+    if (details.url) venueDoc.url = details.url;
+    if (details.capacity && !venueDoc.capacity) venueDoc.capacity = details.capacity;
+
+    // Images — merge, don't overwrite existing
+    if (details.images) {
+      if (!venueDoc.images) venueDoc.images = {};
+      if (details.images.hero) venueDoc.images.hero = details.images.hero;
+      if (details.images.large) venueDoc.images.large = details.images.large;
+      if (details.images.medium) venueDoc.images.medium = details.images.medium;
+      if (details.images.thumbnail) venueDoc.images.thumbnail = details.images.thumbnail;
+    }
+
+    if (details.generalInfo) venueDoc.generalInfo = details.generalInfo;
+    if (details.boxOfficeInfo) venueDoc.boxOfficeInfo = details.boxOfficeInfo;
+    if (details.parkingDetail) venueDoc.parkingDetail = details.parkingDetail;
+    if (details.accessibleSeatingDetail) venueDoc.accessibleSeatingDetail = details.accessibleSeatingDetail;
+    if (details.social && Object.keys(details.social).length > 0) venueDoc.social = details.social;
+
+    // Fill in missing address/location data from TM
+    if (details.address && !venueDoc.address) venueDoc.address = details.address;
+    if (details.zipCode && !venueDoc.zipCode) venueDoc.zipCode = details.zipCode;
+    if (details.location && (!venueDoc.location?.coordinates || venueDoc.location.coordinates.length !== 2)) {
+      venueDoc.location = {
+        type: 'Point',
+        coordinates: [details.location.longitude, details.location.latitude]
+      };
+    }
+
+    // Supplement with Wikidata for capacity, venue type, and indoor/outdoor
+    try {
+      const wikiInfo = await this.getWikidataVenueInfo(venueDoc.name);
+      if (wikiInfo) {
+        if (wikiInfo.capacity && !venueDoc.capacity) venueDoc.capacity = wikiInfo.capacity;
+        if (wikiInfo.venueType && !venueDoc.venueType) venueDoc.venueType = wikiInfo.venueType;
+        if (wikiInfo.openAir !== null && venueDoc.openAir == null) venueDoc.openAir = wikiInfo.openAir;
+      }
+    } catch (wikiErr) {
+      console.error('[Wikidata] Enrichment failed, skipping:', wikiErr.message);
+    }
+
+    venueDoc.lastEnrichedAt = new Date();
+    await venueDoc.save();
+
+    return venueDoc;
   }
 
   // Update events in database with inventory status

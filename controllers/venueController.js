@@ -122,6 +122,14 @@ exports.getVenueById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Venue not found' });
         }
 
+        // Lazy enrichment: fetch detailed TM data on profile view
+        // If no TM ID exists, enrichVenueFromTM will search by name/city first
+        try {
+            await ticketmasterService.enrichVenueFromTM(venue);
+        } catch (enrichErr) {
+            console.error('[Venue Enrich] Failed, returning cached data:', enrichErr.message);
+        }
+
         // Check if requesting user follows this venue
         let isFollowing = false;
         if (req.user) {
