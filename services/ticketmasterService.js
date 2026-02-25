@@ -599,33 +599,47 @@ class TicketmasterService {
   }
 
   // Query Wikidata for venue capacity and type (indoor/outdoor)
+  // Uses SPARQL with built-in entity search (single request, avoids API rate limits)
   async getWikidataVenueInfo(venueName) {
     try {
-      // Sanitize venue name for SPARQL (escape quotes)
       const safeName = venueName.replace(/"/g, '\\"');
       const sparql = `
         SELECT ?item ?itemLabel ?capacity ?instanceLabel WHERE {
-          ?item rdfs:label "${safeName}"@en .
+          SERVICE wikibase:mwapi {
+            bd:serviceParam wikibase:endpoint "www.wikidata.org";
+                            wikibase:api "EntitySearch";
+                            mwapi:search "${safeName}";
+                            mwapi:language "en".
+            ?item wikibase:apiOutputItem mwapi:item.
+          }
           OPTIONAL { ?item wdt:P1083 ?capacity . }
           OPTIONAL { ?item wdt:P31 ?instance . }
           SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
-        } LIMIT 10
+        } LIMIT 20
       `;
       const response = await axios.get('https://query.wikidata.org/sparql', {
         params: { query: sparql, format: 'json' },
-        headers: { 'User-Agent': 'EventTracker/1.0' },
-        timeout: 5000
+        headers: { 'User-Agent': 'EventTracker/1.0 (https://github.com/event-tracker; contact@eventtracker.com)' },
+        timeout: 8000
       });
 
       const results = response.data.results.bindings;
       if (!results.length) return null;
 
-      // Get max capacity (Wikidata often has multiple configs)
-      const capacities = results.map(r => parseInt(r.capacity?.value)).filter(n => n > 0);
+      // Prefer results that are venue-like (have capacity or relevant instance types)
+      const venueKeywords = ['arena', 'stadium', 'hall', 'theater', 'theatre', 'venue', 'amphitheat', 'concert', 'club', 'nightclub', 'pavilion', 'center', 'centre'];
+      const venueResults = results.filter(r => {
+        const inst = (r.instanceLabel?.value || '').toLowerCase();
+        return r.capacity?.value || venueKeywords.some(kw => inst.includes(kw));
+      });
+      const bestResults = venueResults.length ? venueResults : results;
+
+      // Get max capacity
+      const capacities = bestResults.map(r => parseInt(r.capacity?.value)).filter(n => n > 0);
       const capacity = capacities.length ? Math.max(...capacities) : null;
 
       // Collect all instance types
-      const types = [...new Set(results.map(r => r.instanceLabel?.value).filter(Boolean))];
+      const types = [...new Set(bestResults.map(r => r.instanceLabel?.value).filter(Boolean))];
 
       // Determine indoor/outdoor from instance types
       const OUTDOOR_TYPES = ['sylvan theater', 'outdoor concert venue', 'amphitheatre', 'amphitheater', 'stadium', 'baseball venue', 'football venue'];
@@ -637,13 +651,6 @@ class TicketmasterService {
         openAir = true;
       } else if (typesLower.some(t => INDOOR_TYPES.some(it => t.includes(it)))) {
         openAir = false;
-      }
-
-      // Also check venue name as a fallback for open-air detection
-      const nameLower = venueName.toLowerCase();
-      if (openAir === null) {
-        const outdoorKeywords = ['amphitheatre', 'amphitheater', 'pavilion', 'bowl', 'field', 'stadium', 'park', 'outdoor'];
-        if (outdoorKeywords.some(kw => nameLower.includes(kw))) openAir = true;
       }
 
       // Derive a readable venueType from Wikidata instance types
@@ -670,6 +677,31 @@ class TicketmasterService {
     }
   }
 
+  // Name-based fallbacks for venueType and openAir when no API data available
+  _applyNameFallbacks(venueDoc) {
+    if (venueDoc.openAir == null) {
+      const nameLower = venueDoc.name.toLowerCase();
+      const outdoorKeywords = ['amphitheatre', 'amphitheater', 'pavilion', 'bowl', 'field', 'stadium', 'park', 'outdoor', 'open air'];
+      const indoorKeywords = ['arena', 'hall', 'theater', 'theatre', 'club', 'house of blues', 'ballroom', 'lounge', 'auditorium'];
+      if (outdoorKeywords.some(kw => nameLower.includes(kw))) venueDoc.openAir = true;
+      else if (indoorKeywords.some(kw => nameLower.includes(kw))) venueDoc.openAir = false;
+    }
+    if (!venueDoc.venueType) {
+      const nameLower = venueDoc.name.toLowerCase();
+      const nameTypeMap = {
+        'amphitheatre': 'Amphitheater', 'amphitheater': 'Amphitheater',
+        'arena': 'Arena', 'stadium': 'Stadium', 'field': 'Stadium',
+        'theater': 'Theater', 'theatre': 'Theater', 'auditorium': 'Theater',
+        'hall': 'Concert Hall', 'pavilion': 'Pavilion',
+        'house of blues': 'Club', 'club': 'Club', 'ballroom': 'Ballroom',
+        'lounge': 'Lounge'
+      };
+      for (const [kw, type] of Object.entries(nameTypeMap)) {
+        if (nameLower.includes(kw)) { venueDoc.venueType = type; break; }
+      }
+    }
+  }
+
   // Enrich a Venue document with detailed TM data (7-day cooldown)
   async enrichVenueFromTM(venueDoc) {
     const ENRICH_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -684,7 +716,8 @@ class TicketmasterService {
     if (!tmId) {
       tmId = await this.lookupVenueTmId(venueDoc.name, venueDoc.city);
       if (!tmId) {
-        // No match found — set cooldown so we don't keep searching
+        // No TM match — still apply name-based fallbacks before setting cooldown
+        this._applyNameFallbacks(venueDoc);
         venueDoc.lastEnrichedAt = new Date();
         await venueDoc.save();
         return venueDoc;
@@ -694,7 +727,13 @@ class TicketmasterService {
     }
 
     const details = await this.getVenueDetails(tmId);
-    if (!details.success) return venueDoc;
+    if (!details.success) {
+      // TM detail fetch failed — still apply name-based fallbacks
+      this._applyNameFallbacks(venueDoc);
+      venueDoc.lastEnrichedAt = new Date();
+      await venueDoc.save();
+      return venueDoc;
+    }
 
     // Update fields (only overwrite with non-null values)
     if (details.venueType) venueDoc.venueType = details.venueType;
@@ -737,6 +776,9 @@ class TicketmasterService {
     } catch (wikiErr) {
       console.error('[Wikidata] Enrichment failed, skipping:', wikiErr.message);
     }
+
+    // Name-based fallbacks (always run, even if Wikidata returned nothing)
+    this._applyNameFallbacks(venueDoc);
 
     venueDoc.lastEnrichedAt = new Date();
     await venueDoc.save();
