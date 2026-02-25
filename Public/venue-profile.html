@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Profile - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #venueMap { height: 300px; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div id="sidebar-container"></div>
+
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Back link -->
+            <a href="venues.html" class="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-4">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                Back to Venues
+            </a>
+
+            <!-- Loading state -->
+            <div id="loadingState" class="text-center py-16 text-slate-400">Loading venue...</div>
+
+            <!-- Venue content (hidden until loaded) -->
+            <div id="venueContent" class="hidden">
+                <!-- Header Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <h2 id="venueName" class="text-2xl font-bold text-slate-800"></h2>
+                            <p id="venueLocation" class="text-slate-500 mt-1"></p>
+                            <div class="flex gap-3 mt-2 text-sm text-slate-400">
+                                <span id="venueCapacity" class="hidden"></span>
+                                <span id="venueFollowers"></span>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button id="followBtn" onclick="toggleFollow()" class="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm font-medium">
+                                Follow
+                            </button>
+                            <a id="mapsLink" href="#" target="_blank" class="px-6 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium hidden">
+                                Google Maps
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Details + Map Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Details -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-slate-800 mb-4">Venue Details</h3>
+                        <dl class="space-y-3 text-sm">
+                            <div id="detailAddress" class="hidden">
+                                <dt class="text-slate-400">Address</dt>
+                                <dd class="text-slate-700 font-medium"></dd>
+                            </div>
+                            <div id="detailCity">
+                                <dt class="text-slate-400">City</dt>
+                                <dd class="text-slate-700 font-medium"></dd>
+                            </div>
+                            <div id="detailState" class="hidden">
+                                <dt class="text-slate-400">State</dt>
+                                <dd class="text-slate-700 font-medium"></dd>
+                            </div>
+                            <div id="detailCapacity" class="hidden">
+                                <dt class="text-slate-400">Capacity</dt>
+                                <dd class="text-slate-700 font-medium"></dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <!-- Map -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-slate-800 mb-4">Location</h3>
+                        <div id="venueMap" class="bg-slate-200"></div>
+                        <p id="noMapMsg" class="text-center text-slate-400 text-sm py-8 hidden">No coordinates available for this venue</p>
+                    </div>
+                </div>
+
+                <!-- Events -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800">Events</h3>
+                        <label class="flex items-center gap-2 text-sm text-slate-500">
+                            <input type="checkbox" id="showPastEvents" onchange="loadVenueEvents()" class="rounded border-slate-300">
+                            Show past events
+                        </label>
+                    </div>
+                    <div id="eventsList"></div>
+                    <div id="eventsPagination" class="flex justify-center gap-2 mt-4 hidden"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+const API_BASE = 'http://localhost:5000/api/v1';
+const token = localStorage.getItem('token');
+const venueId = new URLSearchParams(window.location.search).get('id');
+let venueData = null;
+let venueMap = null;
+let isFollowing = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    initSidebar('Venue Profile');
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.firstName || user.username) updateSidebarUser(user);
+
+    if (!venueId) {
+        document.getElementById('loadingState').textContent = 'No venue ID provided';
+        return;
+    }
+
+    await loadVenue();
+});
+
+async function loadVenue() {
+    try {
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE}/venues/${venueId}`, { headers });
+        const data = await res.json();
+
+        if (!data.success) {
+            document.getElementById('loadingState').textContent = 'Venue not found';
+            return;
+        }
+
+        venueData = data.venue;
+        isFollowing = data.isFollowing || false;
+
+        // Populate header
+        document.getElementById('venueName').textContent = venueData.name;
+        document.title = `${venueData.name} - Event Tracker`;
+        document.getElementById('venueLocation').textContent = [venueData.city, venueData.state, venueData.country].filter(Boolean).join(', ');
+
+        if (venueData.capacity) {
+            const cap = document.getElementById('venueCapacity');
+            cap.textContent = `Capacity: ${venueData.capacity.toLocaleString()}`;
+            cap.classList.remove('hidden');
+        }
+
+        document.getElementById('venueFollowers').textContent = `${venueData.stats?.followers || 0} follower${(venueData.stats?.followers || 0) !== 1 ? 's' : ''}`;
+
+        // Follow button state
+        updateFollowButton();
+
+        // Details
+        if (venueData.address) {
+            const el = document.getElementById('detailAddress');
+            el.querySelector('dd').textContent = venueData.address;
+            el.classList.remove('hidden');
+        }
+        document.getElementById('detailCity').querySelector('dd').textContent = venueData.city;
+        if (venueData.state) {
+            const el = document.getElementById('detailState');
+            el.querySelector('dd').textContent = venueData.state;
+            el.classList.remove('hidden');
+        }
+        if (venueData.capacity) {
+            const el = document.getElementById('detailCapacity');
+            el.querySelector('dd').textContent = venueData.capacity.toLocaleString();
+            el.classList.remove('hidden');
+        }
+
+        // Google Maps link
+        if (venueData.location?.coordinates?.length === 2) {
+            const [lng, lat] = venueData.location.coordinates;
+            const mapsLink = document.getElementById('mapsLink');
+            mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+            mapsLink.classList.remove('hidden');
+        }
+
+        // Map
+        if (venueData.location?.coordinates?.length === 2) {
+            const [lng, lat] = venueData.location.coordinates;
+            venueMap = L.map('venueMap', { scrollWheelZoom: false }).setView([lat, lng], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(venueMap);
+            L.marker([lat, lng]).addTo(venueMap).bindPopup(`<b>${venueData.name}</b>`).openPopup();
+
+            // Enable scroll zoom only after user clicks the map
+            venueMap.on('click', () => venueMap.scrollWheelZoom.enable());
+            venueMap.on('mouseout', () => venueMap.scrollWheelZoom.disable());
+        } else {
+            document.getElementById('venueMap').classList.add('hidden');
+            document.getElementById('noMapMsg').classList.remove('hidden');
+        }
+
+        // Show content
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('venueContent').classList.remove('hidden');
+
+        // Recalculate map size after container becomes visible
+        if (venueMap) {
+            setTimeout(() => venueMap.invalidateSize(), 100);
+        }
+
+        // Load events
+        loadVenueEvents();
+
+    } catch (err) {
+        console.error('Load venue error:', err);
+        document.getElementById('loadingState').textContent = 'Error loading venue';
+    }
+}
+
+function renderEventRow(event) {
+    const artist = event.artist?.name || 'Unknown Artist';
+    const date = new Date(event.date).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+    const time = new Date(event.date).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit'
+    });
+    const isPast = new Date(event.date) < new Date();
+    const price = event.ticketInfo?.minPrice
+        ? `$${event.ticketInfo.minPrice}${event.ticketInfo.maxPrice ? ' - $' + event.ticketInfo.maxPrice : ''}`
+        : '';
+    const status = event.ticketInfo?.status?.replace(/_/g, ' ') || '';
+    const ticketUrl = event.affiliateLinks?.ticketmaster?.url;
+
+    return `
+        <div class="flex flex-col md:flex-row md:items-center justify-between py-4 border-b border-slate-100 last:border-0 ${isPast ? 'opacity-60' : ''}">
+            <div class="flex-1">
+                <p class="font-semibold text-slate-800">${artist}</p>
+                <p class="text-sm text-slate-500">${event.name}</p>
+                <p class="text-sm text-slate-400">${date} at ${time}</p>
+            </div>
+            <div class="flex items-center gap-3 mt-2 md:mt-0">
+                ${price ? `<span class="text-sm text-slate-600">${price}</span>` : ''}
+                ${status ? `<span class="text-xs px-2 py-1 rounded-full ${status === 'on sale' ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-500'}">${status}</span>` : ''}
+                ${ticketUrl && !isPast ? `<a href="${ticketUrl}" target="_blank" class="px-4 py-1.5 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-colors">Tickets</a>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderResidencyGroup(item) {
+    const artist = item.artist?.name || 'Unknown Artist';
+    const firstDate = new Date(item.firstDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const lastDate = new Date(item.lastDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const eventRows = item.events.map(event => {
+        const date = new Date(event.date).toLocaleDateString('en-US', {
+            weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+        });
+        const time = new Date(event.date).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit'
+        });
+        const isPast = new Date(event.date) < new Date();
+        const price = event.ticketInfo?.minPrice
+            ? `$${event.ticketInfo.minPrice}${event.ticketInfo.maxPrice ? ' - $' + event.ticketInfo.maxPrice : ''}`
+            : '';
+        const status = event.ticketInfo?.status?.replace(/_/g, ' ') || '';
+        const ticketUrl = event.affiliateLinks?.ticketmaster?.url;
+
+        return `
+            <div class="flex flex-col md:flex-row md:items-center justify-between py-3 border-b border-slate-100 last:border-0 ${isPast ? 'opacity-60' : ''}">
+                <div class="flex-1">
+                    <p class="text-sm text-slate-700">${event.name}</p>
+                    <p class="text-sm text-slate-400">${date} at ${time}</p>
+                </div>
+                <div class="flex items-center gap-3 mt-1 md:mt-0">
+                    ${price ? `<span class="text-sm text-slate-600">${price}</span>` : ''}
+                    ${status ? `<span class="text-xs px-2 py-1 rounded-full ${status === 'on sale' ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-500'}">${status}</span>` : ''}
+                    ${ticketUrl && !isPast ? `<a href="${ticketUrl}" target="_blank" class="px-3 py-1 bg-slate-800 text-white text-xs rounded-lg hover:bg-slate-700 transition-colors">Tickets</a>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="border border-indigo-200 bg-indigo-50/30 rounded-lg mb-3">
+            <div class="px-4 py-3 cursor-pointer flex items-center justify-between" onclick="this.parentElement.querySelector('.residency-events').classList.toggle('hidden')">
+                <div>
+                    <p class="font-semibold text-slate-800">${artist}</p>
+                    <p class="text-sm text-slate-500">${firstDate} &ndash; ${lastDate}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">${item.eventCount} shows</span>
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+            </div>
+            <div class="residency-events hidden px-4 pb-3">
+                ${eventRows}
+            </div>
+        </div>
+    `;
+}
+
+async function loadVenueEvents(page = 1) {
+    const container = document.getElementById('eventsList');
+    container.innerHTML = '<div class="text-center text-slate-400 py-8">Loading events...</div>';
+
+    const includePast = document.getElementById('showPastEvents').checked;
+    const params = new URLSearchParams({ page, limit: 20, includePast, grouped: true });
+
+    try {
+        const res = await fetch(`${API_BASE}/venues/${venueId}/events?${params}`);
+        const data = await res.json();
+
+        if (data.success && data.grouped && data.items && data.items.length > 0) {
+            container.innerHTML = data.items.map(item => {
+                if (item.type === 'residency') {
+                    return renderResidencyGroup(item);
+                }
+                return renderEventRow(item.event);
+            }).join('');
+
+            renderPagination('eventsPagination', data.page, data.totalPages, loadVenueEvents);
+        } else if (data.success && data.events && data.events.length > 0) {
+            // Fallback for non-grouped response
+            container.innerHTML = data.events.map(event => renderEventRow(event)).join('');
+            renderPagination('eventsPagination', data.page, data.totalPages, loadVenueEvents);
+        } else {
+            container.innerHTML = '<div class="text-center text-slate-400 py-8">No events found at this venue</div>';
+            document.getElementById('eventsPagination').classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Load venue events error:', err);
+        container.innerHTML = '<div class="text-center text-red-400 py-8">Failed to load events</div>';
+    }
+}
+
+function updateFollowButton() {
+    const btn = document.getElementById('followBtn');
+    if (isFollowing) {
+        btn.textContent = 'Following';
+        btn.classList.remove('bg-slate-800', 'hover:bg-slate-700');
+        btn.classList.add('bg-green-600', 'hover:bg-green-700');
+    } else {
+        btn.textContent = 'Follow';
+        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        btn.classList.add('bg-slate-800', 'hover:bg-slate-700');
+    }
+}
+
+async function toggleFollow() {
+    if (!token) {
+        alert('Please log in to follow venues');
+        return;
+    }
+
+    try {
+        const method = isFollowing ? 'DELETE' : 'POST';
+        const res = await fetch(`${API_BASE}/venues/${venueId}/follow`, {
+            method,
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+            isFollowing = !isFollowing;
+            updateFollowButton();
+            // Update follower count
+            const count = isFollowing
+                ? (venueData.stats.followers || 0) + 1
+                : Math.max(0, (venueData.stats.followers || 0) - 1);
+            venueData.stats.followers = count;
+            document.getElementById('venueFollowers').textContent = `${count} follower${count !== 1 ? 's' : ''}`;
+        } else {
+            alert(data.message || 'Failed');
+        }
+    } catch (err) {
+        console.error('Toggle follow error:', err);
+    }
+}
+
+function renderPagination(containerId, currentPage, totalPages, callback) {
+    const container = document.getElementById(containerId);
+    if (totalPages <= 1) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+    let html = '';
+    if (currentPage > 1) {
+        html += `<button onclick="window._evtPaginate(${currentPage - 1})" class="px-3 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm">Prev</button>`;
+    }
+    for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+        const active = i === currentPage ? 'bg-slate-800 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50';
+        html += `<button onclick="window._evtPaginate(${i})" class="px-3 py-1 rounded ${active} text-sm">${i}</button>`;
+    }
+    if (currentPage < totalPages) {
+        html += `<button onclick="window._evtPaginate(${currentPage + 1})" class="px-3 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm">Next</button>`;
+    }
+    container.innerHTML = html;
+    window._evtPaginate = callback;
+}
+</script>
+</body>
+</html>

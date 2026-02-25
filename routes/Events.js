@@ -34,6 +34,10 @@ router.get('/tour-map/:artistId', eventController.getTourMapData);
 // Example: /api/v1/events/artist/507f1f77bcf86cd799439011?includePast=false
 router.get('/artist/:artistId', eventController.getEventsByArtist);
 
+// GET /api/v1/events/ticketmaster/:ticketmasterId - Get single event by Ticketmaster ID
+// Params: ticketmasterId (Ticketmaster event ID)
+// Example: /api/v1/events/ticketmaster/vvG1fZpKGQdY8K
+router.get('/ticketmaster/:ticketmasterId', eventController.getEventByTicketmasterId);
 
 // GET /api/v1/events/:id - Get single event by ID
 // Params: id (MongoDB ObjectId)

@@ -23,7 +23,13 @@ const eventSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tour'
   },
-  
+
+  // Reference to Venue document (optional - backwards compatible)
+  venueRef: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Venue'
+  },
+
   // Date & Time
   date: {
     type: Date,
@@ -196,6 +202,9 @@ eventSchema.index({ 'venue.coordinates': '2dsphere' });
 
 // Compound index for finding upcoming events by artist
 eventSchema.index({ artist: 1, date: 1, 'ticketInfo.status': 1 });
+
+// Index for venue reference queries
+eventSchema.index({ venueRef: 1, date: 1 });
 
 // Static method to find upcoming events
 eventSchema.statics.findUpcoming = function(limit = 50) {

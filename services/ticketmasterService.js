@@ -41,6 +41,7 @@ class TicketmasterService {
         keyword = '',
         city = '',
         stateCode = '',
+        venueId = '',
         startDateTime = '',
         endDateTime = '',
         size = 20,
@@ -59,6 +60,7 @@ class TicketmasterService {
       if (keyword) queryParams.keyword = keyword;
       if (city) queryParams.city = city;
       if (stateCode) queryParams.stateCode = stateCode;
+      if (venueId) queryParams.venueId = venueId;
       if (startDateTime) queryParams.startDateTime = startDateTime;
       if (endDateTime) queryParams.endDateTime = endDateTime;
 
@@ -89,6 +91,11 @@ class TicketmasterService {
         events: []
       };
     }
+  }
+
+  // Get events by Ticketmaster venue ID
+  async getEventsByVenueId(tmVenueId, options = {}) {
+    return await this.searchEvents({ venueId: tmVenueId, size: 50, ...options });
   }
 
   // Get events by artist name
@@ -212,7 +219,10 @@ class TicketmasterService {
       })),
       
       description: tmEvent.info || tmEvent.pleaseNote,
-      
+
+      // Venue external ID for linking to Venue document
+      venueExternalId: venue.id || undefined,
+
       lastUpdated: new Date()
     };
   }
@@ -290,12 +300,32 @@ class TicketmasterService {
       });
       await artist.save();
 
+      // Find or create Venue document
+      const Venue = require('../models/Venue');
+      let venueRef = null;
+      if (formattedEvent.venue?.name && formattedEvent.venue?.city && formattedEvent.venue.name !== 'Venue TBA') {
+        try {
+          const venueDoc = await Venue.findOrCreateFromEventVenue(formattedEvent.venue);
+          if (venueDoc) {
+            venueRef = venueDoc._id;
+            // Set TM venue ID if not already set
+            if (formattedEvent.venueExternalId && !venueDoc.externalIds?.ticketmaster) {
+              venueDoc.externalIds.ticketmaster = formattedEvent.venueExternalId;
+              await venueDoc.save();
+            }
+          }
+        } catch (venueErr) {
+          console.error('Error creating venue:', venueErr.message);
+        }
+      }
+
       // Create or update event
       if (event) {
         // Update existing event
         Object.assign(event, {
           ...formattedEvent,
           artist: artist._id,
+          venueRef: venueRef || event.venueRef,
           lastUpdated: new Date()
         });
         await event.save();
@@ -304,7 +334,8 @@ class TicketmasterService {
         // Create new event
         event = await Event.create({
           ...formattedEvent,
-          artist: artist._id
+          artist: artist._id,
+          venueRef
         });
         return { success: true, event, artist, created: true };
       }

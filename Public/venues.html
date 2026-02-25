@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venues - Event Tracker</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #nearbyMap { height: 400px; border-radius: 0.5rem; }
+        .tab-btn.active { border-color: #334155; color: #1e293b; font-weight: 600; }
+        .tab-btn { border-bottom: 2px solid transparent; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div id="sidebar-container"></div>
+
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Tabs -->
+            <div class="border-b border-slate-200 mb-6">
+                <nav class="flex gap-6">
+                    <button class="tab-btn active pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="discover">Discover</button>
+                    <button class="tab-btn pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="nearby">Near Me</button>
+                    <button class="tab-btn pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="following">Following</button>
+                </nav>
+            </div>
+
+            <!-- Tab 1: Discover -->
+            <div id="tab-discover" class="tab-content active">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <input type="text" id="venueSearch" placeholder="Search venues by name..."
+                            class="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                        <input type="text" id="cityFilter" placeholder="City"
+                            class="w-full md:w-40 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                        <select id="stateFilter"
+                            class="w-full md:w-40 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="">All States</option>
+                        </select>
+                        <button onclick="searchVenues()" class="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">Search</button>
+                    </div>
+                </div>
+                <div id="discoverResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center text-slate-400 py-12">Search for venues or browse by location</div>
+                </div>
+                <div id="discoverPagination" class="flex justify-center gap-2 mt-6 hidden"></div>
+            </div>
+
+            <!-- Tab 2: Near Me -->
+            <div id="tab-nearby" class="tab-content">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <label class="text-sm font-medium text-slate-600">Radius:</label>
+                        <select id="nearbyRadius" onchange="loadNearbyVenues()"
+                            class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
+                            <option value="10">10 miles</option>
+                            <option value="25" selected>25 miles</option>
+                            <option value="50">50 miles</option>
+                            <option value="100">100 miles</option>
+                        </select>
+                        <button onclick="requestLocation()" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm">
+                            Update My Location
+                        </button>
+                        <span id="locationStatus" class="text-sm text-slate-400"></span>
+                    </div>
+                </div>
+                <div id="nearbyMap" class="mb-6 bg-slate-200 rounded-xl"></div>
+                <div id="nearbyResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center text-slate-400 py-12">Getting your location...</div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Following -->
+            <div id="tab-following" class="tab-content">
+                <div id="followingResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center text-slate-400 py-12">Loading followed venues...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+const API_BASE = 'http://localhost:5000/api/v1';
+const token = localStorage.getItem('token');
+let nearbyMap = null;
+let nearbyMarkers = [];
+let userLat = null;
+let userLng = null;
+
+// US states for filter dropdown
+const US_STATES = [
+    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY',
+    'LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND',
+    'OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+    initSidebar('Venues');
+
+    // Load user info
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.firstName || user.username) updateSidebarUser(user);
+
+    // Populate state dropdown
+    const stateSelect = document.getElementById('stateFilter');
+    US_STATES.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        stateSelect.appendChild(opt);
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // Debounced search
+    let searchTimer;
+    document.getElementById('venueSearch').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => searchVenues(), 400);
+    });
+
+    // Load initial discover results (all venues)
+    searchVenues();
+
+    // Try to get user coordinates for Near Me
+    if (user.coordinates?.lat && user.coordinates?.lng) {
+        userLat = user.coordinates.lat;
+        userLng = user.coordinates.lng;
+    }
+});
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+
+    if (tabName === 'nearby') {
+        initNearbyMap();
+        // Recalculate map size after tab becomes visible
+        setTimeout(() => nearbyMap.invalidateSize(), 100);
+        if (userLat && userLng) {
+            loadNearbyVenues();
+        } else {
+            requestLocation();
+        }
+    }
+    if (tabName === 'following') {
+        loadFollowedVenues();
+    }
+}
+
+// ===== DISCOVER =====
+async function searchVenues(page = 1) {
+    const q = document.getElementById('venueSearch').value.trim();
+    const city = document.getElementById('cityFilter').value.trim();
+    const state = document.getElementById('stateFilter').value;
+
+    const params = new URLSearchParams({ page, limit: 18 });
+    if (q) params.set('q', q);
+    if (city) params.set('city', city);
+    if (state) params.set('state', state);
+
+    const container = document.getElementById('discoverResults');
+    container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-8">Searching...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/venues?${params}`);
+        const data = await res.json();
+
+        if (data.success && data.venues.length > 0) {
+            container.innerHTML = data.venues.map(v => venueCard(v)).join('');
+            renderPagination('discoverPagination', data.page, data.totalPages, searchVenues);
+        } else {
+            container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-12">No venues found</div>';
+            document.getElementById('discoverPagination').classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Search venues error:', err);
+        container.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">Failed to load venues</div>';
+    }
+}
+
+// ===== NEAR ME =====
+function initNearbyMap() {
+    if (nearbyMap) return;
+    nearbyMap = L.map('nearbyMap', { scrollWheelZoom: false }).setView([39.8283, -98.5795], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(nearbyMap);
+
+    // Enable scroll zoom only after user clicks the map
+    nearbyMap.on('click', () => nearbyMap.scrollWheelZoom.enable());
+    nearbyMap.on('mouseout', () => nearbyMap.scrollWheelZoom.disable());
+}
+
+function requestLocation() {
+    const status = document.getElementById('locationStatus');
+    status.textContent = 'Getting location...';
+
+    if (!navigator.geolocation) {
+        status.textContent = 'Geolocation not supported';
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            userLat = pos.coords.latitude;
+            userLng = pos.coords.longitude;
+            status.textContent = 'Location updated';
+            loadNearbyVenues();
+        },
+        (err) => {
+            console.error('Geolocation error:', err);
+            status.textContent = 'Location access denied. Using stored location.';
+            // Fall back to stored user coordinates
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (user.coordinates?.lat) {
+                userLat = user.coordinates.lat;
+                userLng = user.coordinates.lng;
+                loadNearbyVenues();
+            } else {
+                document.getElementById('nearbyResults').innerHTML =
+                    '<div class="col-span-full text-center text-slate-400 py-12">Unable to get your location. Please update your address in Account Details.</div>';
+            }
+        }
+    );
+}
+
+async function loadNearbyVenues() {
+    if (!userLat || !userLng) return;
+
+    const radius = document.getElementById('nearbyRadius').value;
+    const container = document.getElementById('nearbyResults');
+    container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-8">Searching nearby...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/venues/nearby?longitude=${userLng}&latitude=${userLat}&maxDistance=${radius}`);
+        const data = await res.json();
+
+        // Update map
+        nearbyMarkers.forEach(m => nearbyMap.removeLayer(m));
+        nearbyMarkers = [];
+        nearbyMap.setView([userLat, userLng], radius <= 10 ? 9 : radius <= 25 ? 8 : radius <= 50 ? 7 : 6);
+
+        // Add user marker
+        const userMarker = L.marker([userLat, userLng], {
+            icon: L.divIcon({
+                className: 'bg-blue-500 w-3 h-3 rounded-full border-2 border-white shadow-lg',
+                iconSize: [12, 12]
+            })
+        }).addTo(nearbyMap).bindPopup('Your Location');
+        nearbyMarkers.push(userMarker);
+
+        if (data.success && data.venues.length > 0) {
+            data.venues.forEach(v => {
+                if (v.location?.coordinates?.length === 2) {
+                    const marker = L.marker([v.location.coordinates[1], v.location.coordinates[0]])
+                        .addTo(nearbyMap)
+                        .bindPopup(`<b>${v.name}</b><br>${v.city}, ${v.state || ''}<br><a href="venue-profile.html?id=${v._id}" style="color:#3b82f6">View Profile</a>`);
+                    nearbyMarkers.push(marker);
+                }
+            });
+
+            container.innerHTML = data.venues.map(v => venueCard(v)).join('');
+        } else {
+            container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-12">No venues found within this radius</div>';
+        }
+    } catch (err) {
+        console.error('Nearby venues error:', err);
+        container.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">Failed to load nearby venues</div>';
+    }
+}
+
+// ===== FOLLOWING =====
+async function loadFollowedVenues() {
+    const container = document.getElementById('followingResults');
+
+    if (!token) {
+        container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-12">Please log in to see followed venues</div>';
+        return;
+    }
+
+    container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-8">Loading...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/venues/following`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.success && data.venues.length > 0) {
+            container.innerHTML = data.venues.map(v => venueCard(v, true)).join('');
+        } else {
+            container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-12">You\'re not following any venues yet. Discover venues and follow them to see updates here.</div>';
+        }
+    } catch (err) {
+        console.error('Followed venues error:', err);
+        container.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">Failed to load followed venues</div>';
+    }
+}
+
+// ===== SHARED =====
+function venueCard(venue, showUnfollow = false) {
+    const location = [venue.city, venue.state].filter(Boolean).join(', ');
+    const capacity = venue.capacity ? `Capacity: ${venue.capacity.toLocaleString()}` : '';
+    const upcoming = venue.upcomingEventCount !== undefined ? `${venue.upcomingEventCount} upcoming` : (venue.stats?.upcomingEvents ? `${venue.stats.upcomingEvents} upcoming` : '');
+    const followers = venue.stats?.followers ? `${venue.stats.followers} follower${venue.stats.followers !== 1 ? 's' : ''}` : '';
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
+            <h3 class="font-bold text-slate-800 text-lg mb-1 truncate">${venue.name}</h3>
+            <p class="text-slate-500 text-sm mb-3">${location}</p>
+            <div class="flex flex-wrap gap-2 mb-4 text-xs">
+                ${capacity ? `<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-full">${capacity}</span>` : ''}
+                ${upcoming ? `<span class="bg-blue-50 text-blue-600 px-2 py-1 rounded-full">${upcoming}</span>` : ''}
+                ${followers ? `<span class="bg-slate-50 text-slate-500 px-2 py-1 rounded-full">${followers}</span>` : ''}
+            </div>
+            <div class="flex gap-2">
+                <a href="venue-profile.html?id=${venue._id}" class="flex-1 text-center px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-colors">View Profile</a>
+                ${showUnfollow
+                    ? `<button onclick="unfollowVenue('${venue._id}', this)" class="px-4 py-2 border border-red-200 text-red-500 text-sm rounded-lg hover:bg-red-50 transition-colors">Unfollow</button>`
+                    : `<button onclick="toggleFollow('${venue._id}', this)" class="px-4 py-2 border border-slate-200 text-slate-600 text-sm rounded-lg hover:bg-slate-50 transition-colors follow-btn">Follow</button>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+async function toggleFollow(venueId, btn) {
+    if (!token) {
+        alert('Please log in to follow venues');
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/venues/${venueId}/follow`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+            btn.textContent = 'Following';
+            btn.classList.remove('border-slate-200', 'text-slate-600');
+            btn.classList.add('border-green-200', 'text-green-600', 'bg-green-50');
+            btn.disabled = true;
+        } else {
+            alert(data.message || 'Could not follow venue');
+        }
+    } catch (err) {
+        console.error('Follow error:', err);
+    }
+}
+
+async function unfollowVenue(venueId, btn) {
+    if (!token) return;
+    try {
+        const res = await fetch(`${API_BASE}/venues/${venueId}/follow`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+            btn.closest('.bg-white').remove();
+            // Check if list is now empty
+            const container = document.getElementById('followingResults');
+            if (!container.querySelector('.bg-white')) {
+                container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-12">You\'re not following any venues yet.</div>';
+            }
+        }
+    } catch (err) {
+        console.error('Unfollow error:', err);
+    }
+}
+
+function renderPagination(containerId, currentPage, totalPages, callback) {
+    const container = document.getElementById(containerId);
+    if (totalPages <= 1) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+    let html = '';
+    if (currentPage > 1) {
+        html += `<button onclick="window._paginate(${currentPage - 1})" class="px-3 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm">Prev</button>`;
+    }
+    for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+        const active = i === currentPage ? 'bg-slate-800 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50';
+        html += `<button onclick="window._paginate(${i})" class="px-3 py-1 rounded ${active} text-sm">${i}</button>`;
+    }
+    if (currentPage < totalPages) {
+        html += `<button onclick="window._paginate(${currentPage + 1})" class="px-3 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm">Next</button>`;
+    }
+    container.innerHTML = html;
+    window._paginate = callback;
+}
+</script>
+</body>
+</html>

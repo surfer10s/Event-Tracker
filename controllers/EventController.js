@@ -135,6 +135,67 @@ exports.getEventById = async (req, res) => {
   }
 };
 
+// Get single event by Ticketmaster ID
+exports.getEventByTicketmasterId = async (req, res) => {
+  try {
+    const { ticketmasterId } = req.params;
+
+    if (!ticketmasterId || ticketmasterId === 'undefined' || ticketmasterId === 'null' || ticketmasterId === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid Ticketmaster ID is required'
+      });
+    }
+
+    // First try to find in our database
+    let event = await Event.findOne({ 'externalIds.ticketmaster': ticketmasterId })
+      .populate('artist')
+      .populate('tour');
+
+    if (event) {
+      return res.json({
+        success: true,
+        source: 'database',
+        event
+      });
+    }
+
+    // If not in database, fetch from Ticketmaster API
+    const ticketmasterService = require('../services/ticketmasterService');
+    const axios = require('axios');
+
+    try {
+      const response = await axios.get(`https://app.ticketmaster.com/discovery/v2/events/${ticketmasterId}.json`, {
+        params: { apikey: process.env.TICKETMASTER_API_KEY }
+      });
+
+      if (response.data) {
+        const formattedEvent = ticketmasterService.formatEvent(response.data);
+        return res.json({
+          success: true,
+          source: 'ticketmaster_live',
+          event: formattedEvent
+        });
+      }
+    } catch (tmError) {
+      console.error('Ticketmaster API error:', tmError.message);
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: 'Event not found'
+    });
+
+  } catch (error) {
+    console.error('Error fetching event by Ticketmaster ID:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching event',
+      error: error.message
+    });
+  }
+};
+
 // Search events by keyword
 exports.searchEvents = async (req, res) => {
   try {

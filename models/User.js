@@ -82,7 +82,12 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Artist'
     }],
-    
+
+    favoriteVenues: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Venue'
+    }],
+
     // YouTube Music integration
     youtubeMusic: {
         connected: { type: Boolean, default: false },

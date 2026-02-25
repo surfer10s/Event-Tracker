@@ -115,13 +115,16 @@ class SeatGeekService {
   async findMatchingEvent(tmEvent) {
     try {
       const artistName = tmEvent.artist?.name || tmEvent.artistInfo?.name;
-      const eventDate = new Date(tmEvent.date);
       const venueName = tmEvent.venue?.name;
       const city = tmEvent.venue?.city;
 
       if (!artistName) {
         return { success: false, error: 'No artist name provided' };
       }
+
+      // Parse the TM event date - extract just the date portion (YYYY-MM-DD)
+      // to avoid timezone issues between TM (local) and SG (UTC)
+      const tmDateStr = new Date(tmEvent.date).toISOString().split('T')[0];
 
       // Search by performer
       const result = await this.searchEventsByPerformer(artistName, { perPage: 50 });
@@ -132,9 +135,13 @@ class SeatGeekService {
 
       // Find best match by date and venue
       const matches = result.events.filter(sgEvent => {
-        const sgDate = new Date(sgEvent.date);
-        const dateDiff = Math.abs(sgDate - eventDate);
-        const sameDay = dateDiff < 24 * 60 * 60 * 1000; // Within 24 hours
+        // Use local date from SeatGeek to compare (avoids timezone issues)
+        // dateLocal format is like "2026-04-21T20:00:00"
+        const sgDateStr = sgEvent.dateLocal ? 
+          sgEvent.dateLocal.split('T')[0] : 
+          new Date(sgEvent.date).toISOString().split('T')[0];
+        
+        const sameDay = sgDateStr === tmDateStr;
         
         // Check venue match (fuzzy)
         const venueMatch = !venueName || !sgEvent.venue?.name || 

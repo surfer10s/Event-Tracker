@@ -1,0 +1,539 @@
+================================================================================
+NOVEL FEATURE IDEAS — NOT IN EVENT TRACKER OR BANDSINTOWN
+================================================================================
+Generated: 2026-02-21
+
+Features that neither platform currently offers. Focused on ideas that could
+meaningfully drive user engagement, retention, and differentiation in the
+live music discovery space.
+
+Effort estimates:
+  S  = Small   (1-2 days)
+  M  = Medium  (3-5 days)
+  L  = Large   (1-2 weeks)
+  XL = Extra Large (2+ weeks)
+
+Impact ratings (user experience & engagement):
+  ***   = Critical  — Directly drives retention, daily usage, or core value
+  **    = High      — Noticeably improves experience; users would miss it
+  *     = Moderate  — Nice-to-have; improves polish but not a dealbreaker
+
+================================================================================
+SECTION 1: PREDICTIVE INTELLIGENCE
+================================================================================
+
+1. SETLIST PREDICTIONS
+   Use historical setlist data from Setlist.fm (already integrated) to
+   predict what songs an artist will likely play at an upcoming show.
+   Analyze the current tour's setlists, calculate song frequency, and
+   display a "predicted setlist" with confidence percentages. Example:
+   "87% chance they play Song X (played at 26 of 30 shows this tour)."
+   Users preparing for a concert would check this obsessively.
+   Effort: M (data exists, just needs analysis logic + UI)
+   Impact: *** — Unique feature no competitor offers. Gives users a reason
+   to visit the app repeatedly as the show approaches. Shareable and
+   conversation-starting. Also drives pre-show playlist creation from
+   predicted songs.
+
+2. TOUR PREDICTION / "LIKELY COMING TO YOUR AREA"
+   Analyze an artist's historical touring patterns (frequency, markets
+   visited, time of year) to predict when they might tour your area next.
+   "Based on past tours, Artist X visits Nashville every 18 months. Last
+   visit: June 2025. Estimated next visit: Late 2026." Even a rough
+   prediction gives fans something to anticipate. Could also detect tour
+   announcement patterns (e.g., artist announces tours every January).
+   Effort: M-L (historical event data analysis, pattern detection)
+   Impact: ** — Addresses the frustration of "when will they come here?"
+   Creates engagement even when no events exist. Could trigger
+   notifications: "Artist X historically announces tours this month."
+
+3. TICKET PRICE INTELLIGENCE
+   Track ticket price changes over time for each event across platforms
+   (Ticketmaster, SeatGeek, StubHub). Build historical pricing curves and
+   advise users: "Prices for this venue typically drop 10-14 days before
+   the show" or "This artist's shows rarely drop below $X." Display a
+   price trend chart and a buy/wait recommendation. Think Google Flights
+   price tracking but for concert tickets.
+   Effort: L (requires regular price polling + historical data accumulation)
+   Impact: *** — Saves users real money and builds enormous trust. No
+   concert platform does this well. Users would share this feature by
+   word of mouth. The data gets more valuable over time.
+
+4. "YOU MISSED THIS" — FOMO ALERTS
+   After an event passes, notify users who follow that artist but didn't
+   RSVP: "Artist X played 25 miles from you last Tuesday. Follow them to
+   never miss a show again." Leverages regret to drive deeper engagement
+   with favorites and notifications. Only trigger for artists in the
+   user's taste profile who they haven't explicitly followed yet.
+   Effort: S-M (post-event query + notification)
+   Impact: ** — Turns missed opportunities into engagement. Motivates
+   users to add more favorites and enable notifications. Must be used
+   sparingly to avoid feeling punishing — once per artist max.
+
+================================================================================
+SECTION 2: AT-THE-SHOW EXPERIENCE
+================================================================================
+
+5. LIVE CONCERT MODE
+   An "at the show" experience that activates when the user is attending
+   a concert (based on RSVP + date/time). Features:
+   - Real-time setlist tracking (crowdsourced: "what song is playing?")
+   - One-tap "rate this song" during the show
+   - Quick photo capture tagged to the event
+   - "I'm here" check-in with optional location share
+   - Post-show summary auto-generated from check-in + ratings + photos
+   This transforms the app from a pre-concert planning tool into a
+   companion that's useful DURING the experience.
+   Effort: L (new UI mode, real-time features, location)
+   Impact: *** — No concert app truly owns the "during the show" moment.
+   This creates a habit loop: plan > attend > capture > review. The live
+   setlist tracking alone would drive downloads. Data collected enriches
+   concert history automatically.
+
+6. CONCERT TIME MACHINE / "ON THIS DAY"
+   Nostalgia feature: "On this day 2 years ago, you saw Artist X at
+   Venue Y." Shows the setlist from that night, your rating, any photos.
+   Triggered as a daily notification or homepage card for users with
+   concert history. Similar to Facebook/Google Photos "memories" but
+   for concerts. Optionally shareable.
+   Effort: S (query concert history by month+day, display as card)
+   Impact: ** — Extremely low effort for emotional engagement. People
+   love reliving concert memories. Each notification feels personal and
+   delightful. Drives concert history logging ("I should add more shows
+   so I get more memories").
+
+7. VENUE INTEL / CROWD-SOURCED VENUE GUIDE
+   User-submitted venue information that ticketing sites don't provide:
+   - Best sections for sound quality
+   - Where to stand for best view (with a venue map)
+   - Parking tips and nearby food/bars
+   - Accessibility notes (elevator access, ADA seating quality)
+   - "Pro tips" (e.g., "doors say 7 but band never starts before 8:30")
+   - Average wait times for entry, merch, bathrooms
+   Think of it as a TripAdvisor layer for music venues.
+   Effort: L (user submission system, venue model expansion, moderation)
+   Impact: ** — Solves real anxiety for first-time venue visitors. Content
+   is unique and can't be found on Ticketmaster or Bandsintown. Builds
+   community and gives experienced concert-goers a way to contribute.
+   SEO value is high (people Google "best seats at [venue]").
+
+8. POST-SHOW RECAP CARD
+   Auto-generate a shareable, visually appealing "concert card" after
+   attending a show. Includes: artist name, date, venue, setlist (from
+   Setlist.fm), user's rating, a key stat ("This was your 5th time seeing
+   Artist X"), and an optional user photo. Designed for Instagram Stories
+   or Twitter sharing. Branded with your platform logo.
+   Effort: M (image generation via canvas/SVG, data aggregation)
+   Impact: *** — Every share is free, branded marketing. Spotify Wrapped
+   proved that auto-generated shareable content drives massive organic
+   growth. This is the same concept but per-concert. Users WANT to post
+   about concerts they attend. Give them a beautiful way to do it.
+
+================================================================================
+SECTION 3: SOCIAL & COMMUNITY
+================================================================================
+
+9. CONCERT BUDDY MATCHING
+   Match solo concert-goers with others attending the same event who have
+   similar music taste. "3 people with similar taste are going to this
+   show. Want to connect?" Opt-in, privacy-first. Could start as simple
+   as showing shared favorite artists between attendees. Going to concerts
+   alone is a real barrier for many people — solving this drives ticket
+   purchases.
+   Effort: L (matching algorithm, messaging/chat, privacy controls)
+   Impact: ** — Addresses a genuine unmet need. Many people skip shows
+   because they don't have someone to go with. Even showing "47 people
+   with similar taste are going" reduces the "going alone" anxiety
+   without requiring direct matching.
+
+10. MUSIC TASTE COMPATIBILITY SCORE
+    Compare your music taste with friends or other users. "You and Sarah
+    are 73% compatible — you both love indie rock and have seen 4 of the
+    same artists." Works like Spotify Blend but focused on live music.
+    Could suggest concerts to attend together: "You both follow Artist X,
+    who's playing next month."
+    Effort: M (taste comparison algorithm, shared favorites analysis)
+    Impact: ** — Social feature that creates conversation and sharing.
+    "What's your compatibility score?" is a natural thing to share with
+    friends. Drives friend invites to the platform and joint concert
+    planning.
+
+11. CONCERT CHALLENGES / GAMIFICATION
+    Achievement system tied to concert-going behavior:
+    - Streaks: "3 months in a row with a concert"
+    - Milestones: "50th concert logged", "Seen 10 different artists"
+    - Venue collector: "Visited 15 unique venues"
+    - Genre explorer: "Attended shows in 5 different genres"
+    - Loyalty badges: "Seen Artist X 5 times"
+    - City explorer: "Concerts in 3 different cities"
+    Display on profile, optionally shareable. Not competitive — personal
+    achievement tracking.
+    Effort: M (achievement definitions, progress tracking, badge display)
+    Impact: ** — Gamification drives long-term engagement and gives users
+    micro-goals. "I'm one show away from my 5th genre" motivates
+    attendance. Also motivates logging concerts to concert history
+    (which feeds other features like recap, memories, etc.).
+
+================================================================================
+SECTION 4: PLANNING & DECISION TOOLS
+================================================================================
+
+12. CONCERT BUDGET TRACKER
+    Set a monthly/annual concert budget and track spending. "You've spent
+    $340 of your $500 monthly budget." Log ticket costs (auto-populated
+    from price data when available) plus extras (parking, food, merch).
+    Alerts when approaching budget limits. Year-end summary of concert
+    spending by category.
+    Effort: M (budget model, spending entries, dashboard)
+    Impact: ** — Practical tool for frequent concert-goers. Makes the
+    app useful beyond discovery — it becomes a financial planning tool
+    for their hobby. Budget-conscious users (most people) would
+    appreciate this. Also drives daily engagement checking the tracker.
+
+13. "SURPRISE ME" — SPONTANEOUS CONCERT FINDER
+    "I'm free this Saturday and have $50." The app finds concerts near
+    you that match your budget and taste, sorted by relevance. Factors:
+    date availability, price range, distance, music taste match, venue
+    rating. Designed for impulse decisions. Could also surface free
+    events, outdoor shows, and hidden gems.
+    Effort: M (query builder combining date + price + location + taste)
+    Impact: *** — Solves the "what should I do this weekend?" problem
+    in a way no concert app does. Most apps require you to already know
+    what you want to see. This flips it: tell me your constraints, I'll
+    find the fun. Perfect for casual concert-goers and date planning.
+
+14. CONCERT ROAD TRIP PLANNER
+    Plan multi-city concert trips. "Artist X is in Nashville Tuesday and
+    Atlanta Thursday — here's a road trip." Or: "You follow 3 artists
+    playing within 200 miles this weekend — here's a route." Combines
+    multiple events into an itinerary with drive times, distances, and
+    estimated costs. Export to Google Maps.
+    Effort: L (route optimization, multi-event grouping, maps integration)
+    Impact: ** — Unique utility feature for dedicated fans. Festival
+    season + summer touring creates natural road trip opportunities.
+    The "we could see 3 shows in one weekend" realization drives ticket
+    purchases. Shareable itineraries bring friends onto the platform.
+
+15. OPENING ACT DEEP DIVE
+    Proactively surface information about opening acts for shows you're
+    attending. "Artist Y is opening for Artist X at your show. Here are
+    their top songs, genre, and why fans of Artist X tend to like them."
+    Auto-generate a pre-show playlist mixing headliner and opener tracks.
+    Rate opening acts separately after the show to build a community
+    database of opener quality.
+    Effort: M (supporting acts data exists, add Last.fm/Spotify enrichment)
+    Impact: ** — Opening acts are the #1 discovery moment in live music.
+    Most people ignore the opener listing. Making it easy to preview them
+    increases the overall concert experience and helps users discover new
+    artists they'll follow. Data on opening act quality is unique content.
+
+16. PRE-CONCERT HYPE PLAYLIST
+    Auto-generate a playlist to listen to before an upcoming show.
+    Combines: predicted setlist songs (#1), the artist's top tracks,
+    opening act highlights (#15), and similar artists the user might
+    discover at the venue. One-click create on YouTube (already
+    integrated) or Spotify (if integrated). Timed to generate 1 week
+    before the event.
+    Effort: M (playlist generation logic, timing, integration with existing
+    YouTube playlist creation)
+    Impact: ** — Builds anticipation and excitement. The week before a
+    concert is when fans are most engaged. Giving them a soundtrack for
+    that week keeps your app top-of-mind. Also a natural upsell for
+    YouTube/Spotify integration.
+
+================================================================================
+SECTION 5: DATA-DRIVEN INSIGHTS
+================================================================================
+
+17. PERSONAL CONCERT ANALYTICS DASHBOARD
+    Go beyond annual recap (#62 in gap analysis) with an always-available
+    analytics page:
+    - Concerts per month (bar chart)
+    - Money spent over time (line chart)
+    - Genre diversity score
+    - Average distance traveled
+    - Most-visited venues (ranked)
+    - Artist loyalty ranking (most repeat visits)
+    - "Concert personality" type ("The Explorer", "The Loyalist",
+      "The Local Regular", "The Road Warrior")
+    Think Spotify Wrapped but available year-round and updating live.
+    Effort: M-L (aggregation queries, chart UI, personality algorithm)
+    Impact: ** — Turns concert history into an engaging, always-updating
+    story. Users check analytics dashboards habitually. The "concert
+    personality" typing is highly shareable and creates identity on the
+    platform. Motivates logging every concert for better stats.
+
+18. SMART EVENT SCORING
+    Score every event on a personalized 1-100 scale based on multiple
+    factors: artist match to user taste, distance, price value (vs
+    historical average), venue rating, day of week preference, and
+    whether friends are going. Display as a prominent "Match Score" on
+    event cards. "94% match — this show is perfect for you."
+    Effort: M (scoring algorithm, preference learning, UI integration)
+    Impact: *** — Solves information overload. When users have 50+
+    artists and hundreds of events, they need help deciding. A match
+    score immediately answers "should I go?" This is the kind of
+    intelligence that makes an app feel indispensable. Improves with
+    usage as the algorithm learns from RSVP and rating behavior.
+
+19. "FANS ALSO ATTENDED" RECOMMENDATIONS
+    After a user attends a show, analyze what other concerts attendees of
+    that artist commonly go to. "Fans who saw Artist X also went to
+    Artist Y (62%) and Artist Z (48%)." Similar to Amazon's "customers
+    who bought this also bought" but for concerts. Powered by aggregate
+    concert history data across users.
+    Effort: M-L (collaborative filtering, requires meaningful user base)
+    Impact: ** — Collaborative filtering is the gold standard for
+    recommendations. More powerful than "similar artists" because it
+    reflects actual concert-going behavior, not just musical similarity.
+    An indie folk fan who also loves hip-hop shows won't get that from
+    genre-based recommendations.
+
+================================================================================
+SECTION 6: WEATHER & LOGISTICS
+================================================================================
+
+20. CONCERT WEATHER FORECAST
+    For outdoor venues and festivals, show weather forecasts integrated
+    into the event page. "Saturday's show at Red Rocks: 72F, partly
+    cloudy, 10% rain chance. Sunset at 7:45 PM." For upcoming outdoor
+    events, add packing suggestions: "Rain expected — bring a poncho."
+    Tag venues as indoor/outdoor in the venue data.
+    Effort: S-M (weather API integration, venue indoor/outdoor flag)
+    Impact: ** — Solves a real concern for outdoor show attendees.
+    People Google "[venue] weather" before every outdoor show. Putting
+    this in-app saves them a step and feels thoughtful. Particularly
+    valuable for festivals and amphitheaters.
+
+21. SMART DEPARTURE TIME
+    "Leave by 5:45 PM to arrive for doors at 7:00 PM." Calculate drive
+    time from user's location to venue using estimated traffic for that
+    day/time. Account for parking, walking to the gate, and security
+    lines (from crowd-sourced venue data). Could push a notification:
+    "Time to head out for tonight's show!"
+    Effort: M (maps/traffic API, venue entry time estimates)
+    Impact: ** — Genuinely useful for the day-of experience. Removes
+    the mental load of planning arrival logistics. The push notification
+    version ("leave now!") is the kind of proactive help that makes
+    users love an app. Pairs well with pre-event reminders.
+
+22. PARKING & TRANSIT GUIDE
+    Crowd-sourced and curated parking information per venue: nearby lots,
+    average prices, street parking tips, public transit options, and
+    rideshare drop-off points. "Lot A fills up by 6 PM. Street parking
+    on 5th Ave is free after 6. Uber drop-off at Gate B is fastest."
+    Effort: M (venue data expansion, user submissions, curation)
+    Impact: * — Helpful but narrow. Most useful for users visiting
+    unfamiliar venues. Could be seeded with Google Maps data and
+    supplemented by user tips. Part of the broader venue guide concept.
+
+================================================================================
+SECTION 7: UNIQUE ENGAGEMENT HOOKS
+================================================================================
+
+23. ARTIST MILESTONE TRACKING
+    Track your personal relationship with each artist over time:
+    - First time you saw them (and where)
+    - Total times seen
+    - Total songs heard live (from setlist data)
+    - Cities you've seen them in
+    - Your average rating of their shows
+    - "You've been a fan since [first favorite date]"
+    Display as a timeline on the artist profile page. Reward loyalty
+    with badges: "Artist X Superfan (seen 5+ times)."
+    Effort: M (aggregation from concert history + favorites data)
+    Impact: ** — Taps into fan identity. "I've seen them 12 times" is
+    a badge of honor in concert culture. Making this visible and
+    trackable satisfies a deep fan desire. Shareable and motivates
+    continued attendance.
+
+24. CONCERT COUNTDOWN WIDGETS
+    A countdown timer widget for your next upcoming concert. Displays on
+    the dashboard or as an embeddable widget for phone home screens (via
+    PWA). "14 days, 6 hours until Artist X at Venue Y." Builds
+    anticipation and keeps the app visible on the user's device.
+    Effort: S (simple date math + UI)
+    Impact: ** — Low effort, high delight. Countdowns create anticipation
+    and emotional investment. The home screen widget (via PWA) keeps your
+    app permanently visible. Users screenshot and share countdowns.
+
+25. "DEEP CUTS" ALERT
+    When setlist data shows an artist played a rare song (< 5% of shows
+    on this tour), alert fans: "Artist X played [Rare Song] last night
+    in Denver — only the 3rd time this tour!" Creates FOMO for upcoming
+    shows and excitement for fans who were there. Drives engagement with
+    setlist data.
+    Effort: S-M (setlist frequency analysis + notification)
+    Impact: ** — Unique to platforms with setlist data (which you have).
+    Appeals to dedicated fans who care about deep cuts. Creates
+    conversation and sharing. "They might play the rare one at our show"
+    builds anticipation.
+
+26. CONCERT JOURNAL / RICH NOTES
+    Expand concert history notes into a full journal entry system.
+    Structured prompts: "Who did you go with?", "What was the highlight?",
+    "What song hit hardest?", "Any funny moments?" Optional photo
+    attachment. Private by default, optionally shareable. Becomes a
+    personal concert diary over time.
+    Effort: M (expanded notes model, structured prompts, rich text)
+    Impact: ** — Transforms concert history from a simple log into a
+    meaningful personal archive. People treasure their concert memories.
+    Structured prompts reduce the effort of writing ("I'll fill in the
+    blanks") while producing richer content. Years later, reading old
+    entries is deeply personal.
+
+27. DYNAMIC EVENT RECOMMENDATIONS BASED ON CALENDAR GAPS
+    Analyze the user's RSVP calendar and proactively suggest events to
+    fill gaps. "You have no concerts planned for March. Here are 5 shows
+    near you that match your taste." Or: "You're free the weekend of
+    March 14 — Artist X is playing 30 miles away." Combines calendar
+    awareness with recommendation intelligence.
+    Effort: M (calendar gap detection + recommendation engine)
+    Impact: *** — Proactive, personalized, and actionable. This is the
+    kind of recommendation that feels like the app is thinking for you.
+    Addresses the common "I should go to more shows" intention that
+    people fail to act on. Drives ticket purchases directly.
+
+================================================================================
+SECTION 8: COMMUNITY CONTENT
+================================================================================
+
+28. CONCERT REVIEWS (STRUCTURED & DISCOVERABLE)
+    Go beyond star ratings with structured reviews visible to other
+    users considering the same artist/venue. Categories: sound quality,
+    energy, setlist variety, venue experience, value for money. Reviews
+    are tied to specific events and displayed on artist profiles and
+    venue pages. Verified attendance (must have RSVPed or logged in
+    history).
+    Effort: M (review model, display UI, verified attendance check)
+    Impact: ** — User-generated reviews create unique, valuable content
+    that no competitor has. "Is this artist good live?" is a question
+    people ask before buying tickets. Verified reviews are more
+    trustworthy than Reddit threads. Builds community.
+
+29. "ASK A FAN" — COMMUNITY Q&A
+    Before attending a show, users can ask questions answered by people
+    who've seen the artist before. "How early should I get there for
+    barrier?", "Are they good live?", "How long is the set?" Answered by
+    users with that artist in their concert history. Builds expertise-
+    based community.
+    Effort: L (Q&A system, expertise matching, notification to experts)
+    Impact: * — Interesting community feature but requires active user
+    base to generate timely answers. Could start as a simpler FAQ system
+    seeded by crowd-sourced tips per artist. Risk of low response rates
+    at small scale.
+
+30. CROWD-SOURCED "ARTIST LIVE RATING"
+    Aggregate concert ratings across all users to create an "Artist Live
+    Score" — a community consensus on how good an artist is in concert.
+    "Artist X: 4.3/5 live rating (based on 127 reviews)." Displayed
+    prominently on artist profiles. Helps users decide whether an
+    unfamiliar artist is worth seeing live. Different from studio music
+    quality — some artists are legendary live but mediocre on record
+    (and vice versa).
+    Effort: S (aggregation of existing concert history ratings)
+    Impact: ** — Unique dataset that doesn't exist anywhere in a
+    structured form. "Are they good live?" is the #1 question before
+    buying tickets for an unfamiliar artist. Answering it with real data
+    is incredibly valuable. Motivates users to rate shows to contribute
+    to the community score.
+
+================================================================================
+SUMMARY: EFFORT vs IMPACT MATRIX
+================================================================================
+
+Format: #ID Feature Name | Effort | Impact
+
+--- CRITICAL IMPACT (***) ---
+  #1  Setlist predictions                    | M  | ***
+  #3  Ticket price intelligence              | L  | ***
+  #5  Live concert mode                      | L  | ***
+  #8  Post-show recap card                   | M  | ***
+  #13 "Surprise Me" concert finder           | M  | ***
+  #18 Smart event scoring                    | M  | ***
+  #27 Calendar gap recommendations           | M  | ***
+
+--- HIGH IMPACT (**) ---
+  #2  Tour prediction                        | M-L| **
+  #4  "You Missed This" FOMO alerts          | S-M| **
+  #6  Concert time machine / "On This Day"   | S  | **
+  #7  Venue intel / crowd-sourced guide      | L  | **
+  #9  Concert buddy matching                 | L  | **
+  #10 Music taste compatibility score        | M  | **
+  #11 Concert challenges / gamification      | M  | **
+  #12 Concert budget tracker                 | M  | **
+  #14 Concert road trip planner              | L  | **
+  #15 Opening act deep dive                  | M  | **
+  #16 Pre-concert hype playlist              | M  | **
+  #17 Personal concert analytics dashboard   | M-L| **
+  #19 "Fans Also Attended" recommendations   | M-L| **
+  #20 Concert weather forecast               | S-M| **
+  #21 Smart departure time                   | M  | **
+  #23 Artist milestone tracking              | M  | **
+  #24 Concert countdown widgets              | S  | **
+  #25 "Deep Cuts" alert                      | S-M| **
+  #26 Concert journal / rich notes           | M  | **
+  #28 Structured concert reviews             | M  | **
+  #30 Crowd-sourced artist live rating       | S  | **
+
+--- MODERATE IMPACT (*) ---
+  #22 Parking & transit guide                | M  | *
+  #29 "Ask a Fan" community Q&A             | L  | *
+
+================================================================================
+TOP 10 NOVEL FEATURES — BEST ROI
+================================================================================
+
+Ranked by (impact * feasibility) / effort:
+
+ 1. #1  SETLIST PREDICTIONS
+    You already have Setlist.fm data. Analyze song frequency across the
+    current tour and show probabilities. No one else does this in-app.
+    Effort: M | Impact: ***
+
+ 2. #8  POST-SHOW RECAP CARD
+    Auto-generate a beautiful, shareable concert card. Every share is
+    free branded marketing. Spotify Wrapped energy, per concert.
+    Effort: M | Impact: ***
+
+ 3. #13 "SURPRISE ME" CONCERT FINDER
+    "I'm free Saturday, under $50." Flips discovery on its head. No
+    concert app does constraint-based recommendation.
+    Effort: M | Impact: ***
+
+ 4. #18 SMART EVENT SCORING
+    Personal 1-100 match score on every event. Cuts through information
+    overload. Gets smarter with usage.
+    Effort: M | Impact: ***
+
+ 5. #6  CONCERT TIME MACHINE
+    "On this day 2 years ago..." One query, huge emotional payoff.
+    Best effort-to-delight ratio on this list.
+    Effort: S | Impact: **
+
+ 6. #30 CROWD-SOURCED ARTIST LIVE RATING
+    Aggregate existing ratings into a community score. Answers the #1
+    pre-purchase question: "Are they good live?"
+    Effort: S | Impact: **
+
+ 7. #24 CONCERT COUNTDOWN WIDGETS
+    Simple countdown to next show. Low effort, high delight. PWA home
+    screen widget keeps you permanently visible.
+    Effort: S | Impact: **
+
+ 8. #27 CALENDAR GAP RECOMMENDATIONS
+    "Nothing planned for March — here are 5 matches." Proactive,
+    personalized, drives ticket purchases.
+    Effort: M | Impact: ***
+
+ 9. #4  "YOU MISSED THIS" FOMO ALERTS
+    Leverage regret to drive engagement. "Artist X played near you
+    last week." Motivates adding more favorites.
+    Effort: S-M | Impact: **
+
+10. #25 "DEEP CUTS" ALERT
+    "They played a rare song last night!" Unique to setlist-integrated
+    platforms. Creates buzz and anticipation.
+    Effort: S-M | Impact: **
+
+================================================================================

@@ -1,0 +1,860 @@
+================================================================================
+BANDSINTOWN vs EVENT TRACKER — COMPLETE FEATURE GAP ANALYSIS
+================================================================================
+Generated: 2026-02-21
+
+This document lists every identified feature that Bandsintown offers which the
+event-tracker-backend does NOT currently have. Features already implemented
+(favorites, notifications, YouTube integration, tour maps, setlists, concert
+history, email digests, artist search, affiliate links, etc.) are excluded.
+
+Effort estimates:
+  S  = Small   (1-2 days, single file/route changes)
+  M  = Medium  (3-5 days, new model + routes + frontend page)
+  L  = Large   (1-2 weeks, multiple services, external APIs, significant UI)
+  XL = Extra Large (2+ weeks, major infrastructure or third-party integration)
+
+Impact ratings (user experience & engagement):
+  ***   = Critical  — Directly drives retention, daily usage, or core value
+  **    = High      — Noticeably improves experience; users would miss it
+  *     = Moderate  — Nice-to-have; improves polish but not a dealbreaker
+  -     = Low       — Niche or only relevant at scale
+
+================================================================================
+SECTION 1: EVENT ENGAGEMENT & ATTENDANCE
+================================================================================
+
+1. RSVP / "I'M GOING" SYSTEM
+   Bandsintown lets users RSVP to future events, marking intent to attend.
+   This is distinct from concert history (which logs past attendance).
+   Would need: new RSVP model (userId, eventId, status, createdAt), routes
+   for RSVP/un-RSVP, count display on event cards, and a "My Upcoming
+   Events" view filtered to RSVPed events.
+   Effort: M
+   Impact: *** — Foundation feature. Unlocks calendar sync, reminders, social
+   proof, and post-event prompts. Transforms the app from "browse events" to
+   "plan my concert life." Users who RSVP have a reason to come back.
+
+2. PRE-EVENT REMINDERS (1 MONTH, 1 WEEK, 1 DAY BEFORE)
+   Automated reminder notifications sent at intervals before an RSVPed
+   event. Bandsintown sends at 1 month and 1 week. Would require a
+   scheduled job that queries RSVPs with upcoming dates and triggers
+   email/in-app notifications.
+   Depends on: #1 (RSVP system)
+   Effort: M
+   Impact: *** — Keeps users engaged between booking and attending. Prevents
+   forgotten shows. The reminder itself brings users back to the app and
+   creates a touchpoint that feels genuinely helpful, not spammy.
+
+3. POST-EVENT PROMPT TO RATE
+   After an RSVPed event's date passes, prompt the user to log it to
+   concert history with a rating. Bandsintown does this to drive
+   engagement. Could be a scheduled job or a banner on next login.
+   Depends on: #1 (RSVP system)
+   Effort: S
+   Impact: ** — Closes the loop on the concert experience. Drives concert
+   history usage and makes the rating/review feature feel alive. Low effort
+   for meaningful engagement lift.
+
+4. CALENDAR SYNC (ICAL / GOOGLE CALENDAR)
+   Export RSVPed events as an .ics feed URL that auto-syncs with Google
+   Calendar, Apple Calendar, or Outlook. Generate a per-user iCal feed
+   endpoint (e.g., GET /api/v1/users/calendar.ics) that returns all
+   upcoming RSVPed events in iCalendar format.
+   Depends on: #1 (RSVP system)
+   Effort: S (ical-generator npm package exists)
+   Impact: *** — Integrates your app into the user's daily workflow. Once
+   concerts appear in their calendar, your app becomes indispensable. One of
+   the highest value-to-effort ratios on this list.
+
+5. RSVP COUNTS ON EVENTS
+   Show how many users have RSVPed to each event ("42 people going").
+   Creates social proof and urgency. Simple aggregation query on the
+   RSVP collection.
+   Depends on: #1 (RSVP system)
+   Effort: S
+   Impact: * — Social proof is powerful at scale but requires a meaningful
+   user base to feel authentic. With a small user count, showing "2 people
+   going" could backfire. Best to implement but hide until counts are
+   meaningful, or supplement with external data.
+
+================================================================================
+SECTION 2: TICKET & SALES ALERTS
+================================================================================
+
+6. ON-SALE DATE ALERTS
+   Notify users when tickets go on sale for events they're tracking.
+   The Event model already stores tickets.onSaleDate. Needs a scheduled
+   job that finds events where onSaleDate is today/tomorrow and sends
+   notifications to users who follow that artist.
+   Effort: M
+   Impact: *** — This is the moment users care about most. Missing an on-sale
+   means missing good seats or paying resale prices. Delivering this alert
+   reliably builds trust and makes the app essential to the ticket-buying
+   workflow.
+
+7. PRESALE ALERTS WITH ACCESS CODES
+   Notify users about presale windows before general on-sale. The Event
+   model already has tickets.presales array with startDate, endDate, and
+   name. A scheduled job could notify users of upcoming presales. Code
+   distribution would require an additional data source.
+   Effort: M
+   Impact: *** — Presale access is a premium perk that makes users feel like
+   insiders. Even without codes, knowing a presale exists and when it starts
+   gives users a competitive advantage. Strong differentiator.
+
+8. SOLD-OUT DETECTION & NOTIFICATIONS
+   Monitor ticket status changes. When an event's tickets.status changes
+   to "sold_out" or "limited", notify RSVPed/tracking users. Requires
+   periodic status polling from Ticketmaster/SeatGeek APIs and a diff
+   check against stored status.
+   Effort: M
+   Impact: ** — Creates urgency and helps users act before it's too late.
+   "Limited tickets remaining" is a powerful motivator. Also enables the
+   waitlist feature (#9).
+
+9. WAITLIST FOR SOLD-OUT EVENTS
+   Let users join a waitlist for sold-out events. Notify them if the
+   status changes back to available. Simple model (userId, eventId,
+   createdAt) plus a check in the sold-out detection job (#8).
+   Depends on: #8 (sold-out detection)
+   Effort: S
+   Impact: ** — Gives users hope and a reason to stay engaged even after
+   missing out. When tickets do become available, the notification feels
+   like a gift. Builds loyalty.
+
+10. PRICE DROP ALERTS
+    Notify users when ticket prices decrease for events they're tracking.
+    Requires storing price history (snapshots over time) and comparing
+    against previous values during sync. The notification model already
+    has a 'price_drop' type defined but no implementation exists.
+    Effort: M
+    Impact: ** — Saves users money and builds trust. People love feeling like
+    they got a deal. However, price drops are infrequent for most events so
+    the notification won't fire often. Still worth it for the goodwill.
+
+================================================================================
+SECTION 3: DISCOVERY & RECOMMENDATIONS
+================================================================================
+
+11. PERSONALIZED DISCOVERY FEED
+    A homepage feed showing "Artists like yours, touring near you." Cross-
+    reference Last.fm similar artists (already integrated) with events in
+    the database near the user's location. Display as a discovery section
+    on the dashboard.
+    Effort: M
+    Impact: *** — The single best way to help users discover new concerts
+    they'll love. Leverages data you already have (favorites + Last.fm +
+    location) to create a "magic" experience. This is what turns casual
+    users into power users.
+
+12. TRENDING ARTISTS CHART
+    Rank artists by recent fan activity (new followers, RSVPs, event
+    announcements). Bandsintown publishes a "Trending Touring Artists"
+    chart. Could be built from your data: artists gaining the most new
+    favorites, most RSVPs, or most new events in the past week.
+    Effort: M
+    Impact: * — Fun content but requires a large user base to generate
+    meaningful trends. At small scale, the data won't be interesting. Better
+    to defer until you have enough users to make rankings meaningful.
+
+13. "HOT SHOWS" / CURATED PICKS
+    Highlight popular upcoming events based on RSVP count, ticket sales
+    velocity, or admin curation. A "Hot This Week" section on the
+    dashboard. Could be algorithmic (highest RSVP count) or manually
+    curated by admin.
+    Effort: S-M
+    Impact: ** — Gives new and casual users something to browse even before
+    they've built up favorites. Admin-curated picks work at any scale and
+    add an editorial voice to the platform.
+
+14. FESTIVAL DISCOVERY & LINEUP TRACKING
+    Dedicated festival listings with full lineup display. Each festival
+    would be a parent event with child events per artist set. Needs a
+    Festival model (or a flag on Event) and a lineup association. Users
+    could track festivals and see which of their favorite artists are
+    playing.
+    Effort: L
+    Impact: ** — Festivals are a huge part of the live music experience and
+    currently a blind spot. "3 of your favorites are playing Bonnaroo" is a
+    compelling notification. Seasonal impact (festival season is spring/summer).
+
+15. FESTIVAL SET TIMES
+    Display set times within festival lineups. Requires time slot data
+    per artist within a festival. Depends on festival data source
+    availability.
+    Depends on: #14 (festival discovery)
+    Effort: S
+    Impact: * — Useful for festival attendees but narrow audience. Only
+    matters if festival tracking (#14) is implemented first. Nice polish
+    but not a driver of new engagement.
+
+16. "JUST ANNOUNCED" FEED
+    A chronological feed of newly added events for followed artists.
+    Different from notifications — this is a browsable activity stream.
+    Query events created in the last 7 days for the user's favorite +
+    music taste artists, sorted by createdAt.
+    Effort: S
+    Impact: ** — Gives users a reason to check the app daily. "What's new"
+    is a natural browsing behavior. Low effort since the data already exists
+    — just needs a view. Complements notifications with a pull-based
+    alternative.
+
+17. SIMILAR ARTIST AUTO-FOLLOW SUGGESTIONS
+    After a user follows an artist, suggest similar artists to also
+    follow. Use the existing Last.fm similar artists endpoint. Display
+    as a "You might also like" prompt after adding a favorite.
+    Effort: S
+    Impact: ** — Accelerates the onboarding flywheel. More favorites = more
+    relevant notifications = more value. Catches users in a moment of high
+    engagement (they just followed someone) and deepens it. Easy win.
+
+18. MUSIC DNA PROFILE VISUALIZATION
+    A visual representation of the user's music taste — genre breakdown,
+    top artists, diversity score. Built from favorites + music taste
+    data. Could be a radar chart or genre distribution pie chart on the
+    profile page.
+    Effort: M
+    Impact: * — Fun and shareable but doesn't drive core engagement. Users
+    look at it once, share it, and move on. Good for viral growth if paired
+    with sharing (#19-20) but low repeat usage.
+
+================================================================================
+SECTION 4: SOCIAL FEATURES
+================================================================================
+
+19. EVENT SHARING WITH OPEN GRAPH TAGS
+    Generate shareable event links with proper Open Graph meta tags so
+    they preview nicely on social media (Facebook, Twitter, iMessage).
+    Requires a server-rendered event page or a dynamic OG tag endpoint.
+    Effort: S-M
+    Impact: ** — Shared links that look professional (with event image, date,
+    venue) drive organic traffic. Every share is free marketing. Without OG
+    tags, shared links show a blank preview which kills click-through.
+
+20. SHARE TO SOCIAL MEDIA BUTTONS
+    Add share buttons (Twitter/X, Facebook, copy link) to event detail
+    pages. Construct share URLs with pre-filled text. Pure frontend
+    change with share intent URLs.
+    Effort: S
+    Impact: ** — Removes friction from sharing. Users who want to tell
+    friends about a concert will do it more if there's a one-click button.
+    Best paired with #19 (OG tags) so the shared links look good.
+
+21. "REQUEST A SHOW" / DEMAND TRACKING
+    Let users click "I want to see [Artist] in [City]." Store demand
+    votes (userId, artistId, city, state). Surface aggregated demand:
+    "47 fans in Nashville want to see Artist X." Lightweight model +
+    single route + frontend button.
+    Effort: M
+    Impact: ** — Keeps users engaged with artists who aren't currently
+    touring. Provides a call-to-action on otherwise empty artist pages.
+    The aggregated data is interesting content in itself ("most requested
+    artists in your city").
+
+22. FRIEND SYSTEM / SOCIAL CONNECTIONS
+    Connect with other users to see their RSVPs and favorites. See which
+    friends are going to the same events. Requires a friendship model
+    (request/accept flow), privacy settings, and a friends activity feed.
+    Effort: L
+    Impact: ** — Social features create network effects and make the app
+    stickier. "Your friend Sarah is going to this show" is compelling. But
+    requires critical mass of users to be valuable. Defer until user base
+    is large enough that people actually know each other on the platform.
+
+23. ATTENDEE LIST / "WHO'S GOING"
+    Show which users (or friends) have RSVPed to an event. Privacy-
+    controlled — users opt in to being visible. Queries RSVP collection
+    filtered by event.
+    Depends on: #1 (RSVP system)
+    Effort: S-M
+    Impact: * — Same scale concern as #5 and #22. Interesting in theory but
+    needs enough users attending the same events to be useful. Privacy
+    implications require careful design.
+
+================================================================================
+SECTION 5: NOTIFICATION ENHANCEMENTS
+================================================================================
+
+24. PUSH NOTIFICATIONS (WEB)
+    Browser push notifications using the Web Push API (service workers).
+    Currently only email and in-app. Web push would deliver real-time
+    alerts even when the user isn't on the site. Requires service worker
+    registration, VAPID keys, and a push subscription model.
+    Effort: L
+    Impact: *** — Dramatically increases notification visibility. Email open
+    rates are ~20%; push notification tap rates are 2-5x higher. Users who
+    opt into push are significantly more engaged. This is how you compete
+    with native apps without building one.
+
+25. SMS NOTIFICATIONS (FULL IMPLEMENTATION)
+    Infrastructure exists (smsOptIn field, mobile number storage) but
+    no SMS sending is implemented. Integrate Twilio or similar to send
+    text alerts for high-priority notifications (on-sale, presale,
+    events for favorites).
+    Effort: M
+    Impact: ** — SMS has the highest open rate of any channel (~98%). Best
+    reserved for high-value, time-sensitive alerts (presale starting in 1
+    hour, last tickets available). Overuse will cause unsubscribes. Cost
+    per message (~$0.01) is a factor at scale.
+
+26. MULTI-LOCATION NOTIFICATIONS
+    Currently users get notifications for one location only. Allow saving
+    multiple cities (home, work, travel destinations) and receiving
+    notifications for events near any of them.
+    Effort: M
+    Impact: ** — Common user complaint on Bandsintown reviews. People travel
+    for work, visit family, go on vacation — they want to catch shows in
+    all those places. Solves a real pain point for active concert-goers.
+
+27. CONFIGURABLE NOTIFICATION RADIUS
+    Let users adjust their notification radius beyond the fixed 50 miles.
+    Bandsintown allows up to 150 miles. Add a notificationRadius field
+    to the User model and use it in the notification service distance
+    checks.
+    Effort: S
+    Impact: ** — Rural users may need 100+ miles; city users may want 25.
+    One-size-fits-all frustrates both groups. Tiny change that immediately
+    makes the app feel more personalized and reduces irrelevant
+    notifications (or surfaces missed ones).
+
+28. NOTIFICATION FOR ANY NEW SHOW (NOT JUST NEARBY)
+    Option to be notified about ALL new events for a followed artist,
+    regardless of distance. Useful for fans willing to travel. A toggle
+    per artist or global setting.
+    Effort: S
+    Impact: ** — Die-hard fans will travel anywhere for their top artists.
+    This lets them know about every opportunity. Per-artist toggle is ideal:
+    "notify me everywhere" for top 3 favorites, nearby-only for the rest.
+
+29. GRANULAR NOTIFICATION PREFERENCES
+    Per-category notification controls: toggle on/off for new events,
+    on-sale alerts, presales, price drops, reminders. Currently it's
+    all-or-nothing. Needs a notification preferences sub-document on
+    the User model.
+    Effort: M
+    Impact: * — Important for preventing notification fatigue but only
+    matters once you have multiple notification types (#6, #7, #8, #10).
+    Build this when users start complaining about too many notifications
+    — a good problem to have.
+
+30. NOTIFICATION DIGEST FREQUENCY OPTIONS
+    Let users choose digest frequency: real-time, daily, weekly, or
+    off. Currently only daily digest exists. Add a digestFrequency
+    field and adjust the digest scheduler accordingly.
+    Effort: S-M
+    Impact: * — Useful preference but not a game-changer. Some users want
+    weekly summaries, others want immediate alerts. Nice customization
+    but low urgency. Weekly digest option is most impactful since it
+    reduces email fatigue for casual users.
+
+================================================================================
+SECTION 6: ADDITIONAL MUSIC SERVICE INTEGRATIONS
+================================================================================
+
+31. SPOTIFY INTEGRATION (ARTIST IMPORT)
+    Import followed artists and top artists from Spotify. Spotify's API
+    provides /me/following and /me/top/artists endpoints. OAuth flow
+    similar to existing YouTube integration. Would significantly expand
+    the music taste data.
+    Effort: L
+    Impact: *** — Spotify is the dominant music platform. Many users who
+    don't use YouTube Music heavily have rich Spotify data. This single
+    integration could double the number of artists the app can track per
+    user, making notifications and discovery dramatically better.
+
+32. APPLE MUSIC INTEGRATION
+    Import library artists from Apple Music using MusicKit JS or the
+    Apple Music API. More complex than Spotify due to Apple's auth
+    requirements (developer token + user token).
+    Effort: L
+    Impact: ** — Important for iOS-heavy user bases. Apple Music has ~25%
+    of the streaming market. Worth doing after Spotify but lower priority
+    since the API is harder to work with and the audience is smaller.
+
+33. LAST.FM SCROBBLE IMPORT
+    Import top artists from a user's Last.fm listening history. The
+    Last.fm API is already integrated for similar artists — extending
+    to user.getTopArtists would pull real listening data. Requires
+    Last.fm username linking (no OAuth needed, just username).
+    Effort: S-M
+    Impact: * — Niche audience (Last.fm is much smaller than Spotify/Apple
+    Music) but extremely easy to implement since the API is already
+    integrated. The data quality is excellent — scrobble counts give
+    precise listening frequency. Good quick add for power users.
+
+34. SHAZAM HISTORY IMPORT
+    Import Shazamed songs/artists. Shazam doesn't have a public API,
+    but Apple Music integration could surface Shazam data indirectly
+    through the Apple Music library.
+    Depends on: #32 (Apple Music integration)
+    Effort: L
+    Impact: * — Interesting signal (Shazaming = discovering new music) but
+    indirect access via Apple Music makes this low priority. The data
+    volume is small compared to a streaming library.
+
+================================================================================
+SECTION 7: ARTIST-SIDE FEATURES
+================================================================================
+
+Note: These features target artists as users of the platform. They represent a
+significant product expansion and may not align with the current user-focused
+scope. Included for completeness.
+
+35. ARTIST CLAIM / VERIFICATION SYSTEM
+    Let artists claim their profile page and get a verified badge. Verify
+    via linked social media accounts or manual review. Adds credibility
+    to artist pages.
+    Effort: M
+    Impact: * — Only matters if you're targeting artists as users, which is
+    a different product direction. Adds trust signals to profiles but
+    doesn't directly improve the fan experience unless artists contribute
+    content (#38).
+
+36. ARTIST SELF-SERVICE EVENT MANAGEMENT
+    Let verified artists add/edit their own events directly, rather than
+    relying solely on Ticketmaster sync. Useful for independent artists
+    not on major ticketing platforms.
+    Depends on: #35 (artist verification)
+    Effort: L
+    Impact: ** — Expands event coverage beyond Ticketmaster's catalog.
+    Independent and local artists often aren't on major platforms but have
+    passionate fans. Would unlock a segment of live music currently
+    invisible to your users.
+
+37. ARTIST ANALYTICS DASHBOARD
+    Show verified artists their follower count, follower locations,
+    RSVP counts by city, and demand data. Built from existing user
+    data aggregations.
+    Depends on: #35 (artist verification)
+    Effort: L
+    Impact: - — Only relevant to artists, not fans. Useful for attracting
+    artists to the platform but doesn't improve the fan experience.
+    Defer until artist-side features are a strategic priority.
+
+38. ARTIST-TO-FAN POSTS / MESSAGING
+    Let verified artists send messages/updates to their followers.
+    Creates a direct communication channel. Needs a Post model, delivery
+    via in-app + email, and an inbox UI for fans.
+    Depends on: #35 (artist verification)
+    Effort: L
+    Impact: ** — Exclusive content from artists is a strong retention
+    driver. Fans love feeling connected. But requires artists to actively
+    use the platform, which is a chicken-and-egg problem at small scale.
+
+39. GEO-TARGETED ARTIST POSTS
+    Artists can target messages to fans in specific cities/regions. E.g.,
+    "Hey Nashville fans, presale code is ROCK2026." Extension of the
+    post system with location filtering.
+    Depends on: #38 (artist posts)
+    Effort: M
+    Impact: * — Enhancement to artist posts (#38). Only relevant if
+    the artist posting system is active and well-adopted. Adds precision
+    but not a standalone feature.
+
+40. EMBEDDABLE EVENT WIDGET
+    A JavaScript widget that artists/venues can embed on their website
+    to show upcoming events. Served from your domain, pulls data via API.
+    Good for distribution and backlinks.
+    Effort: M
+    Impact: * — Growth tool rather than user experience feature. Drives
+    traffic from artist/venue websites back to your platform. Valuable for
+    SEO and user acquisition but doesn't improve the core product.
+
+41. ARTIST "TRACK" BUTTON EMBED
+    An embeddable button artists place on their website that lets fans
+    follow them on your platform directly. Increases user acquisition.
+    Effort: S
+    Impact: * — User acquisition tool. Each button is a distribution point
+    for your platform. Low effort but requires artist adoption to be
+    effective. Best paired with artist-side features (#35-38).
+
+================================================================================
+SECTION 8: VENUE FEATURES
+================================================================================
+
+42. VENUE PROFILES
+    Dedicated pages for venues showing: upcoming events, venue details
+    (capacity, address, photos), past events. The Event model already
+    stores venue data — this aggregates it into a browsable page.
+    Effort: M
+    Impact: ** — Many concert-goers are loyal to specific venues. "What's
+    coming up at The Ryman?" is a natural question. Venue pages aggregate
+    content you already have and create new browsing entry points.
+
+43. VENUE DISCOVERY / "VENUES NEAR ME"
+    Browse nearby music venues on a map. Uses existing geospatial
+    indexes on Event venues. Aggregate unique venues from events and
+    display on a Leaflet map.
+    Effort: M
+    Impact: * — Interesting browsing feature but most users start from
+    artists, not venues. More useful for users new to a city. Leverages
+    your existing Leaflet map infrastructure well.
+
+44. VENUE FOLLOWING
+    Let users follow venues (not just artists) to get notifications for
+    any event at that venue. Useful for fans of a specific local club.
+    Needs a Venue model (or extraction from Event), a follow system,
+    and notification integration.
+    Effort: M-L
+    Impact: ** — Fills a real gap. Users with a favorite local venue want
+    to know about everything happening there, not just their followed
+    artists. "Follow The Bluebird Cafe" catches events that artist-based
+    tracking misses entirely.
+
+================================================================================
+SECTION 9: CONTENT & MEDIA
+================================================================================
+
+45. ARTIST BIO / EXTENDED PROFILES
+    Rich artist profile pages with biography, discography highlights,
+    social links, and streaming stats. Last.fm already provides bio
+    and listener stats. Spotify and MusicBrainz could supplement.
+    Artist model has fields for description and links but they're
+    mostly unpopulated.
+    Effort: M
+    Impact: * — Makes artist pages feel more complete and professional.
+    Users can learn about unfamiliar artists before deciding to attend.
+    Nice polish but not a driver of core engagement or retention.
+
+46. EVENT PHOTOS / USER-GENERATED CONTENT
+    Let users upload photos from concerts they attended. Attach to
+    concert history entries. Needs file upload (S3 or similar),
+    image model, and gallery UI.
+    Effort: L
+    Impact: ** — Makes concert history feel like a personal scrapbook.
+    Photos trigger nostalgia and make users want to keep logging concerts.
+    User-generated content also enriches event pages for future attendees.
+    Storage costs and moderation are considerations.
+
+47. SETLIST VOTING / CROWD-SOURCED SETLISTS
+    Let attendees submit or vote on setlists after a concert. Currently
+    setlists come from Setlist.fm only. Could supplement with user
+    submissions for events not yet on Setlist.fm.
+    Effort: M
+    Impact: * — Niche feature for setlist enthusiasts. Setlist.fm already
+    covers most major shows. Adds community engagement but small audience.
+    Could differentiate for shows Setlist.fm doesn't cover.
+
+48. LIVE CONCERT STREAMING
+    Bandsintown PLUS offers livestreamed concerts for $9.99/month. This
+    is a major platform investment requiring streaming infrastructure,
+    artist partnerships, and payment processing. Not recommended at
+    current scale.
+    Effort: XL
+    Impact: - — Wrong scale for this feature. Requires massive investment
+    in infrastructure, content licensing, and artist relationships. Would
+    distract from core product. Not recommended.
+
+49. LIVE CHAT DURING STREAMS
+    Real-time chat during livestreams. Requires WebSocket infrastructure
+    and moderation tools.
+    Depends on: #48 (livestreaming)
+    Effort: L
+    Impact: - — Dependent on livestreaming (#48) which is not recommended.
+    Skip entirely.
+
+================================================================================
+SECTION 10: COMMERCE & MONETIZATION
+================================================================================
+
+50. MERCH INTEGRATION (SHOPIFY)
+    Display artist merchandise on their profile page. Bandsintown
+    integrates with Shopify to show up to 10 products. Requires
+    Shopify API integration or simply linking to artist merch stores.
+    Effort: M-L (API integration) or S (just links)
+    Impact: * — Revenue opportunity via affiliate merch links. Doesn't
+    improve core concert discovery but enriches artist pages. Start
+    with simple merch store links (S effort) before considering full
+    Shopify integration.
+
+51. IN-APP TICKET PURCHASING
+    Buy tickets within the app instead of redirecting to external sites.
+    Bandsintown partnered with Ticketmaster for this. Requires deep
+    Ticketmaster API integration and likely a business partnership.
+    Significantly improves conversion but complex to implement.
+    Effort: XL
+    Impact: ** — Reduces friction significantly (no redirect, no context
+    switch) and improves conversion. But requires a business relationship
+    with Ticketmaster that may not be available to smaller platforms.
+    Current affiliate links are a reasonable substitute.
+
+52. PROMOTED EVENTS / PAID PLACEMENT
+    Let venues or promoters pay to boost event visibility. Requires an
+    ad/promotion system, payment processing, and placement logic in
+    search results and feeds.
+    Effort: XL
+    Impact: - — Monetization feature, not user experience. Promoted content
+    can actually hurt UX if not done carefully. Only consider once you have
+    significant traffic that venues/promoters would pay to reach.
+
+53. AFFILIATE REVENUE DASHBOARD
+    Track and display affiliate click revenue from Ticketmaster,
+    SeatGeek, and StubHub links. Click tracking exists but there's no
+    reporting dashboard. Aggregate clicks by platform, event, and
+    time period.
+    Effort: M
+    Impact: - — Internal/admin tool, not user-facing. Important for
+    business operations but zero impact on user experience. Build when
+    affiliate revenue is meaningful enough to warrant tracking.
+
+================================================================================
+SECTION 11: PLATFORM & DISTRIBUTION
+================================================================================
+
+54. PROGRESSIVE WEB APP (PWA)
+    Convert the web app to a PWA with offline support, installability,
+    and app-like experience. Add a manifest.json, service worker for
+    caching, and offline fallback pages.
+    Effort: M
+    Impact: *** — Bridges the gap between web and native app without
+    building a native app. Users can "install" it to their home screen,
+    get push notifications, and use it offline. Dramatically improves
+    mobile experience at a fraction of native app cost.
+
+55. MOBILE APP (NATIVE OR REACT NATIVE)
+    Bandsintown has dedicated iOS and Android apps. A native app enables
+    push notifications, background location, and better performance.
+    Major undertaking.
+    Effort: XL
+    Impact: ** — Best possible mobile experience but massive investment.
+    PWA (#54) covers 80% of native app benefits at 20% of the cost.
+    Only worth considering after PWA is established and user base
+    demands native features (background sync, deep OS integration).
+
+56. PUBLIC API / DEVELOPER ACCESS
+    Expose a public API for third-party developers to query events and
+    artists. Bandsintown has a public API used by many apps and websites.
+    Needs API key management, rate limiting, and documentation.
+    Effort: L
+    Impact: - — Platform/ecosystem play, not user-facing. Only makes
+    sense when you have unique data worth exposing. Currently you're
+    aggregating from other APIs (Ticketmaster, SeatGeek), so the value
+    proposition for developers is limited.
+
+57. CROSS-PLATFORM EVENT DISTRIBUTION
+    Syndicate events to Spotify, YouTube, Google, Apple Maps, etc.
+    Bandsintown is a data provider to these platforms via partnerships.
+    Requires business relationships, not just technical integration.
+    Effort: XL (partnership-dependent)
+    Impact: - — Requires enterprise-level partnerships that aren't
+    available to smaller platforms. Bandsintown's distribution deals took
+    years and millions of users to establish. Not actionable currently.
+
+================================================================================
+SECTION 12: USER EXPERIENCE & PERSONALIZATION
+================================================================================
+
+58. ONBOARDING ARTIST IMPORT FLOW
+    On first signup, guide users through connecting music services and
+    auto-importing artists they already listen to. Bandsintown scans
+    libraries immediately on signup. Currently YouTube connection is
+    available but not part of an onboarding flow.
+    Effort: M
+    Impact: *** — First impressions determine whether users stick around.
+    A new user with zero favorites gets zero value. An onboarding flow
+    that imports 20+ artists in 30 seconds transforms the empty state
+    into a personalized experience immediately. Critical for retention.
+
+59. CONFIGURABLE SEARCH RADIUS
+    Let users set their preferred search radius (25, 50, 75, 100, 150
+    miles) for event discovery. Currently hardcoded at 50 miles. Simple
+    User model field + UI dropdown.
+    Effort: S
+    Impact: ** — Same rationale as #27. Different users have very different
+    travel willingness. A 15-minute fix that immediately personalizes the
+    experience. Best bang-for-buck ratio on this entire list.
+
+60. MULTIPLE SAVED LOCATIONS
+    Save multiple locations (home, work, vacation spots) and browse
+    events near any of them. Currently only one address per user.
+    Effort: M
+    Impact: ** — Solves a real limitation. Users traveling for work or
+    vacation want to browse events in those locations without losing
+    their home setting. Practical quality-of-life improvement.
+
+61. DARK MODE
+    Theme toggle for dark/light mode. Pure frontend CSS change with a
+    preference stored in localStorage or User model.
+    Effort: S-M
+    Impact: * — Expected feature in modern apps. Won't drive engagement
+    but its absence may be noticed. Users who prefer dark mode feel
+    strongly about it. Low effort, meets expectations.
+
+62. ANNUAL RECAP / YEAR IN REVIEW
+    End-of-year summary: concerts attended, unique artists seen, unique
+    venues visited, miles traveled, top genres, most-seen artist. Built
+    from concert history data. Engaging and shareable.
+    Effort: M
+    Impact: ** — Spotify Wrapped proved that annual recaps are massively
+    shareable. Each share is organic marketing. Also motivates users to
+    log concerts all year to get a better recap. Seasonal effort (build
+    once, run annually). Great for virality.
+
+63. USER PROFILE / PUBLIC PAGE
+    Optional public profile showing concerts attended, favorite artists,
+    and upcoming RSVPs. Opt-in visibility. Bandsintown has public user
+    profiles.
+    Depends on: #1 (RSVP system)
+    Effort: M
+    Impact: * — Gives users identity on the platform and enables sharing.
+    "Check out my concert profile" drives word-of-mouth. But requires
+    enough content (concert history, favorites) to look interesting.
+    Better after users have been active for a while.
+
+64. ACCOUNT DATA EXPORT (GDPR)
+    Let users export all their data (favorites, history, preferences)
+    as JSON or CSV. Good practice for privacy compliance.
+    Effort: S
+    Impact: * — Builds trust and meets privacy expectations. Users rarely
+    use it but its presence signals that you respect their data. May
+    become legally required depending on your user base locations.
+
+65. ACCOUNT DELETION SELF-SERVICE
+    Let users delete their account and all associated data from settings.
+    Currently no self-service deletion exists.
+    Effort: S
+    Impact: * — Legally expected in many jurisdictions (GDPR, CCPA). Users
+    who can't delete their account feel trapped, which breeds distrust.
+    Simple to implement, important for compliance and credibility.
+
+================================================================================
+SUMMARY: EFFORT vs IMPACT MATRIX
+================================================================================
+
+Format: #ID Feature Name | Effort | Impact
+
+--- CRITICAL IMPACT (***) ---
+  #1  RSVP / "I'm Going" system             | M  | *** Foundation for many features
+  #2  Pre-event reminders                    | M  | *** Keeps users engaged pre-show
+  #4  Calendar sync (iCal feed)              | S  | *** Integrates into daily workflow
+  #6  On-sale date alerts                    | M  | *** Solves #1 user pain point
+  #7  Presale alerts                         | M  | *** Makes users feel like insiders
+  #11 Personalized discovery feed            | M  | *** Turns data into magic moments
+  #24 Web push notifications                 | L  | *** 2-5x better than email reach
+  #31 Spotify integration                    | L  | *** Doubles artist tracking data
+  #54 Progressive Web App (PWA)              | M  | *** Native app feel, web app cost
+  #58 Onboarding artist import flow          | M  | *** Determines if new users stay
+
+--- HIGH IMPACT (**) ---
+  #3  Post-event rating prompt               | S  | **  Closes the concert loop
+  #8  Sold-out detection & notifications     | M  | **  Creates urgency
+  #9  Waitlist for sold-out events           | S  | **  Builds loyalty
+  #10 Price drop alerts                      | M  | **  Saves users money
+  #13 "Hot Shows" / curated picks            | S-M| **  Content for casual browsers
+  #14 Festival discovery & lineup tracking   | L  | **  Big gap in current coverage
+  #16 "Just Announced" feed                  | S  | **  Daily check-in reason
+  #17 Similar artist auto-follow suggestions | S  | **  Accelerates onboarding
+  #19 Event sharing with Open Graph tags     | S-M| **  Free organic marketing
+  #20 Share to social media buttons          | S  | **  Removes sharing friction
+  #21 "Request a Show" / demand tracking     | M  | **  Engagement when no events
+  #22 Friend system / social connections     | L  | **  Network effects (needs scale)
+  #25 SMS notifications                      | M  | **  Highest open rate channel
+  #26 Multi-location notifications           | M  | **  Solves real pain point
+  #27 Configurable notification radius       | S  | **  Instant personalization
+  #28 Notify for any new show option         | S  | **  Serves die-hard fans
+  #36 Artist self-service event management   | L  | **  Unlocks indie artist coverage
+  #38 Artist-to-fan posts                    | L  | **  Exclusive content (needs scale)
+  #42 Venue profiles                         | M  | **  New browsing entry point
+  #44 Venue following                        | M-L| **  Catches events artist tracking misses
+  #46 Event photos / user content            | L  | **  Concert scrapbook
+  #51 In-app ticket purchasing               | XL | **  Reduces friction (needs partnership)
+  #55 Mobile app (native)                    | XL | **  Best mobile UX (PWA first)
+  #59 Configurable search radius             | S  | **  Best effort-to-impact ratio
+  #60 Multiple saved locations               | M  | **  Quality-of-life improvement
+  #62 Annual recap / year in review          | M  | **  Viral sharing potential
+
+--- MODERATE IMPACT (*) ---
+  #5  RSVP counts on events                  | S  | *   Needs user scale
+  #12 Trending artists chart                 | M  | *   Needs user scale
+  #15 Festival set times                     | S  | *   Narrow audience
+  #18 Music DNA profile visualization        | M  | *   Fun but one-time view
+  #23 Attendee list / "Who's going"          | S-M| *   Needs user scale
+  #29 Granular notification preferences      | M  | *   Build when needed
+  #30 Notification digest frequency options  | S-M| *   Nice customization
+  #33 Last.fm scrobble import                | S-M| *   Niche but easy
+  #34 Shazam history import                  | L  | *   Small data, hard access
+  #35 Artist verification system             | M  | *   Different product direction
+  #39 Geo-targeted artist posts              | M  | *   Enhancement of #38
+  #40 Embeddable event widget                | M  | *   Growth tool, not UX
+  #41 Artist "Track" button embed            | S  | *   Needs artist adoption
+  #43 Venue discovery / map                  | M  | *   Interesting browse feature
+  #45 Artist extended profiles               | M  | *   Polish, not engagement
+  #47 Setlist voting                         | M  | *   Niche enthusiast feature
+  #50 Merch integration                      | S-L| *   Revenue, not core UX
+  #61 Dark mode                              | S-M| *   Expected modern feature
+  #63 User public profile                    | M  | *   Needs active users first
+  #64 Account data export                    | S  | *   Trust & compliance
+  #65 Account deletion self-service          | S  | *   Compliance requirement
+
+--- LOW IMPACT (-) ---
+  #37 Artist analytics dashboard             | L  | -   Artist-only feature
+  #48 Live concert streaming                 | XL | -   Wrong scale
+  #49 Live chat during streams               | L  | -   Depends on #48
+  #52 Promoted events / paid placement       | XL | -   Needs traffic first
+  #53 Affiliate revenue dashboard            | M  | -   Internal tool only
+  #56 Public API                             | L  | -   No unique data yet
+  #57 Cross-platform distribution            | XL | -   Needs enterprise partnerships
+
+================================================================================
+RECOMMENDED PRIORITY ORDER (HIGHEST IMPACT, LOWEST EFFORT FIRST)
+================================================================================
+
+Phase 1 — Quick Wins [~1-2 weeks total, all S effort, high ROI]
+  #59 Configurable search radius             S  **  Best effort:impact ratio
+  #27 Configurable notification radius       S  **  Same — instant personalization
+  #4  Calendar sync (iCal feed)              S  *** Integrates into daily life
+  #28 Notify for any new show option         S  **  Serves superfans
+  #16 "Just Announced" feed                  S  **  Reason to check app daily
+  #17 Similar artist suggestions             S  **  Grows favorites list faster
+  #20 Share to social media buttons          S  **  Free organic marketing
+  #3  Post-event rating prompt               S  **  Closes the concert loop
+  #65 Account deletion self-service          S  *   Compliance & trust
+  #64 Account data export                    S  *   Compliance & trust
+
+Phase 2 — Core Engagement [~3-4 weeks total, mostly M effort, ***]
+  #1  RSVP / "I'm Going" system             M  *** Foundation for 5+ features
+  #2  Pre-event reminders                    M  *** Users love these
+  #6  On-sale date alerts                    M  *** #1 pain point solved
+  #7  Presale alerts                         M  *** Insider advantage feel
+  #58 Onboarding artist import flow          M  *** Determines new user retention
+  #11 Personalized discovery feed            M  *** Killer differentiation
+
+Phase 3 — Ticket Intelligence [~2-3 weeks total]
+  #8  Sold-out detection                     M  **  Creates urgency
+  #9  Waitlist for sold-out events           S  **  Builds loyalty
+  #10 Price drop alerts                      M  **  Saves users money
+  #19 Event sharing with Open Graph tags     S-M **  Makes shares look professional
+  #21 Request a Show                         M  **  Engagement without events
+
+Phase 4 — Platform Expansion [~4-6 weeks total, L effort, ***]
+  #54 Progressive Web App (PWA)              M  *** App-like experience
+  #31 Spotify integration                    L  *** Doubles music taste data
+  #24 Web push notifications                 L  *** 2-5x better reach
+  #25 SMS notifications                      M  **  Highest open rate channel
+  #62 Annual recap / year in review          M  **  Viral sharing moment
+
+Phase 5 — Deepen Experience [~4-6 weeks total, for growing user base]
+  #26 Multi-location notifications           M  **  Travel-friendly
+  #60 Multiple saved locations               M  **  Pair with #26
+  #42 Venue profiles                         M  **  New browsing axis
+  #44 Venue following                        M-L **  Fills tracking blind spots
+  #14 Festival discovery                     L  **  Seasonal but high value
+  #22 Friend system / social connections     L  **  When user base supports it
+  #46 Event photos / user content            L  **  Concert scrapbook
+
+================================================================================
+
+TOP 10 FEATURES BY IMPACT (regardless of effort):
+  1.  #1  RSVP system               — Foundation for everything
+  2.  #58 Onboarding flow           — Make-or-break for new users
+  3.  #6  On-sale alerts            — Solves the #1 fan pain point
+  4.  #11 Discovery feed            — "Artists like yours, near you"
+  5.  #4  Calendar sync             — Embeds app in daily life
+  6.  #31 Spotify integration       — Doubles your data
+  7.  #24 Web push notifications    — Reach users when they're away
+  8.  #54 PWA                       — Native feel without native cost
+  9.  #7  Presale alerts            — Users feel like VIPs
+  10. #2  Pre-event reminders       — Genuinely helpful touchpoints
+
+================================================================================

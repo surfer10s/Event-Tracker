@@ -10,6 +10,8 @@ const {
 } = require('../controllers/concerthistorycontroller');
 const { protect } = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/adminAuth');
+const UserMusicTaste = require('../models/UserMusicTaste');
+const Artist = require('../models/Artist');
 
 // All routes are protected (require authentication)
 
@@ -46,6 +48,46 @@ router.route('/concert-history')
 router.route('/concert-history/:id')
     .put(protect, updateConcertHistory)
     .delete(protect, deleteConcertFromHistory);
+
+// GET /api/v1/users/music-taste-artists - Get artists from user's music taste (for expand results)
+router.get('/music-taste-artists', protect, async (req, res) => {
+    try {
+        const userTaste = await UserMusicTaste.findOne({ userId: req.user._id });
+        if (!userTaste || !userTaste.artists || userTaste.artists.length === 0) {
+            return res.json({ success: true, artists: [] });
+        }
+
+        // Populate favoriteArtists to get names (protect middleware doesn't populate)
+        await req.user.populate('favoriteArtists');
+
+        // Exclude artists already in favorites to avoid duplicates
+        const favoriteNames = new Set(
+            (req.user.favoriteArtists || []).map(a => a.name.toLowerCase())
+        );
+
+        const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        const artists = [];
+        for (const tasteArtist of userTaste.artists) {
+            if (favoriteNames.has(tasteArtist.name.toLowerCase())) continue;
+
+            const artist = await Artist.findOne({
+                name: { $regex: new RegExp(`^${escapeRegex(tasteArtist.name)}$`, 'i') }
+            });
+            if (!artist) continue;
+
+            const source = tasteArtist.sources.includes('liked') ? 'liked_song' :
+                           tasteArtist.sources.includes('playlist') ? 'playlist' : 'music_library';
+
+            artists.push({ _id: artist._id, name: artist.name, source });
+        }
+
+        res.json({ success: true, artists });
+    } catch (err) {
+        console.error('Error fetching music taste artists:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch music taste artists' });
+    }
+});
 
 // ============================================
 // Admin Portal Routes for User Management

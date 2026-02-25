@@ -1,0 +1,634 @@
+================================================================================
+EVENT TRACKER — UNIFIED FEATURE ROADMAP
+================================================================================
+Generated: 2026-02-21
+
+Prioritized plan of action combining Bandsintown gap features (GAP-#) and
+novel ideas (NEW-#) into a single roadmap ordered by importance to user
+engagement. Each phase builds on the previous one — later phases depend on
+foundations laid earlier.
+
+Source files:
+  - bandsintown-feature-gap-analysis.txt  (65 gap features, prefix: GAP)
+  - novel-feature-ideas.txt              (30 novel features, prefix: NEW)
+
+Effort: S (1-2 days) | M (3-5 days) | L (1-2 weeks) | XL (2+ weeks)
+Impact: *** Critical | ** High | * Moderate | - Low
+
+================================================================================
+PHASE 1 — INSTANT WINS                               ~1-2 weeks | All S effort
+================================================================================
+Why first: Maximum impact per hour invested. Each item is 1-2 days or less.
+Ship these before anything else to immediately improve every user's experience.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 1  | GAP-59  | Configurable search radius       |   S    |  **
+    |         | Let users pick 25/50/75/100/150   |        |
+    |         | miles. One field on User model,   |        |
+    |         | one dropdown in UI. Done in an    |        |
+    |         | afternoon, felt by every user.    |        |
+----+---------+----------------------------------+--------+-------
+ 2  | GAP-27  | Configurable notification radius |   S    |  **
+    |         | Same concept for notifications.   |        |
+    |         | Ship together with #1. Rural      |        |
+    |         | users need 100+ mi, city users    |        |
+    |         | want 25.                          |        |
+----+---------+----------------------------------+--------+-------
+ 3  | GAP-4   | Calendar sync (iCal feed)        |   S    |  ***
+    |         | Per-user .ics endpoint. Once      |        |
+    |         | concerts are in their calendar,   |        |
+    |         | you're embedded in daily life.    |        |
+    |         | Works even before RSVP system —   |        |
+    |         | can export favorited events.      |        |
+----+---------+----------------------------------+--------+-------
+ 4  | NEW-30  | Crowd-sourced artist live rating  |   S    |  **
+    |         | Aggregate existing concert history|        |
+    |         | ratings into a community score on |        |
+    |         | artist profiles. "4.3/5 live      |        |
+    |         | rating." Answers the #1 question: |        |
+    |         | "Are they good live?" Zero new    |        |
+    |         | data needed — just aggregation.   |        |
+----+---------+----------------------------------+--------+-------
+ 5  | NEW-6   | Concert time machine / memories  |   S    |  **
+    |         | "On this day 2 years ago, you saw |        |
+    |         | Artist X at Venue Y." One query   |        |
+    |         | against concert history. Massive  |        |
+    |         | emotional payoff. Best delight-   |        |
+    |         | per-line-of-code on the roadmap.  |        |
+----+---------+----------------------------------+--------+-------
+ 6  | NEW-24  | Concert countdown widget         |   S    |  **
+    |         | Countdown to next upcoming event  |        |
+    |         | on dashboard. Simple date math.   |        |
+    |         | Builds anticipation, keeps app    |        |
+    |         | top-of-mind.                      |        |
+----+---------+----------------------------------+--------+-------
+ 7  | GAP-16  | "Just Announced" feed            |   S    |  **
+    |         | Events created in last 7 days for |        |
+    |         | followed artists. Gives users a   |        |
+    |         | reason to check the app daily.    |        |
+    |         | Data already exists.              |        |
+----+---------+----------------------------------+--------+-------
+ 8  | GAP-17  | Similar artist suggestions       |   S    |  **
+    |         | After following an artist, show   |        |
+    |         | "You might also like" via Last.fm |        |
+    |         | (already integrated). Grows the   |        |
+    |         | favorites list = more value from  |        |
+    |         | notifications.                    |        |
+----+---------+----------------------------------+--------+-------
+ 9  | GAP-28  | Notify for any new show          |   S    |  **
+    |         | Toggle to get notified about ALL  |        |
+    |         | shows, not just nearby. Die-hard  |        |
+    |         | fans will travel anywhere.        |        |
+----+---------+----------------------------------+--------+-------
+ 10 | GAP-20  | Share to social media buttons    |   S    |  **
+    |         | One-click share to Twitter/X,     |        |
+    |         | Facebook, copy link. Every share  |        |
+    |         | is free marketing.                |        |
+----+---------+----------------------------------+--------+-------
+ 11 | GAP-3   | Post-event rating prompt         |   S    |  **
+    |         | After an event date passes, nudge |        |
+    |         | user to rate it. Closes the loop, |        |
+    |         | feeds live ratings (#4 above).    |        |
+----+---------+----------------------------------+--------+-------
+ 12 | GAP-65  | Account deletion self-service    |   S    |  *
+    |         | Legal compliance (GDPR/CCPA).     |        |
+    |         | Simple but important.             |        |
+----+---------+----------------------------------+--------+-------
+ 13 | GAP-64  | Account data export              |   S    |  *
+    |         | Export favorites, history, prefs  |        |
+    |         | as JSON/CSV. Trust signal.        |        |
+
+Phase 1 total: ~13 items, each S effort = roughly 1-2 weeks if done serially,
+faster if parallelized. Delivers immediate value across personalization,
+engagement, compliance, and discovery.
+
+
+================================================================================
+PHASE 2 — CORE ENGAGEMENT SYSTEM                     ~3-4 weeks | M effort
+================================================================================
+Why second: These are the foundational features that transform the app from
+"browse events" to "plan my concert life." The RSVP system unlocks 5+ future
+features. Onboarding determines whether new users ever come back.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 14 | GAP-1   | RSVP / "I'm Going" system       |   M    |  ***
+    |         | THE foundation feature. Unlocks   |        |
+    |         | reminders, calendar sync depth,   |        |
+    |         | social proof, post-event prompts, |        |
+    |         | calendar gap recs, and more. Build|        |
+    |         | this before anything else in P2.  |        |
+----+---------+----------------------------------+--------+-------
+ 15 | GAP-58  | Onboarding artist import flow    |   M    |  ***
+    |         | Guide new users to connect YouTube|        |
+    |         | (+ Spotify later) and import      |        |
+    |         | artists on first login. A new user|        |
+    |         | with 0 favorites = 0 value. This  |        |
+    |         | fixes the empty-state problem.    |        |
+----+---------+----------------------------------+--------+-------
+ 16 | GAP-6   | On-sale date alerts              |   M    |  ***
+    |         | "Tickets go on sale tomorrow for  |        |
+    |         | Artist X!" Data already exists in |        |
+    |         | Event model. This is the single   |        |
+    |         | most important notification type  |        |
+    |         | for concert fans.                 |        |
+----+---------+----------------------------------+--------+-------
+ 17 | GAP-7   | Presale alerts                   |   M    |  ***
+    |         | "Presale starts in 2 hours."      |        |
+    |         | Makes users feel like VIPs with   |        |
+    |         | early access. Presale data already|        |
+    |         | exists in the Event model.        |        |
+----+---------+----------------------------------+--------+-------
+ 18 | GAP-2   | Pre-event reminders              |   M    |  ***
+    |         | 1 month, 1 week, 1 day before     |        |
+    |         | RSVPed events. Keeps users engaged|        |
+    |         | between booking and attending.    |        |
+    |         | Depends on: #14 (RSVP system).    |        |
+----+---------+----------------------------------+--------+-------
+ 19 | GAP-11  | Personalized discovery feed      |   M    |  ***
+    |         | "Artists like yours, touring near |        |
+    |         | you." Cross-reference Last.fm     |        |
+    |         | similar artists with local events.|        |
+    |         | The moment the app feels magical. |        |
+
+Phase 2 total: 6 features, all M effort. This is the most impactful phase.
+After this, the app has: RSVPs, reminders, ticket alerts, discovery, and
+smooth onboarding.
+
+
+================================================================================
+PHASE 3 — DIFFERENTIATORS (NOVEL)                    ~3-4 weeks | M effort
+================================================================================
+Why third: These are features NO competitor has. They create word-of-mouth,
+make the app feel uniquely intelligent, and give users reasons to recommend
+it to friends. All leverage data you already collect.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 20 | NEW-1   | Setlist predictions              |   M    |  ***
+    |         | "87% chance they play Song X."    |        |
+    |         | Built from Setlist.fm data you    |        |
+    |         | already have. No competitor does  |        |
+    |         | this. Users check obsessively as  |        |
+    |         | their show approaches. Shareable. |        |
+----+---------+----------------------------------+--------+-------
+ 21 | NEW-8   | Post-show recap card             |   M    |  ***
+    |         | Auto-generated shareable concert  |        |
+    |         | card: artist, venue, setlist,     |        |
+    |         | rating, personal stats. Designed  |        |
+    |         | for Instagram/Twitter. Every      |        |
+    |         | share = branded organic marketing.|        |
+    |         | Spotify Wrapped, per concert.     |        |
+----+---------+----------------------------------+--------+-------
+ 22 | NEW-18  | Smart event scoring              |   M    |  ***
+    |         | Personal 1-100 match score per    |        |
+    |         | event. Factors: taste match,      |        |
+    |         | distance, price, day of week.     |        |
+    |         | Cuts through information overload.|        |
+    |         | "94% match" instantly answers     |        |
+    |         | "should I go?"                    |        |
+----+---------+----------------------------------+--------+-------
+ 23 | NEW-13  | "Surprise Me" concert finder     |   M    |  ***
+    |         | "I'm free Saturday, budget $50."  |        |
+    |         | Constraint-based discovery. No    |        |
+    |         | concert app does this. Perfect    |        |
+    |         | for spontaneous decisions and     |        |
+    |         | date-night planning.              |        |
+----+---------+----------------------------------+--------+-------
+ 24 | NEW-27  | Calendar gap recommendations     |   M    |  ***
+    |         | "Nothing planned for March. Here  |        |
+    |         | are 5 matches near you." Proactive|        |
+    |         | and personalized. Drives ticket   |        |
+    |         | purchases directly. Requires RSVP |        |
+    |         | system (#14) for calendar data.   |        |
+
+Phase 3 total: 5 features, all M effort, all *** impact. These are what
+make users say "this app is different." Highest concentration of novel value
+on the entire roadmap.
+
+
+================================================================================
+PHASE 4 — TICKET INTELLIGENCE                        ~2-3 weeks | S-M effort
+================================================================================
+Why fourth: Builds on the notification infrastructure from Phase 2. Adds
+ticket-specific alerts that directly save users money and create urgency.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 25 | GAP-8   | Sold-out detection               |   M    |  **
+    |         | Monitor ticket status changes.    |        |
+    |         | "Limited tickets remaining" is a  |        |
+    |         | powerful motivator. Enables       |        |
+    |         | waitlist feature (#26).           |        |
+----+---------+----------------------------------+--------+-------
+ 26 | GAP-9   | Waitlist for sold-out events     |   S    |  **
+    |         | Notify users if tickets become    |        |
+    |         | available again. Simple model,    |        |
+    |         | big loyalty builder.              |        |
+    |         | Depends on: #25 (sold-out detect).|        |
+----+---------+----------------------------------+--------+-------
+ 27 | GAP-10  | Price drop alerts                |   M    |  **
+    |         | Track price changes, notify when  |        |
+    |         | prices decrease. notification     |        |
+    |         | model already has 'price_drop'    |        |
+    |         | type — just needs implementation. |        |
+----+---------+----------------------------------+--------+-------
+ 28 | NEW-4   | "You Missed This" FOMO alerts    |  S-M   |  **
+    |         | After an event passes: "Artist X  |        |
+    |         | played 25 mi from you last week." |        |
+    |         | Drives users to add more favorites|        |
+    |         | and enable notifications. Use     |        |
+    |         | sparingly (once per artist max).  |        |
+----+---------+----------------------------------+--------+-------
+ 29 | NEW-25  | "Deep Cuts" alert                |  S-M   |  **
+    |         | "Artist X played a rare song last |        |
+    |         | night — only the 3rd time this    |        |
+    |         | tour!" Creates buzz and FOMO for  |        |
+    |         | upcoming shows. Unique to setlist-|        |
+    |         | integrated platforms.             |        |
+----+---------+----------------------------------+--------+-------
+ 30 | GAP-19  | Event sharing / Open Graph tags  |  S-M   |  **
+    |         | Rich previews when links are      |        |
+    |         | shared on social media. Without   |        |
+    |         | OG tags, shared links show blank  |        |
+    |         | previews = zero click-through.    |        |
+
+Phase 4 total: 6 features. Creates a comprehensive ticket intelligence layer
+that no other platform offers at this depth.
+
+
+================================================================================
+PHASE 5 — PLATFORM & REACH                           ~4-6 weeks | M-L effort
+================================================================================
+Why fifth: Expands HOW users interact with the app (mobile, push, Spotify)
+and WHO can benefit from it (non-YouTube-Music users). These are larger
+investments that multiply the value of everything built in Phases 1-4.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 31 | GAP-54  | Progressive Web App (PWA)        |   M    |  ***
+    |         | manifest.json + service worker.   |        |
+    |         | Users can "install" to home screen|        |
+    |         | Enables push notifications and    |        |
+    |         | offline support. 80% of native    |        |
+    |         | app value at 20% of cost.         |        |
+----+---------+----------------------------------+--------+-------
+ 32 | GAP-24  | Web push notifications           |   L    |  ***
+    |         | Browser push via Web Push API.    |        |
+    |         | Reach users even when they're not |        |
+    |         | on the site. 2-5x tap rate vs     |        |
+    |         | email. Pairs with PWA (#31).      |        |
+    |         | Requires: VAPID keys, service     |        |
+    |         | worker, push subscription model.  |        |
+----+---------+----------------------------------+--------+-------
+ 33 | GAP-31  | Spotify integration              |   L    |  ***
+    |         | Import followed/top artists from  |        |
+    |         | Spotify. OAuth flow similar to    |        |
+    |         | existing YouTube. Doubles the     |        |
+    |         | music taste data for most users.  |        |
+    |         | Spotify is the dominant platform. |        |
+----+---------+----------------------------------+--------+-------
+ 34 | GAP-25  | SMS notifications (Twilio)       |   M    |  **
+    |         | Text alerts for high-priority     |        |
+    |         | events: presale starting, last    |        |
+    |         | tickets. 98% open rate. Reserve   |        |
+    |         | for time-sensitive alerts only.   |        |
+    |         | Infrastructure already exists     |        |
+    |         | (smsOptIn, mobile number fields). |        |
+----+---------+----------------------------------+--------+-------
+ 35 | GAP-62  | Annual recap / year in review    |   M    |  **
+    |         | Concerts attended, artists seen,  |        |
+    |         | venues visited, miles traveled.   |        |
+    |         | Spotify Wrapped proved this is    |        |
+    |         | massively shareable. Build once,  |        |
+    |         | run annually. Viral growth engine.|        |
+
+Phase 5 total: 5 features. After this phase, the app has: installable PWA,
+push notifications, Spotify import, SMS alerts, and annual recap.
+
+
+================================================================================
+PHASE 6 — ENGAGEMENT DEPTH                           ~4-5 weeks | M effort
+================================================================================
+Why sixth: Deepens the experience for active users. Gamification, journals,
+artist milestones, and discovery features that increase session time, visit
+frequency, and emotional attachment.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 36 | NEW-11  | Concert challenges / gamification|   M    |  **
+    |         | Streaks, milestones, badges.      |        |
+    |         | "50th concert", "5 genres", "3    |        |
+    |         | cities." Motivates attendance and |        |
+    |         | concert history logging.          |        |
+----+---------+----------------------------------+--------+-------
+ 37 | NEW-23  | Artist milestone tracking        |   M    |  **
+    |         | "You've seen Artist X 5 times     |        |
+    |         | across 3 cities." Personal fan    |        |
+    |         | timeline per artist. Taps into    |        |
+    |         | fan identity and pride.           |        |
+----+---------+----------------------------------+--------+-------
+ 38 | NEW-26  | Concert journal / rich notes     |   M    |  **
+    |         | Structured prompts: "Who'd you go |        |
+    |         | with?", "Highlight?", "Best song?"|        |
+    |         | Transforms history into a personal|        |
+    |         | archive. Years later, priceless.  |        |
+----+---------+----------------------------------+--------+-------
+ 39 | NEW-15  | Opening act deep dive            |   M    |  **
+    |         | Preview opening acts for your     |        |
+    |         | upcoming shows. Top songs, genre, |        |
+    |         | "why fans of the headliner like   |        |
+    |         | them." Openers are the #1 live    |        |
+    |         | music discovery moment.           |        |
+----+---------+----------------------------------+--------+-------
+ 40 | NEW-16  | Pre-concert hype playlist        |   M    |  **
+    |         | Auto-generate a playlist 1 week   |        |
+    |         | before show: predicted setlist +  |        |
+    |         | top tracks + opener songs. Create |        |
+    |         | on YouTube (already integrated).  |        |
+    |         | Keeps app top-of-mind pre-show.   |        |
+----+---------+----------------------------------+--------+-------
+ 41 | GAP-21  | "Request a Show" / demand track  |   M    |  **
+    |         | "I want to see Artist X in my     |        |
+    |         | city." Aggregated demand creates  |        |
+    |         | content on otherwise empty artist |        |
+    |         | pages. Engagement without events. |        |
+----+---------+----------------------------------+--------+-------
+ 42 | NEW-20  | Concert weather forecast         |  S-M   |  **
+    |         | Weather for outdoor venues. "72F, |        |
+    |         | 10% rain. Bring sunscreen." Users |        |
+    |         | Google this before every outdoor  |        |
+    |         | show — put it in-app.             |        |
+----+---------+----------------------------------+--------+-------
+ 43 | NEW-21  | Smart departure time             |   M    |  **
+    |         | "Leave by 5:45 PM." Drive time +  |        |
+    |         | traffic + parking. Push notif:    |        |
+    |         | "Time to head out!" Removes       |        |
+    |         | day-of logistics stress.          |        |
+
+Phase 6 total: 8 features. These make the app feel like a personal concert
+companion, not just an event listing service.
+
+
+================================================================================
+PHASE 7 — ADVANCED INTELLIGENCE                      ~4-6 weeks | L effort
+================================================================================
+Why seventh: Larger investments that create powerful, data-driven experiences.
+These features get better over time as data accumulates, creating a long-term
+competitive moat.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 44 | NEW-3   | Ticket price intelligence        |   L    |  ***
+    |         | Track prices across platforms     |        |
+    |         | over time. Price trend charts and |        |
+    |         | buy/wait recommendations. Google  |        |
+    |         | Flights for concert tickets. No   |        |
+    |         | competitor does this well. Data   |        |
+    |         | moat deepens over time.           |        |
+----+---------+----------------------------------+--------+-------
+ 45 | NEW-5   | Live concert mode                |   L    |  ***
+    |         | At-the-show experience: live      |        |
+    |         | setlist tracking, song ratings,   |        |
+    |         | photo capture, check-in. Owns     |        |
+    |         | the "during the show" moment no   |        |
+    |         | one else does. Data auto-enriches |        |
+    |         | concert history.                  |        |
+----+---------+----------------------------------+--------+-------
+ 46 | NEW-2   | Tour prediction                  |  M-L   |  **
+    |         | "Based on patterns, Artist X      |        |
+    |         | visits your area every 18 months. |        |
+    |         | Estimated next: Late 2026."       |        |
+    |         | Engagement for non-touring artists|        |
+    |         | Unique predictive intelligence.   |        |
+----+---------+----------------------------------+--------+-------
+ 47 | NEW-19  | "Fans Also Attended" recs        |  M-L   |  **
+    |         | Collaborative filtering from      |        |
+    |         | aggregate concert history. More   |        |
+    |         | powerful than "similar artists"   |        |
+    |         | because it reflects real behavior.|        |
+    |         | Requires meaningful user base.    |        |
+----+---------+----------------------------------+--------+-------
+ 48 | NEW-17  | Personal concert analytics       |  M-L   |  **
+    |         | Always-on analytics dashboard:    |        |
+    |         | concerts/month, spending, genres,  |        |
+    |         | venues, "concert personality"     |        |
+    |         | type. Users check dashboards      |        |
+    |         | habitually. Shareable.            |        |
+
+Phase 7 total: 5 features. These are the "wow" features that generate press
+coverage and word-of-mouth.
+
+
+================================================================================
+PHASE 8 — VENUES & LOCATION                          ~3-4 weeks | M-L effort
+================================================================================
+Why eighth: Adds a new dimension (venue-centric) to a currently artist-centric
+app. Expands what users can track and discover.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 49 | GAP-42  | Venue profiles                   |   M    |  **
+    |         | Dedicated venue pages: upcoming   |        |
+    |         | events, details, past events.     |        |
+    |         | Data already exists in Event model|        |
+    |         | — just needs aggregation view.    |        |
+----+---------+----------------------------------+--------+-------
+ 50 | GAP-44  | Venue following                  |  M-L   |  **
+    |         | Follow venues for notifications  |        |
+    |         | on ANY event there. Catches shows |        |
+    |         | artist tracking misses entirely.  |        |
+----+---------+----------------------------------+--------+-------
+ 51 | NEW-7   | Venue intel / crowd-sourced guide|   L    |  **
+    |         | Best sections for sound, parking  |        |
+    |         | tips, pro tips, accessibility.    |        |
+    |         | TripAdvisor for music venues.     |        |
+    |         | Unique, SEO-valuable content.     |        |
+----+---------+----------------------------------+--------+-------
+ 52 | GAP-26  | Multi-location notifications     |   M    |  **
+    |         | Save multiple cities. Get alerts  |        |
+    |         | for home + work + travel spots.   |        |
+----+---------+----------------------------------+--------+-------
+ 53 | GAP-60  | Multiple saved locations          |   M    |  **
+    |         | Browse events near any saved      |        |
+    |         | location. Pair with #52.          |        |
+
+Phase 8 total: 5 features. The venue-centric view opens up an entirely new
+way to use the app.
+
+
+================================================================================
+PHASE 9 — SOCIAL & COMMUNITY                         ~5-6 weeks | M-L effort
+================================================================================
+Why ninth: Social features create network effects but REQUIRE user scale to
+work. Build these after your user base is large enough that people actually
+know each other on the platform.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 54 | NEW-28  | Structured concert reviews       |   M    |  **
+    |         | Sound quality, energy, value for  |        |
+    |         | money. Verified attendance.       |        |
+    |         | Unique content that helps ticket  |        |
+    |         | purchase decisions.               |        |
+----+---------+----------------------------------+--------+-------
+ 55 | NEW-10  | Music taste compatibility        |   M    |  **
+    |         | "You and Sarah are 73% compatible"|        |
+    |         | Concert-focused Spotify Blend.    |        |
+    |         | Drives friend invites and joint   |        |
+    |         | concert planning.                 |        |
+----+---------+----------------------------------+--------+-------
+ 56 | GAP-22  | Friend system / social           |   L    |  **
+    |         | Connect with friends, see their   |        |
+    |         | RSVPs and favorites. "Sarah is    |        |
+    |         | going to this show." Network      |        |
+    |         | effects make the app stickier.    |        |
+----+---------+----------------------------------+--------+-------
+ 57 | NEW-9   | Concert buddy matching           |   L    |  **
+    |         | Match solo concert-goers with     |        |
+    |         | similar taste at the same event.  |        |
+    |         | Solves the "going alone" barrier  |        |
+    |         | that prevents ticket purchases.   |        |
+----+---------+----------------------------------+--------+-------
+ 58 | GAP-63  | User public profile              |   M    |  *
+    |         | Shareable profile: concerts       |        |
+    |         | attended, favorites, RSVPs.       |        |
+    |         | "Check out my concert profile."   |        |
+
+Phase 9 total: 5 features. These create the community layer that turns
+individual users into a network.
+
+
+================================================================================
+PHASE 10 — CONTENT & DISCOVERY EXPANSION             ~3-5 weeks | M-L effort
+================================================================================
+Why tenth: Enriches the content layer of the app. These features make the
+platform more comprehensive and authoritative.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 59 | GAP-14  | Festival discovery & lineup      |   L    |  **
+    |         | Festival listings with full       |        |
+    |         | lineups. "3 of your favorites are |        |
+    |         | playing Bonnaroo." Seasonal but   |        |
+    |         | high value in spring/summer.      |        |
+----+---------+----------------------------------+--------+-------
+ 60 | NEW-14  | Concert road trip planner        |   L    |  **
+    |         | Multi-city concert itineraries.   |        |
+    |         | "See 3 shows in one weekend."     |        |
+    |         | Drive times, routes, estimated    |        |
+    |         | costs. Shareable itineraries.     |        |
+----+---------+----------------------------------+--------+-------
+ 61 | NEW-12  | Concert budget tracker           |   M    |  **
+    |         | Set monthly/annual concert budget,|        |
+    |         | track spending. Practical tool    |        |
+    |         | for frequent concert-goers.       |        |
+----+---------+----------------------------------+--------+-------
+ 62 | GAP-45  | Artist extended profiles / bios  |   M    |  *
+    |         | Rich bios, social links, streaming|        |
+    |         | stats from Last.fm. Fields exist  |        |
+    |         | in Artist model but unpopulated.  |        |
+----+---------+----------------------------------+--------+-------
+ 63 | GAP-46  | Event photos / user content      |   L    |  **
+    |         | Upload photos from attended shows.|        |
+    |         | Concert scrapbook. User-generated |        |
+    |         | content enriches event pages.     |        |
+----+---------+----------------------------------+--------+-------
+ 64 | GAP-33  | Last.fm scrobble import          |  S-M   |  *
+    |         | Import top artists from Last.fm   |        |
+    |         | listening history. API already    |        |
+    |         | integrated — just extend it.      |        |
+    |         | Niche but easy.                   |        |
+
+Phase 10 total: 6 features. Rounds out the platform with richer content and
+planning tools.
+
+
+================================================================================
+PHASE 11 — POLISH & PREFERENCES                      ~2-3 weeks | S-M effort
+================================================================================
+Why eleventh: Quality-of-life improvements that make the app feel complete
+and professional. Not urgent but important for long-term satisfaction.
+
+ #  | Source  | Feature                          | Effort | Impact
+----+---------+----------------------------------+--------+-------
+ 65 | GAP-61  | Dark mode                        |  S-M   |  *
+ 66 | GAP-29  | Granular notification preferences|   M    |  *
+ 67 | GAP-30  | Digest frequency options          |  S-M   |  *
+ 68 | GAP-13  | "Hot Shows" / curated picks      |  S-M   |  **
+ 69 | NEW-22  | Parking & transit guide          |   M    |  *
+ 70 | GAP-43  | Venue discovery / map            |   M    |  *
+ 71 | GAP-18  | Music DNA visualization          |   M    |  *
+
+Phase 11 total: 7 features. These individually are small but collectively
+they make the app feel polished and thoughtful.
+
+
+================================================================================
+PHASE 12 — FUTURE / SCALE-DEPENDENT                  Timeline: TBD
+================================================================================
+Features that require significant user scale, business partnerships, or major
+infrastructure investments. Not recommended until the platform is established.
+
+ #  | Source  | Feature                          | Effort | Impact | Blocker
+----+---------+----------------------------------+--------+--------+---------
+ 72 | GAP-32  | Apple Music integration          |   L    |  **    | Complex auth
+ 73 | GAP-36  | Artist self-service events       |   L    |  **    | Artist adoption
+ 74 | GAP-38  | Artist-to-fan posts              |   L    |  **    | Artist adoption
+ 75 | GAP-35  | Artist verification              |   M    |  *     | Product direction
+ 76 | GAP-55  | Mobile app (native)              |   XL   |  **    | PWA first
+ 77 | GAP-51  | In-app ticket purchasing         |   XL   |  **    | TM partnership
+ 78 | GAP-34  | Shazam history import            |   L    |  *     | No API
+ 79 | NEW-29  | "Ask a Fan" Q&A                  |   L    |  *     | User scale
+ 80 | GAP-40  | Embeddable event widget          |   M    |  *     | Distribution
+ 81 | GAP-41  | Artist track button embed        |   S    |  *     | Artist adoption
+ 82 | GAP-47  | Setlist voting                   |   M    |  *     | Setlist.fm covers it
+ 83 | GAP-50  | Merch integration                |  S-L   |  *     | Artist partnerships
+
+--- NOT RECOMMENDED ---
+ 84 | GAP-48  | Live concert streaming           |   XL   |  -     | Wrong scale
+ 85 | GAP-49  | Live chat during streams         |   L    |  -     | Depends on #84
+ 86 | GAP-52  | Promoted events / paid placement |   XL   |  -     | Needs traffic
+ 87 | GAP-53  | Affiliate revenue dashboard      |   M    |  -     | Internal only
+ 88 | GAP-56  | Public API                       |   L    |  -     | No unique data
+ 89 | GAP-57  | Cross-platform distribution      |   XL   |  -     | Enterprise deals
+ 90 | GAP-37  | Artist analytics dashboard       |   L    |  -     | Artist-only
+ 91 | GAP-12  | Trending artists chart           |   M    |  *     | Needs scale
+ 92 | GAP-5   | RSVP counts on events            |   S    |  *     | Needs scale
+ 93 | GAP-23  | Attendee list / who's going      |  S-M   |  *     | Needs scale
+ 94 | GAP-15  | Festival set times               |   S    |  *     | Needs #59 first
+ 95 | GAP-39  | Geo-targeted artist posts        |   M    |  *     | Needs #74 first
+
+
+================================================================================
+ROADMAP SUMMARY
+================================================================================
+
+Phase  | Name                    | Duration   | Features | Key Outcome
+-------+-------------------------+------------+----------+------------------------
+  1    | Instant Wins            | 1-2 weeks  |    13    | Personalization & polish
+  2    | Core Engagement         | 3-4 weeks  |     6    | RSVP, alerts, onboarding
+  3    | Differentiators         | 3-4 weeks  |     5    | Features no one else has
+  4    | Ticket Intelligence     | 2-3 weeks  |     6    | Price/status awareness
+  5    | Platform & Reach        | 4-6 weeks  |     5    | PWA, Spotify, push, SMS
+  6    | Engagement Depth        | 4-5 weeks  |     8    | Gamification, companion
+  7    | Advanced Intelligence   | 4-6 weeks  |     5    | Price intel, live mode
+  8    | Venues & Location       | 3-4 weeks  |     5    | Venue-centric features
+  9    | Social & Community      | 5-6 weeks  |     5    | Friends, buddy matching
+ 10    | Content Expansion       | 3-5 weeks  |     6    | Festivals, road trips
+ 11    | Polish & Preferences    | 2-3 weeks  |     7    | Dark mode, preferences
+ 12    | Future / Scale          | TBD        |    24    | Defer until ready
+-------+-------------------------+------------+----------+------------------------
+       | TOTAL                   |            |    95    |
+
+Phases 1-3 (7-10 weeks) deliver the highest impact and should be the
+immediate focus. After Phase 3, the app will have:
+  - Personalized radius, calendar sync, live ratings, memories, countdowns
+  - RSVP system, on-sale/presale alerts, reminders, discovery feed
+  - Setlist predictions, recap cards, smart scoring, surprise finder
+  - Smooth onboarding that converts new users immediately
+
+That combination doesn't exist in any competitor. Ship it.
+
+================================================================================

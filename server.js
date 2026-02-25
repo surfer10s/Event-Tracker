@@ -7,6 +7,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const cron = require('node-cron');
 const connectDB = require('./config/database');
 
 // Initialize Express app
@@ -103,6 +104,9 @@ app.use(`${API_PREFIX}/lastfm`, require('./routes/lastfm'));
 // SeatGeek routes - /api/v1/seatgeek/...
 app.use(`${API_PREFIX}/seatgeek`, require('./routes/seatgeek'));
 
+// Venue routes - /api/v1/venues/...
+app.use(`${API_PREFIX}/venues`, require('./routes/venues'));
+
 // YouTube OAuth and playlist routes
 const youtubeRoutes = require('./routes/youtube');
 console.log('YouTube routes loaded:', typeof youtubeRoutes);
@@ -147,6 +151,20 @@ app.listen(PORT, () => {
 ║   Time: ${new Date().toLocaleString()}  ║
 ╚════════════════════════════════════════╝
   `);
+
+  // Daily cleanup: delete notifications for past events (runs at 3:00 AM)
+  const Notification = require('./models/Notification');
+  cron.schedule('0 3 * * *', async () => {
+    try {
+      const result = await Notification.deleteMany({
+        eventDate: { $lt: new Date() }
+      });
+      console.log(`[CRON] Deleted ${result.deletedCount} past event notifications`);
+    } catch (err) {
+      console.error('[CRON] Past event notification cleanup failed:', err.message);
+    }
+  });
+  console.log('[CRON] Scheduled daily past-event notification cleanup at 3:00 AM');
 });
 
 // Handle unhandled promise rejections

@@ -10,7 +10,8 @@ const SIDEBAR_CONFIG = {
         { href: 'favorites-activity-location.html', icon: 'map', label: 'Activity by Location' },
         { href: 'discover-artists.html', icon: 'search', label: 'Discover Artists' },
         { href: 'concert-history.html', icon: 'calendar', label: 'Concert History' },
-        { href: 'manage-categories.html', icon: 'folder', label: 'Categories' }
+        { href: 'manage-categories.html', icon: 'folder', label: 'Categories' },
+        { href: 'venues.html', icon: 'building', label: 'Venues' }
     ]
 };
 
@@ -83,6 +84,19 @@ const SIDEBAR_ICONS = {
     </svg>`,
     moon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>`,
+    building: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+        <path d="M9 22v-4h6v4"></path>
+        <line x1="8" y1="6" x2="8" y2="6"></line>
+        <line x1="12" y1="6" x2="12" y2="6"></line>
+        <line x1="16" y1="6" x2="16" y2="6"></line>
+        <line x1="8" y1="10" x2="8" y2="10"></line>
+        <line x1="12" y1="10" x2="12" y2="10"></line>
+        <line x1="16" y1="10" x2="16" y2="10"></line>
+        <line x1="8" y1="14" x2="8" y2="14"></line>
+        <line x1="12" y1="14" x2="12" y2="14"></line>
+        <line x1="16" y1="14" x2="16" y2="14"></line>
     </svg>`
 };
 
