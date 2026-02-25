@@ -39,7 +39,7 @@
 - Last.fm - Artist recommendations
 - YouTube OAuth - Music taste extraction
 - Google Geocoding - Location services
-- Wikidata SPARQL - Venue capacity, type classification, indoor/outdoor detection
+- Anthropic Claude AI (Haiku) - Venue capacity, type classification, indoor/outdoor detection
 
 ## Directory Structure
 
@@ -84,7 +84,7 @@ event-tracker-backend/
 │   ├── test.js                  # /api/v1/test/*
 │   └── youtube.js               # /auth/youtube/*, /api/youtube/*
 ├── services/                    # Reusable business logic
-│   ├── ticketmasterService.js   # TM API + venue enrichment + Wikidata lookup
+│   ├── ticketmasterService.js   # TM API + venue enrichment + Claude AI lookup
 │   ├── seatgeekService.js
 │   ├── setlistService.js
 │   ├── notificationService.js
@@ -102,7 +102,7 @@ event-tracker-backend/
 │   ├── Favorites-Activity.html  # Favorites activity feed (grouped by artist)
 │   ├── Favorites-activity-location.html  # Location-based favorites activity
 │   ├── artist-profile.html      # Artist details + embedded tour map
-│   ├── venue-profile.html        # Venue profile (enriched via TM + Wikidata)
+│   ├── venue-profile.html        # Venue profile (enriched via TM + Claude AI)
 │   ├── Event-details.html       # Event details
 │   ├── Discover-Artists.html    # Artist discovery/search
 │   ├── discover-concerts.html   # Concert discovery
@@ -150,11 +150,11 @@ event-tracker-backend/
 - Favorites activity feeds (grouped by artist, location-filtered)
 
 ### Venue Profiles & Enrichment
-- Lazy enrichment on profile view (fetches on first visit, 7-day cooldown)
+- Lazy enrichment on profile view (fetches on first visit, 90-day cooldown)
 - **TM Venue Detail API**: images, box office info, parking, accessibility, general rules, child policy, social links
 - **TM Venue Lookup**: Venues without a TM ID are auto-matched by name/city search
-- **Wikidata SPARQL**: Capacity, venue type classification (Arena, Amphitheater, Stadium, etc.), indoor/outdoor detection
-- Open-air detection via Wikidata instance types + venue name keyword fallback
+- **Claude AI (Haiku)**: Capacity, venue type classification (Arena, Amphitheater, Stadium, etc.), indoor/outdoor detection
+- Open-air detection via Claude AI + venue name keyword fallback
 - TM venue images are small (640px logos) — displayed as thumbnails, not hero banners (hero requires >= 1024px)
 - Collapsible Details and Venue Information sections on profile page
 - Follow/unfollow venues with follower counts
@@ -264,7 +264,7 @@ event-tracker-backend/
 - Images (thumbnail, medium, large, hero)
 - Enrichment data: generalInfo, boxOfficeInfo, parkingDetail, accessibleSeatingDetail, social links
 - Stats: totalEvents, upcomingEvents, followers
-- Cooldowns: `lastSyncedAt` (2hr, for event backfill), `lastEnrichedAt` (7-day, for venue detail enrichment)
+- Cooldowns: `lastSyncedAt` (2hr, for event backfill), `lastEnrichedAt` (90-day, for venue detail enrichment)
 - Static method: `findOrCreateFromEventVenue()` for dedup on event import
 
 ### SongCache
@@ -309,7 +309,7 @@ event-tracker-backend/
 - `GET /api/v1/venues` - List/search venues (query: q, city, state)
 - `GET /api/v1/venues/nearby` - Geospatial search (query: longitude, latitude, maxDistance)
 - `GET /api/v1/venues/following` - User's followed venues (auth required)
-- `GET /api/v1/venues/:venueId` - Venue profile (triggers lazy enrichment via TM + Wikidata)
+- `GET /api/v1/venues/:venueId` - Venue profile (triggers lazy enrichment via TM + Claude AI)
 - `GET /api/v1/venues/:venueId/events` - Events at venue (with live TM backfill, supports grouped mode)
 - `POST /api/v1/venues/:venueId/follow` - Follow venue (auth required)
 - `DELETE /api/v1/venues/:venueId/follow` - Unfollow venue (auth required)
@@ -348,6 +348,7 @@ SEATGEEK_API_KEY=xxxxx
 SETLISTFM_API_KEY=xxxxx
 LASTFM_API_KEY=xxxxx
 GOOGLE_GEOCODING_API_KEY=xxxxx
+ANTHROPIC_API_KEY=xxxxx
 
 # YouTube OAuth
 YOUTUBE_CLIENT_ID=xxxxx
@@ -460,18 +461,18 @@ node scripts/make-admin.js <email>
 - ArtistCategory is join table with compound unique index
 
 ### Venue Enrichment
-- Two separate cooldowns: `lastSyncedAt` (2hr) for event backfill, `lastEnrichedAt` (7-day) for venue detail enrichment
+- Two separate cooldowns: `lastSyncedAt` (2hr) for event backfill, `lastEnrichedAt` (90-day) for venue detail enrichment
 - TM has multiple venue IDs for the same venue — IDs starting with `KovZ` tend to have rich data; `Za5ju3r` prefix IDs are often sparse
 - `lookupVenueTmId()` searches TM by name to find the best ID when none is stored
-- Wikidata queries use exact English label matching — renamed venues may not match
-- TM venue `type` field always returns `"venue"` — useless; real type comes from Wikidata instance classifications
-- SeatGeek API now requires an API key (no longer free anonymous access)
+- `getClaudeVenueInfo()` calls Claude Haiku for capacity/type/openAir — ~$0.001-0.003 per call, results cached 90 days in MongoDB
+- `_applyNameFallbacks()` provides venueType and openAir from venue name keywords when Claude/TM have no data
+- TM venue `type` field always returns `"venue"` — useless; real type comes from Claude AI classification
 
 ### API Rate Limits
 - Ticketmaster: 5000 requests/day per key
 - YouTube: 10,000 quota units/day (search = 100 units)
 - Setlist.fm: No official limit, respect rate limiting
-- Wikidata SPARQL: No API key needed, requires User-Agent header, 5-second timeout in code
+- Anthropic Claude AI: API key required, ~$0.001-0.003 per venue lookup using Haiku model
 - Song cache reduces YouTube API usage
 
 ## Frontend Pages Summary

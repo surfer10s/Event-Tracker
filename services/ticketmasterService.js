@@ -3,6 +3,7 @@
 // Think of this as a data access layer specifically for the TM API
 
 const axios = require('axios');
+const Anthropic = require('@anthropic-ai/sdk');
 const Artist = require('../models/Artist');
 const Event = require('../models/Event');
 const Tour = require('../models/Tour');
@@ -598,83 +599,107 @@ class TicketmasterService {
     }
   }
 
-  // Query Wikidata for venue capacity and type (indoor/outdoor)
-  // Uses SPARQL with built-in entity search (single request, avoids API rate limits)
-  async getWikidataVenueInfo(venueName) {
-    try {
-      const safeName = venueName.replace(/"/g, '\\"');
-      const sparql = `
-        SELECT ?item ?itemLabel ?capacity ?instanceLabel WHERE {
-          SERVICE wikibase:mwapi {
-            bd:serviceParam wikibase:endpoint "www.wikidata.org";
-                            wikibase:api "EntitySearch";
-                            mwapi:search "${safeName}";
-                            mwapi:language "en".
-            ?item wikibase:apiOutputItem mwapi:item.
-          }
-          OPTIONAL { ?item wdt:P1083 ?capacity . }
-          OPTIONAL { ?item wdt:P31 ?instance . }
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
-        } LIMIT 20
-      `;
-      const response = await axios.get('https://query.wikidata.org/sparql', {
-        params: { query: sparql, format: 'json' },
-        headers: { 'User-Agent': 'EventTracker/1.0 (https://github.com/event-tracker; contact@eventtracker.com)' },
-        timeout: 8000
-      });
-
-      const results = response.data.results.bindings;
-      if (!results.length) return null;
-
-      // Prefer results that are venue-like (have capacity or relevant instance types)
-      const venueKeywords = ['arena', 'stadium', 'hall', 'theater', 'theatre', 'venue', 'amphitheat', 'concert', 'club', 'nightclub', 'pavilion', 'center', 'centre'];
-      const venueResults = results.filter(r => {
-        const inst = (r.instanceLabel?.value || '').toLowerCase();
-        return r.capacity?.value || venueKeywords.some(kw => inst.includes(kw));
-      });
-      const bestResults = venueResults.length ? venueResults : results;
-
-      // Get max capacity
-      const capacities = bestResults.map(r => parseInt(r.capacity?.value)).filter(n => n > 0);
-      const capacity = capacities.length ? Math.max(...capacities) : null;
-
-      // Collect all instance types
-      const types = [...new Set(bestResults.map(r => r.instanceLabel?.value).filter(Boolean))];
-
-      // Determine indoor/outdoor from instance types
-      const OUTDOOR_TYPES = ['sylvan theater', 'outdoor concert venue', 'amphitheatre', 'amphitheater', 'stadium', 'baseball venue', 'football venue'];
-      const INDOOR_TYPES = ['arena', 'multi-purpose hall', 'concert hall', 'theatre building', 'performing arts center', 'nightclub', 'music venue'];
-
-      const typesLower = types.map(t => t.toLowerCase());
-      let openAir = null;
-      if (typesLower.some(t => OUTDOOR_TYPES.some(ot => t.includes(ot)))) {
-        openAir = true;
-      } else if (typesLower.some(t => INDOOR_TYPES.some(it => t.includes(it)))) {
-        openAir = false;
-      }
-
-      // Derive a readable venueType from Wikidata instance types
-      let venueType = null;
-      const typeMap = {
-        'arena': 'Arena', 'multi-purpose hall': 'Arena',
-        'stadium': 'Stadium', 'baseball venue': 'Stadium', 'football venue': 'Stadium',
-        'concert hall': 'Concert Hall', 'performing arts center': 'Concert Hall',
-        'theatre building': 'Theater', 'theater': 'Theater',
-        'sylvan theater': 'Amphitheater', 'outdoor concert venue': 'Amphitheater', 'amphitheatre': 'Amphitheater',
-        'nightclub': 'Club', 'music venue': 'Music Venue'
-      };
-      for (const t of typesLower) {
-        for (const [key, label] of Object.entries(typeMap)) {
-          if (t.includes(key)) { venueType = label; break; }
-        }
-        if (venueType) break;
-      }
-
-      return { capacity, openAir, venueType, wikidataTypes: types };
-    } catch (error) {
-      console.error('[Wikidata] Query failed:', error.message);
+  // Use Claude AI to look up venue capacity, type, and indoor/outdoor status
+  // Includes retry logic with exponential backoff for transient API errors
+  async getClaudeVenueInfo(venueName, city, state, maxRetries = 3) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.warn('[Claude] No ANTHROPIC_API_KEY set, skipping AI venue lookup');
       return null;
     }
+
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const location = [city, state].filter(Boolean).join(', ');
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const message = await client.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: `What is the seating/standing capacity, venue type, and indoor/outdoor status of "${venueName}" in ${location}? Reply ONLY with JSON, no other text: {"capacity": <number or null>, "venueType": "<Arena|Stadium|Amphitheater|Theater|Concert Hall|Club|Ballroom|Pavilion|Lounge|Music Venue|Festival Grounds or null>", "openAir": <true|false|null>}`
+          }]
+        });
+        const text = message.content[0]?.text?.trim();
+        if (!text) return null;
+
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return null;
+
+        const data = JSON.parse(jsonMatch[0]);
+        return {
+          capacity: (typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : null,
+          venueType: data.venueType || null,
+          openAir: typeof data.openAir === 'boolean' ? data.openAir : null
+        };
+      } catch (error) {
+        const status = error?.status || error?.response?.status;
+        const retryable = status >= 500 || status === 429 || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET';
+
+        if (retryable && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.warn(`[Claude] Attempt ${attempt}/${maxRetries} failed (${status || error.code}), retrying in ${delay / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.error(`[Claude] Venue info lookup failed after ${attempt} attempt(s):`, error.message);
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  // Batch enrich all venues missing data or with stale enrichment (>90 days)
+  // Options: { retryIncomplete: true } to re-try venues that were enriched but still missing key data
+  async batchEnrichVenues(options = {}) {
+    const ENRICH_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - ENRICH_COOLDOWN_MS);
+
+    const query = {
+      $or: [
+        { lastEnrichedAt: null },
+        { lastEnrichedAt: { $lt: cutoff } }
+      ]
+    };
+
+    // Also include venues that were enriched but still missing key data (Claude 500 errors etc.)
+    if (options.retryIncomplete) {
+      query.$or.push({ capacity: null });
+      query.$or.push({ venueType: null });
+      query.$or.push({ openAir: null });
+    } else {
+      query.$or.push({ capacity: null, venueType: null, openAir: null });
+    }
+
+    const venues = await Venue.find(query);
+    console.log(`[Batch Enrich] Found ${venues.length} venues needing enrichment${options.retryIncomplete ? ' (retry incomplete)' : ''}`);
+
+    let enriched = 0;
+    let failed = 0;
+
+    for (let i = 0; i < venues.length; i++) {
+      const venue = venues[i];
+      try {
+        // Clear cooldown for retry so enrichVenueFromTM doesn't skip
+        if (options.retryIncomplete && venue.lastEnrichedAt) {
+          venue.lastEnrichedAt = null;
+        }
+        await this.enrichVenueFromTM(venue);
+        enriched++;
+        if ((i + 1) % 50 === 0) {
+          console.log(`[Batch Enrich] Progress: ${i + 1}/${venues.length} (${enriched} enriched, ${failed} failed)`);
+        }
+        // 1.2s delay between venues to respect TM rate limit (5 req/sec)
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      } catch (err) {
+        failed++;
+        console.error(`[Batch Enrich] Failed "${venue.name}":`, err.message);
+      }
+    }
+
+    const summary = { total: venues.length, enriched, failed };
+    console.log(`[Batch Enrich] Complete:`, summary);
+    return summary;
   }
 
   // Name-based fallbacks for venueType and openAir when no API data available
@@ -702,9 +727,9 @@ class TicketmasterService {
     }
   }
 
-  // Enrich a Venue document with detailed TM data (7-day cooldown)
+  // Enrich a Venue document with detailed TM + Claude AI data (90-day cooldown)
   async enrichVenueFromTM(venueDoc) {
-    const ENRICH_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const ENRICH_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
     // Skip if enriched recently
     if (venueDoc.lastEnrichedAt && (Date.now() - venueDoc.lastEnrichedAt.getTime()) < ENRICH_COOLDOWN_MS) {
@@ -765,16 +790,16 @@ class TicketmasterService {
       };
     }
 
-    // Supplement with Wikidata for capacity, venue type, and indoor/outdoor
+    // Supplement with Claude AI for capacity, venue type, and indoor/outdoor
     try {
-      const wikiInfo = await this.getWikidataVenueInfo(venueDoc.name);
-      if (wikiInfo) {
-        if (wikiInfo.capacity && !venueDoc.capacity) venueDoc.capacity = wikiInfo.capacity;
-        if (wikiInfo.venueType && !venueDoc.venueType) venueDoc.venueType = wikiInfo.venueType;
-        if (wikiInfo.openAir !== null && venueDoc.openAir == null) venueDoc.openAir = wikiInfo.openAir;
+      const claudeInfo = await this.getClaudeVenueInfo(venueDoc.name, venueDoc.city, venueDoc.state);
+      if (claudeInfo) {
+        if (claudeInfo.capacity && !venueDoc.capacity) venueDoc.capacity = claudeInfo.capacity;
+        if (claudeInfo.venueType && !venueDoc.venueType) venueDoc.venueType = claudeInfo.venueType;
+        if (claudeInfo.openAir !== null && venueDoc.openAir == null) venueDoc.openAir = claudeInfo.openAir;
       }
-    } catch (wikiErr) {
-      console.error('[Wikidata] Enrichment failed, skipping:', wikiErr.message);
+    } catch (claudeErr) {
+      console.error('[Claude] Venue enrichment failed, skipping:', claudeErr.message);
     }
 
     // Name-based fallbacks (always run, even if Wikidata returned nothing)

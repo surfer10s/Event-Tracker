@@ -165,6 +165,19 @@ app.listen(PORT, () => {
     }
   });
   console.log('[CRON] Scheduled daily past-event notification cleanup at 3:00 AM');
+
+  // Weekly venue enrichment: update venues missing data or stale >90 days (Sundays at 4:00 AM)
+  const ticketmasterService = require('./services/ticketmasterService');
+  cron.schedule('0 4 * * 0', async () => {
+    console.log('[CRON] Starting weekly venue enrichment batch...');
+    try {
+      const result = await ticketmasterService.batchEnrichVenues();
+      console.log(`[CRON] Venue enrichment complete:`, result);
+    } catch (err) {
+      console.error('[CRON] Venue enrichment batch failed:', err.message);
+    }
+  });
+  console.log('[CRON] Scheduled weekly venue enrichment at Sunday 4:00 AM');
 });
 
 // Handle unhandled promise rejections

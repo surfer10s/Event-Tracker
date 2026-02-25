@@ -217,6 +217,47 @@ router.post('/cleanup', protect, async (req, res) => {
     }
 });
 
+// GET /api/v1/sync/venue-enrich-stats - Get venue enrichment statistics
+router.get('/venue-enrich-stats', protect, async (req, res) => {
+    try {
+        const Venue = require('../models/Venue');
+        const total = await Venue.countDocuments();
+        const hasCapacity = await Venue.countDocuments({ capacity: { $ne: null } });
+        const hasType = await Venue.countDocuments({ venueType: { $ne: null } });
+        const hasOpenAir = await Venue.countDocuments({ openAir: { $ne: null } });
+        const allThree = await Venue.countDocuments({ capacity: { $ne: null }, venueType: { $ne: null }, openAir: { $ne: null } });
+        const enriched = await Venue.countDocuments({ lastEnrichedAt: { $ne: null } });
+
+        res.json({
+            success: true,
+            stats: { total, enriched, hasCapacity, hasType, hasOpenAir, allThree, missingAny: total - allThree }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/v1/sync/enrich-venues - Batch enrich all venues missing data (admin)
+// Body: { retryIncomplete: true } to re-try venues still missing capacity/type/openAir
+router.post('/enrich-venues', protect, async (req, res) => {
+    try {
+        const ticketmasterService = require('../services/ticketmasterService');
+        const retryIncomplete = req.body?.retryIncomplete || false;
+        console.log(`Venue enrichment triggered by user: ${req.user.username} (retryIncomplete: ${retryIncomplete})`);
+
+        // Respond immediately, run in background
+        res.json({
+            success: true,
+            message: 'Venue enrichment started. Check server logs for progress.'
+        });
+
+        const result = await ticketmasterService.batchEnrichVenues({ retryIncomplete });
+        console.log('Venue enrichment completed:', result);
+    } catch (err) {
+        console.error('Venue enrichment error:', err);
+    }
+});
+
 // GET /api/v1/sync/artists - Get list of artists that will be synced
 router.get('/artists', protect, async (req, res) => {
     try {

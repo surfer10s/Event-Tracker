@@ -161,6 +161,37 @@
                     <p class="text-sm text-slate-600">View all users' music taste data, top artists, and sync statistics.</p>
                 </a>
 
+                <!-- Venue Enrichment -->
+                <div class="bg-white rounded-xl shadow-sm p-6 group">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Venue Enrichment</h3>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-3">Enrich venue data (capacity, type, indoor/outdoor) via Ticketmaster + Claude AI.</p>
+                    <div id="venueEnrichStats" class="text-xs text-slate-500 mb-3">Loading stats...</div>
+                    <div id="venueEnrichProgress" class="hidden mb-3">
+                        <div class="w-full bg-slate-200 rounded-full h-2">
+                            <div id="venueEnrichBar" class="bg-teal-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        <p id="venueEnrichStatus" class="text-xs text-slate-500 mt-1"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="runVenueEnrichment(false)" id="venueEnrichBtn"
+                            class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
+                            Enrich New
+                        </button>
+                        <button onclick="runVenueEnrichment(true)" id="venueRetryBtn"
+                            class="flex-1 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors">
+                            Retry Incomplete
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Users -->
                 <a href="admin-users.html" class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group">
                     <div class="flex items-center gap-4 mb-3">
@@ -208,7 +239,84 @@
             }
         }
 
+        async function loadVenueEnrichStats() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/venue-enrich-stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const s = data.stats;
+                    document.getElementById('venueEnrichStats').innerHTML =
+                        `<span class="font-medium">${s.allThree}</span> / ${s.total} fully enriched &mdash; ` +
+                        `Capacity: ${s.hasCapacity} &bull; Type: ${s.hasType} &bull; OpenAir: ${s.hasOpenAir}` +
+                        (s.missingAny > 0 ? ` &mdash; <span class="text-amber-600">${s.missingAny} incomplete</span>` : ' &mdash; <span class="text-emerald-600">all complete</span>');
+                }
+            } catch (err) {
+                document.getElementById('venueEnrichStats').textContent = 'Could not load stats';
+            }
+        }
+
+        async function runVenueEnrichment(retryIncomplete = false) {
+            const enrichBtn = document.getElementById('venueEnrichBtn');
+            const retryBtn = document.getElementById('venueRetryBtn');
+            enrichBtn.disabled = true;
+            retryBtn.disabled = true;
+            enrichBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            retryBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            const activeBtn = retryIncomplete ? retryBtn : enrichBtn;
+            activeBtn.textContent = 'Starting...';
+
+            document.getElementById('venueEnrichProgress').classList.remove('hidden');
+            document.getElementById('venueEnrichStatus').textContent = retryIncomplete
+                ? 'Retrying venues with missing data...'
+                : 'Enrichment started. This runs in the background...';
+            document.getElementById('venueEnrichBar').style.width = '10%';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/sync/enrich-venues`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ retryIncomplete })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('venueEnrichBar').style.width = '100%';
+                    document.getElementById('venueEnrichStatus').textContent = 'Running in background. Stats refresh every 30s.';
+                    activeBtn.textContent = 'Running...';
+                    const poll = setInterval(async () => {
+                        await loadVenueEnrichStats();
+                    }, 30000);
+                    setTimeout(() => {
+                        clearInterval(poll);
+                        enrichBtn.disabled = false;
+                        retryBtn.disabled = false;
+                        enrichBtn.textContent = 'Enrich New';
+                        retryBtn.textContent = 'Retry Incomplete';
+                        enrichBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        retryBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        loadVenueEnrichStats();
+                    }, 1800000);
+                } else {
+                    throw new Error(data.error || 'Failed to start');
+                }
+            } catch (err) {
+                document.getElementById('venueEnrichStatus').textContent = 'Error: ' + err.message;
+                document.getElementById('venueEnrichBar').style.width = '0%';
+                enrichBtn.disabled = false;
+                retryBtn.disabled = false;
+                enrichBtn.textContent = 'Enrich New';
+                retryBtn.textContent = 'Retry Incomplete';
+                enrichBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                retryBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
         async function loadDashboardStats() {
+            loadVenueEnrichStats();
             // Song cache stats
             try {
                 const res = await fetch(`${API_BASE_URL}/song-cache/stats`, {
