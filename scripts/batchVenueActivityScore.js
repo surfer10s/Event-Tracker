@@ -97,6 +97,9 @@ async function run() {
     query.state = STATE_FILTER.toUpperCase();
   }
 
+  // Include deactivated venues so they can be re-scored and potentially reactivated
+  query.includeInactive = true;
+
   let findQuery = Venue.find(query).sort({ 'stats.upcomingEvents': -1 });
   if (LIMIT > 0) {
     findQuery = findQuery.limit(LIMIT);

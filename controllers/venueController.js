@@ -45,6 +45,42 @@ exports.getVenues = async (req, res) => {
     }
 };
 
+// GET /venues/map-markers — Lightweight geospatial search for map view
+exports.getVenueMapMarkers = async (req, res) => {
+    try {
+        const { longitude, latitude, maxDistance = 50, limit = 200 } = req.query;
+
+        if (!longitude || !latitude) {
+            return res.status(400).json({ success: false, message: 'longitude and latitude are required' });
+        }
+
+        const maxDistanceMeters = parseFloat(maxDistance) * 1609.34;
+
+        const venues = await Venue.find({
+            location: {
+                $near: {
+                    $geometry: {
+                        type: 'Point',
+                        coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                    },
+                    $maxDistance: maxDistanceMeters
+                }
+            }
+        })
+        .select('name city state capacity location images.thumbnail images.hero stats.upcomingEvents stats.followers')
+        .limit(parseInt(limit));
+
+        res.json({
+            success: true,
+            count: venues.length,
+            venues
+        });
+    } catch (error) {
+        console.error('Error fetching map markers:', error);
+        res.status(500).json({ success: false, message: 'Error fetching map markers', error: error.message });
+    }
+};
+
 // GET /venues/nearby — Geospatial search
 exports.getVenuesNearby = async (req, res) => {
     try {
@@ -116,7 +152,7 @@ exports.getFollowedVenues = async (req, res) => {
 // GET /venues/:venueId — Single venue profile
 exports.getVenueById = async (req, res) => {
     try {
-        const venue = await Venue.findById(req.params.venueId);
+        const venue = await Venue.findOne({ _id: req.params.venueId, includeInactive: true });
 
         if (!venue) {
             return res.status(404).json({ success: false, message: 'Venue not found' });
@@ -154,7 +190,7 @@ exports.getEventsByVenue = async (req, res) => {
         const { venueId } = req.params;
         const { page = 1, limit = 20, includePast = 'false', grouped } = req.query;
 
-        const venue = await Venue.findById(venueId);
+        const venue = await Venue.findOne({ _id: venueId, includeInactive: true });
         if (!venue) {
             return res.status(404).json({ success: false, message: 'Venue not found' });
         }

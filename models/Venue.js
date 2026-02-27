@@ -101,6 +101,9 @@ const venueSchema = new mongoose.Schema({
         lastActivityCheck: { type: Date }
     },
 
+    // Soft-delete: inactive venues are hidden from search/map but still accessible by direct ID
+    isActive: { type: Boolean, default: true, index: true },
+
     // Cooldown tracking for live TM API sync
     lastSyncedAt: { type: Date },
     // Cooldown tracking for venue detail enrichment (7-day cooldown)
@@ -110,6 +113,25 @@ const venueSchema = new mongoose.Schema({
 // Geospatial index
 venueSchema.index({ location: '2dsphere' });
 venueSchema.index({ city: 1, state: 1 });
+
+// Soft-delete query middleware: auto-exclude inactive venues unless { includeInactive: true }
+venueSchema.pre(/^find/, function (next) {
+    if (!this.getQuery().includeInactive) {
+        this.where({ isActive: { $ne: false } });
+    } else {
+        delete this.getQuery().includeInactive;
+    }
+    next();
+});
+
+venueSchema.pre('countDocuments', function (next) {
+    if (!this.getQuery().includeInactive) {
+        this.where({ isActive: { $ne: false } });
+    } else {
+        delete this.getQuery().includeInactive;
+    }
+    next();
+});
 
 // Auto-generate normalizedKey and sanitize location before save
 venueSchema.pre('save', function (next) {
