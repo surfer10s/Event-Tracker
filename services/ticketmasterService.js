@@ -8,6 +8,7 @@ const Artist = require('../models/Artist');
 const Event = require('../models/Event');
 const Tour = require('../models/Tour');
 const Venue = require('../models/Venue');
+const { fetchVenuePhoto } = require('./venuePhotoService');
 
 // Base URL for Ticketmaster Discovery API
 const TM_BASE_URL = 'https://app.ticketmaster.com/discovery/v2';
@@ -44,6 +45,7 @@ class TicketmasterService {
         city = '',
         stateCode = '',
         venueId = '',
+        classificationName = '',
         startDateTime = '',
         endDateTime = '',
         size = 20,
@@ -63,6 +65,7 @@ class TicketmasterService {
       if (city) queryParams.city = city;
       if (stateCode) queryParams.stateCode = stateCode;
       if (venueId) queryParams.venueId = venueId;
+      if (classificationName) queryParams.classificationName = classificationName;
       if (startDateTime) queryParams.startDateTime = startDateTime;
       if (endDateTime) queryParams.endDateTime = endDateTime;
 
@@ -772,6 +775,28 @@ class TicketmasterService {
       if (details.images.large) venueDoc.images.large = details.images.large;
       if (details.images.medium) venueDoc.images.medium = details.images.medium;
       if (details.images.thumbnail) venueDoc.images.thumbnail = details.images.thumbnail;
+    }
+
+    // Fetch a real venue photo if hero is still empty or is a small TM logo
+    if (!venueDoc.images?.hero) {
+      try {
+        const photo = await fetchVenuePhoto(venueDoc.name, venueDoc.city, venueDoc.state);
+        if (photo) {
+          if (!venueDoc.images) venueDoc.images = {};
+          venueDoc.images.hero = photo.url;
+          venueDoc.images.photoSource = photo.source;
+          if (photo.attribution) {
+            venueDoc.images.photoAttribution = photo.attribution;
+          }
+          // Also populate large if missing and photo is wide enough
+          if (!venueDoc.images.large && photo.width && photo.width >= 1024) {
+            venueDoc.images.large = photo.url;
+          }
+          console.log(`[VenuePhoto] ${venueDoc.name}: got ${photo.source} photo`);
+        }
+      } catch (photoErr) {
+        console.error('[VenuePhoto] Photo fetch failed, skipping:', photoErr.message);
+      }
     }
 
     if (details.generalInfo) venueDoc.generalInfo = details.generalInfo;

@@ -51,7 +51,14 @@ const venueSchema = new mongoose.Schema({
         thumbnail: String,
         medium: String,
         large: String,
-        hero: String // wide banner image
+        hero: String, // wide banner image
+        photoSource: String, // 'ticketmaster', 'wikimedia', 'google_places'
+        photoAttribution: {
+            authorName: String,
+            authorUri: String,
+            license: String,     // e.g. 'CC BY-SA 4.0'
+            sourceUrl: String    // link to Commons page or Google profile
+        }
     },
 
     links: {
@@ -87,7 +94,11 @@ const venueSchema = new mongoose.Schema({
     stats: {
         totalEvents: { type: Number, default: 0 },
         upcomingEvents: { type: Number, default: 0 },
-        followers: { type: Number, default: 0 }
+        followers: { type: Number, default: 0 },
+        tmUpcomingEventCount: { type: Number, default: null },
+        setlistfmPastEventCount: { type: Number, default: null },
+        activityScore: { type: Number, default: 0 },
+        lastActivityCheck: { type: Date }
     },
 
     // Cooldown tracking for live TM API sync
