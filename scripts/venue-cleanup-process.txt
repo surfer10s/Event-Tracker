@@ -1,0 +1,258 @@
+===============================================================================
+  VENUE CLEANUP PIPELINE — Process Documentation
+  Last Updated: 2026-03-02
+===============================================================================
+
+OVERVIEW
+--------
+The venue cleanup pipeline scores and classifies all Ticketmaster-linked venues
+in the database to determine which are legitimate music/concert venues vs.
+non-music locations (hotels, churches, schools, etc.). Non-music and zero-score
+venues are soft-deleted (isActive: false) so they don't appear in search/map
+but remain in the database and can be reactivated if new events appear.
+
+SCORING FORMULA
+---------------
+  activityScore = min(100, (tmUpcomingEventCount * 3) + (setlistfmPastEventCount * 0.5))
+
+  - Score 0: No upcoming TM events and no Setlist.fm history
+  - Score 1-15: Low activity
+  - Score 16-50: Moderate activity
+  - Score 51-100: High activity (confirmed music venues)
+
+
+===============================================================================
+  ORDER OF OPERATIONS — OPTIMIZED (Claude-First Pipeline)
+===============================================================================
+
+Script: node scripts/batchVenuePipeline.js --states XX,YY,ZZ [flags]
+
+Flags:
+  --skip-setlist    Skip Setlist.fm pass (use when rate limited)
+  --skip-claude     Skip Claude AI classification pass
+  --skip-tm         Skip Ticketmaster pass
+  --setlist-only    Backfill mode — only run Setlist.fm for already-scored states
+
+WHY CLAUDE-FIRST?
+  The previous pipeline ran TM first (1 API call per venue), then classified.
+  This wasted TM calls on non-music venues (hotels, churches, etc.) that would
+  be deactivated anyway. By running Claude first (~$0.001/venue, no rate limit),
+  we filter out ~70% of venues BEFORE spending rate-limited TM/Setlist.fm calls.
+
+  Example: TX has 1,208 venues. Old approach = 1,208 TM calls.
+  New approach: Claude filters ~850 non-music → only ~360 TM calls needed.
+  That's a 70% reduction in TM usage.
+
+--- PASS 1: Keyword Deactivation (instant, free) ---
+  - Runs on ALL active venues — no score requirement
+  - Matches venue names against non-music patterns:
+    Churches, Hotels, Transportation Centers, Malls, Hospitals,
+    Schools, Libraries, Community Centers, Parking structures
+  - Exception list preserves known music venues:
+    House of Blues, Brooklyn Steel, Ryman, Hotel Cafe, etc.
+  - Typically deactivates 10-15% of venues
+
+--- PASS 2: Claude AI Classification (no rate limit) ---
+  - Classifies ALL remaining active unscored venues as music vs non-music
+  - Asks Claude Haiku: "Is [venue] in [city, state] primarily a music venue?"
+  - Returns JSON: {isMusicVenue: true/false, reason: "..."}
+  - Deactivates venues classified as non-music
+  - Skips venues with 3+ existing upcomingEvents (clearly active)
+  - Cost: ~$0.001 per venue (Haiku model), ~$14 for all remaining states
+  - Delay: 500ms between calls
+  - Retries up to 3 times on 429/5xx errors
+  - Typically filters 65-75% of remaining venues as non-music
+
+--- PASS 3: Ticketmaster (ONLY confirmed music venues) ---
+  - Queries TM API for upcoming MUSIC events at each surviving venue
+  - Only processes venues that passed Claude classification
+  - Stores tmUpcomingEventCount and computes activityScore
+  - Rate limit: 5,000 calls/day, resets ~12:47 PM ET
+  - Delay: 1 second between calls
+  - Stops gracefully if rate limited (429 or TM quota violation fault)
+  - Cost: Free (API key)
+  - With Claude pre-filtering, typically uses only 25-35% of original call count
+
+--- PASS 4: Setlist.fm (active low/zero-score only) ---
+  - Checks active venues with 0 or low TM scores for historical concert data
+  - Searches by venue name + city
+  - Updates setlistfmPastEventCount and recalculates activityScore
+  - Rate limit: Undocumented rolling window (~1-2 hour reset)
+  - Delay: 1.5 seconds between calls
+  - Stops if rate limited (429)
+  - Cost: Free (API key)
+
+--- PASS 5: Deactivate Zero-Score Venues ---
+  - Deactivates all remaining active venues with activityScore = 0
+  - These have zero TM upcoming events AND zero Setlist.fm history
+
+--- State Summary ---
+  - Prints active/inactive counts and score distribution table
+
+
+===============================================================================
+  API RATE LIMITS & REFERENCE
+===============================================================================
+
+Ticketmaster:
+  - 5,000 calls/day per API key
+  - Resets daily at ~12:47 PM ET
+  - Check remaining: look at rate-limit-available response header
+
+Setlist.fm:
+  - Undocumented rate limit, rolling window
+  - Resets after ~1-2 hours of no requests
+  - If rate limited: skip with --skip-setlist, backfill later with --setlist-only
+
+Claude AI (Anthropic):
+  - No practical daily limit for this use case
+  - ~$0.001 per venue using Haiku model
+  - Running BEFORE TM saves 70%+ of TM calls
+
+
+===============================================================================
+  PIPELINE COMPLETE — ALL 50 STATES DONE (2026-03-02)
+===============================================================================
+
+All 50 US states have completed all 5 passes:
+  Keywords → Claude AI → Ticketmaster → Setlist.fm → Deactivate Zeros
+
+  State  Active  Total   Active%
+  -----  ------  ------  -------
+  CA       305   1,295    23.6%
+  NV       192     978    19.6%
+  AZ       137     688    19.9%
+  OR       135     460    29.3%
+  WA       216     803    26.9%
+  ID        54     188    28.7%
+  MT        11     190     5.8%
+  WY        17      82    20.7%
+  UT        73     286    25.5%
+  CO       138     682    20.2%
+  NM        30     253    11.9%
+  ND         7     120     5.8%
+  SD        10     128     7.8%
+  NE        45     248    18.1%
+  KS        35     275    12.7%
+  OK        49     371    13.2%
+  MN        99     553    17.9%
+  IA        20     349     5.7%
+  AR         7     223     3.1%
+  MO        49     698     7.0%
+  WI        33     517     6.4%
+  KY        24     459     5.2%
+  LA        36     568     6.3%
+  DE         3      68     4.4%
+  VT         2      70     2.9%
+  NH         7     111     6.3%
+  RI         6     112     5.4%
+  HI         4     131     3.1%
+  ME        10     148     6.8%
+  WV         7     157     4.5%
+  AK         0      62     0.0%
+  DC        15     269     5.6%
+  CT        19     307     6.2%
+  MS        12     385     3.1%
+  MD        18     428     4.2%
+  SC        18     507     3.6%
+  AL        20     519     3.9%
+  MA        42     658     6.4%
+  NJ        32     662     4.8%
+  IN        22     784     2.8%
+  TN        57     805     7.1%
+  VA        31     817     3.8%
+  GA        39     855     4.6%
+  NC        37     898     4.1%
+  MI        46   1,000     4.6%
+  PA        64   1,118     5.7%
+  OH        54   1,200     4.5%
+  IL        51   1,207     4.2%
+  TX        56   1,210     4.6%
+  NY        63   1,209     5.2%
+  FL        50   1,211     4.1%
+
+  TOTALS (from database, 2026-03-02):
+  -----  ------  ------  -------
+  Active:    2,507
+  Inactive: 24,815
+  Total:    27,322
+  Active rate: 9.2%
+
+  Score distribution (active venues only):
+  - Zero:          0
+  - Low (0-15):  567  (22.6%)
+  - Mid (16-50): 721  (28.8%)
+  - High (51+): 1,219  (48.6%)
+
+
+===============================================================================
+  RE-RUN / MAINTENANCE COMMANDS
+===============================================================================
+
+Re-score specific states (e.g., after new venue imports):
+  node scripts/batchVenuePipeline.js --states XX,YY --skip-setlist
+
+Backfill Setlist.fm for specific states:
+  node scripts/batchVenuePipeline.js --states XX,YY --setlist-only
+
+Run full pipeline on a single state:
+  node scripts/batchVenuePipeline.js --states XX
+
+
+===============================================================================
+  RELATED SCRIPTS
+===============================================================================
+
+Main pipeline (recommended):
+  scripts/batchVenuePipeline.js     Optimized 5-pass Claude-first pipeline
+
+Standalone scripts (used before pipeline was built):
+  scripts/batchVenueActivityScore.js    Original TM + Setlist.fm scoring
+  scripts/batchVenueClassify.js         Standalone Claude AI classification
+  scripts/batchVenueKeywordDeactivate.js  Standalone keyword deactivation
+
+Venue analysis:
+  scripts/venueAnalysis.js              Database venue statistics
+
+
+===============================================================================
+  IMPORTANT NOTES
+===============================================================================
+
+1. Mongoose soft-delete middleware: The Venue model auto-filters inactive venues
+   on all find() queries unless { includeInactive: true } is in the query.
+   For accurate counts, use raw MongoDB: mongoose.connection.db.collection('venues')
+
+2. Venue reactivation: If a new event is imported at a deactivated venue,
+   findOrCreateFromEventVenue() will automatically reactivate it.
+
+3. Duplicate $or bug: The original Setlist.fm query had two $or clauses at
+   the same level (MongoDB silently drops the first). Fixed with $and wrapper.
+
+4. Node.js output buffering: When monitoring background pipeline runs, console
+   output may appear delayed (buffers ~100 lines). The process is still running.
+
+5. TM venue IDs: IDs starting with 'KovZ' tend to have rich data. IDs with
+   'Za5ju3r' prefix are often sparse venue-feed entries.
+
+6. Events without artists: TM venue-feed events (Za5ju3r prefix) lack
+   _embedded.attractions. These are now skipped in saveEventToDatabase()
+   to prevent "Unknown Artist" duplicates.
+
+7. The --setlist-only flag for backfill will only run the Setlist.fm pass
+   for active venues missing setlistfmPastEventCount. Skips all other passes.
+
+8. Claude-first optimization: The pipeline runs Claude on ALL unscored venues
+   before TM, reducing TM API calls by ~70%. Venues with 3+ existing
+   upcomingEvents skip Claude (they're clearly active). This approach costs
+   ~$0.001/venue in Claude API but saves days of TM rate limit waiting.
+
+9. Data oddities: Lowercase state codes (e.g., "nv", "in", "Tx") from bad
+   import data were cleaned up on 2026-03-02 (fixed to uppercase and
+   deactivated if zero-score). Watch for new imports reintroducing them.
+
+10. TM rate limit detection fix (2026-03-02): The TM API returns quota
+    violations as a fault object ({fault: {faultstring: "Rate limit quota
+    violation..."}}) rather than HTTP 429 status. The pipeline now detects
+    both formats and stops the TM loop immediately instead of cycling
+    through all remaining venues at 1 second each.

@@ -412,22 +412,23 @@
                     const count = favData.count || (favData.artists ? favData.artists.length : 0);
                     document.getElementById('statFavorites').textContent = count;
                     
-                    // Get upcoming events count for all favorite artists
+                    // Get upcoming events count for all favorite artists (single bulk request)
                     const artists = favData.artists || [];
                     let totalUpcomingEvents = 0;
-                    
-                    for (const artist of artists) {
+
+                    if (artists.length > 0) {
                         try {
-                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
+                            const artistIds = artists.map(a => a._id).join(',');
+                            const eventResponse = await fetch(`${API_BASE_URL}/events/bulk-artists?artistIds=${artistIds}`);
                             const eventData = await eventResponse.json();
-                            if (eventData.success && eventData.events) {
-                                totalUpcomingEvents += eventData.events.length;
+                            if (eventData.success) {
+                                totalUpcomingEvents = eventData.count || 0;
                             }
                         } catch (err) {
-                            console.error('Error fetching events for artist:', artist.name);
+                            console.error('Error fetching bulk events count:', err);
                         }
                     }
-                    
+
                     document.getElementById('statEvents').textContent = totalUpcomingEvents;
                 }
                 
@@ -456,27 +457,36 @@
                 
                 if (data.success && data.artists && data.artists.length > 0) {
                     const upcomingEvents = [];
-                    
-                    // Fetch upcoming events for each favorite artist
-                    for (const artist of data.artists.slice(0, 5)) {
-                        try {
-                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
-                            const eventData = await eventResponse.json();
-                            
-                            if (eventData.success && eventData.events) {
-                                eventData.events.slice(0, 2).forEach(event => {
+                    const artistMap = {};
+                    data.artists.forEach(a => { artistMap[a._id] = a; });
+
+                    // Bulk fetch events for top 5 favorite artists
+                    const topIds = data.artists.slice(0, 5).map(a => a._id).join(',');
+                    try {
+                        const eventResponse = await fetch(`${API_BASE_URL}/events/bulk-artists?artistIds=${topIds}`);
+                        const eventData = await eventResponse.json();
+
+                        if (eventData.success && eventData.events) {
+                            // Group by artist, take first 2 per artist
+                            const perArtist = {};
+                            eventData.events.forEach(event => {
+                                const aId = event.artist?._id || event.artist;
+                                if (!perArtist[aId]) perArtist[aId] = [];
+                                if (perArtist[aId].length < 2) {
+                                    const a = artistMap[aId] || event.artist || {};
                                     upcomingEvents.push({
                                         ...event,
-                                        artistName: artist.name,
-                                        artistImage: artist.images?.medium || artist.images?.small
+                                        artistName: a.name || 'Unknown',
+                                        artistImage: a.images?.medium || a.images?.small
                                     });
-                                });
-                            }
-                        } catch (err) {
-                            console.error('Error loading events for', artist.name);
+                                    perArtist[aId].push(event);
+                                }
+                            });
                         }
+                    } catch (err) {
+                        console.error('Error loading bulk favorites upcoming:', err);
                     }
-                    
+
                     if (upcomingEvents.length > 0) {
                         document.getElementById('favoritesUpcoming').classList.remove('hidden');
                         displayFavoritesUpcoming(upcomingEvents);

@@ -149,8 +149,17 @@ venueSchema.pre('save', function (next) {
 venueSchema.statics.findOrCreateFromEventVenue = async function (venueData) {
     const key = `${(venueData.name || '').toLowerCase()}|${(venueData.city || '').toLowerCase()}|${(venueData.state || '').toUpperCase()}`;
 
-    let venue = await this.findOne({ normalizedKey: key });
-    if (venue) return venue;
+    // Search including inactive venues to avoid creating duplicates
+    let venue = await this.findOne({ normalizedKey: key, includeInactive: true });
+    if (venue) {
+        // Reactivate soft-deleted venues that have new events
+        if (venue.isActive === false) {
+            venue.isActive = true;
+            await venue.save();
+            console.log(`[Venue] Reactivated "${venue.name}" (${venue.city}, ${venue.state}) — new event activity`);
+        }
+        return venue;
+    }
 
     // Build location if coordinates exist
     let location;

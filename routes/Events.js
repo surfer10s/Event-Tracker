@@ -28,6 +28,11 @@ router.get('/stats', eventController.getEventStats);
 router.get('/tour-map/:artistId', eventController.getTourMapData);
 
 
+// GET /api/v1/events/bulk-artists - Get events for multiple artists in one request
+// Query params: artistIds (comma-separated ObjectIds)
+// Example: /api/v1/events/bulk-artists?artistIds=507f1f77bcf86cd799439011,507f1f77bcf86cd799439012
+router.get('/bulk-artists', eventController.getEventsByArtists);
+
 // GET /api/v1/events/artist/:artistId - Get all events by specific artist
 // Params: artistId (MongoDB ObjectId)
 // Query params: page, limit, includePast

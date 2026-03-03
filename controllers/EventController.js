@@ -5,6 +5,32 @@
 const Event = require('../models/Event');
 const Artist = require('../models/Artist');
 
+// In-memory event cache keyed by artist ID
+// Stores { events: [...], cachedAt: timestamp }
+const artistEventCache = new Map();
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+function getCachedEvents(artistId) {
+  const entry = artistEventCache.get(artistId);
+  if (entry && Date.now() - entry.cachedAt < CACHE_TTL) {
+    return entry.events;
+  }
+  if (entry) artistEventCache.delete(artistId);
+  return null;
+}
+
+function setCachedEvents(artistId, events) {
+  artistEventCache.set(artistId, { events, cachedAt: Date.now() });
+}
+
+// Periodic cleanup of expired entries (every 30 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of artistEventCache) {
+    if (now - entry.cachedAt >= CACHE_TTL) artistEventCache.delete(key);
+  }
+}, 30 * 60 * 1000);
+
 // Get all upcoming events with filtering
 exports.getUpcomingEvents = async (req, res) => {
   try {
@@ -367,6 +393,75 @@ exports.getEventsByArtist = async (req, res) => {
       message: 'Error fetching artist events',
       error: error.message
     });
+  }
+};
+
+// Get events for multiple artists in one request (bulk fetch)
+exports.getEventsByArtists = async (req, res) => {
+  try {
+    const { artistIds } = req.query;
+
+    if (!artistIds) {
+      return res.status(400).json({ success: false, message: 'artistIds query parameter is required (comma-separated)' });
+    }
+
+    const ids = artistIds.split(',').filter(id => /^[0-9a-fA-F]{24}$/.test(id));
+
+    if (ids.length === 0) {
+      return res.json({ success: true, events: [] });
+    }
+
+    const maxLimit = Math.min(parseInt(req.query.limit) || 1000, 2000);
+
+    // Check cache for each artist — only query DB for misses
+    const cachedEvents = [];
+    const uncachedIds = [];
+
+    for (const id of ids) {
+      const cached = getCachedEvents(id);
+      if (cached) {
+        cachedEvents.push(...cached);
+      } else {
+        uncachedIds.push(id);
+      }
+    }
+
+    let freshEvents = [];
+    if (uncachedIds.length > 0) {
+      freshEvents = await Event.find({
+        artist: { $in: uncachedIds },
+        date: { $gte: new Date() }
+      })
+      .populate('artist', 'name genre images')
+      .sort({ date: 1 })
+      .limit(maxLimit);
+
+      // Cache results grouped by artist
+      const byArtist = {};
+      for (const event of freshEvents) {
+        const aId = (event.artist?._id || event.artist).toString();
+        if (!byArtist[aId]) byArtist[aId] = [];
+        byArtist[aId].push(event);
+      }
+      // Cache each artist's events (including empty results)
+      for (const id of uncachedIds) {
+        setCachedEvents(id, byArtist[id] || []);
+      }
+    }
+
+    // Merge cached + fresh, sort by date, apply limit
+    const allEvents = [...cachedEvents, ...freshEvents]
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(0, maxLimit);
+
+    res.json({
+      success: true,
+      count: allEvents.length,
+      events: allEvents
+    });
+  } catch (error) {
+    console.error('Error fetching bulk artist events:', error);
+    res.status(500).json({ success: false, message: 'Error fetching events', error: error.message });
   }
 };
 

@@ -20,7 +20,7 @@
 
         <div class="p-4 lg:p-6">
             <!-- Back link -->
-            <a href="venues.html" class="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-4">
+            <a href="#" onclick="event.preventDefault(); if (document.referrer.includes('venues.html')) history.back(); else location.href='venues.html';" class="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-4">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1"><polyline points="15 18 9 12 15 6"></polyline></svg>
                 Back to Venues
             </a>
@@ -31,8 +31,11 @@
             <!-- Venue content (hidden until loaded) -->
             <div id="venueContent" class="hidden">
                 <!-- Hero Banner (only for genuinely large images >= 1024px) -->
-                <div id="heroBanner" class="hidden rounded-xl overflow-hidden mb-6 shadow-sm border border-slate-200">
-                    <img id="heroImage" src="" alt="Venue banner" class="w-full h-48 md:h-64 object-cover">
+                <div id="heroBanner" class="hidden rounded-xl overflow-hidden mb-6 shadow-sm border border-slate-200 relative">
+                    <img id="heroImage" src="" alt="Venue banner" class="w-full max-h-[28rem] object-cover object-center">
+                    <div id="photoAttribution" class="hidden absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                        <a id="photoAttrLink" href="#" target="_blank" class="hover:underline text-white/90"></a>
+                    </div>
                 </div>
 
                 <!-- Header Card -->
@@ -303,6 +306,19 @@ async function loadVenue() {
         if (venueData.images?.hero) {
             document.getElementById('heroImage').src = venueData.images.hero;
             document.getElementById('heroBanner').classList.remove('hidden');
+
+            // Photo attribution overlay
+            const attr = venueData.images?.photoAttribution;
+            if (attr && (attr.authorName || attr.license)) {
+                const attrEl = document.getElementById('photoAttribution');
+                const linkEl = document.getElementById('photoAttrLink');
+                const label = attr.authorName
+                    ? `Photo: ${attr.authorName}`
+                    : `Photo: ${attr.license || 'Wikimedia Commons'}`;
+                linkEl.textContent = label;
+                linkEl.href = attr.sourceUrl || attr.authorUri || '#';
+                attrEl.classList.remove('hidden');
+            }
         }
         // Show a logo/thumbnail in the header card (use medium, thumbnail, or any available)
         const logoUrl = venueData.images?.medium || venueData.images?.thumbnail || venueData.images?.large;

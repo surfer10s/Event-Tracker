@@ -273,6 +273,12 @@ class TicketmasterService {
   // Save events to database (with duplicate checking)
   async saveEventToDatabase(formattedEvent) {
     try {
+      // Skip events with no artist attraction data — these are duplicate
+      // venue-feed entries (often Za5ju3r-prefix TM IDs) that lack _embedded.attractions
+      if (!formattedEvent.artistInfo.externalId) {
+        return { success: false, error: 'No artist attraction data — skipping duplicate venue-feed event' };
+      }
+
       // Check if event already exists
       let event = await Event.findOne({
         'externalIds.ticketmaster': formattedEvent.externalIds.ticketmaster

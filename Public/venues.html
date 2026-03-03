@@ -8,12 +8,36 @@
     <script src="sidebar.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <style>
         #nearbyMap { height: 400px; border-radius: 0.5rem; }
+        #exploreMap { height: 600px; border-radius: 0.5rem; }
         .tab-btn.active { border-color: #334155; color: #1e293b; font-weight: 600; }
         .tab-btn { border-bottom: 2px solid transparent; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        .venue-marker { width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
+        .venue-marker-default { background-color: #475569; }
+        .venue-marker-following { background-color: #16a34a; }
+        .venue-marker-icon { width: 12px; height: 12px; fill: white; }
+
+        .venue-popup { min-width: 260px; max-width: 300px; }
+        .venue-popup-img { width: 100%; height: 120px; object-fit: cover; border-radius: 0.375rem; }
+        .venue-popup-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; margin-top: 0.5rem; }
+        .venue-popup-location { font-size: 0.8rem; color: #64748b; }
+        .venue-popup-badges { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-top: 0.375rem; }
+        .venue-popup-badge { font-size: 0.7rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-weight: 500; }
+        .venue-popup-actions { margin-top: 0.5rem; display: flex; gap: 0.375rem; }
+
+        .marker-cluster-small { background-color: rgba(71, 85, 105, 0.3); }
+        .marker-cluster-small div { background-color: rgba(71, 85, 105, 0.7); color: white; }
+        .marker-cluster-medium { background-color: rgba(71, 85, 105, 0.4); }
+        .marker-cluster-medium div { background-color: rgba(71, 85, 105, 0.8); color: white; }
+        .marker-cluster-large { background-color: rgba(71, 85, 105, 0.5); }
+        .marker-cluster-large div { background-color: rgba(71, 85, 105, 0.9); color: white; }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
@@ -29,6 +53,7 @@
                     <button class="tab-btn active pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="discover">Discover</button>
                     <button class="tab-btn pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="nearby">Near Me</button>
                     <button class="tab-btn pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="following">Following</button>
+                    <button class="tab-btn pb-3 text-sm text-slate-500 hover:text-slate-700 transition-colors" data-tab="explore">Explore Map</button>
                 </nav>
             </div>
 
@@ -83,6 +108,32 @@
                     <div class="col-span-full text-center text-slate-400 py-12">Loading followed venues...</div>
                 </div>
             </div>
+
+            <!-- Tab 4: Explore Map -->
+            <div id="tab-explore" class="tab-content">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-sm font-semibold text-slate-700">Explore Venues</h3>
+                            <span id="exploreCount" class="text-xs text-slate-400">Pan and zoom to discover venues</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-slate-600 border-2 border-white shadow-sm"></span>
+                                <span class="text-xs text-slate-500">Venue</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-green-600 border-2 border-white shadow-sm"></span>
+                                <span class="text-xs text-slate-500">Following</span>
+                            </div>
+                            <button onclick="centerOnUser()" class="px-3 py-1.5 text-xs border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                                My Location
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="exploreMap" class="mb-4 bg-slate-200 rounded-xl shadow-sm border border-slate-200"></div>
+            </div>
         </div>
     </main>
 
@@ -93,6 +144,15 @@ let nearbyMap = null;
 let nearbyMarkers = [];
 let userLat = null;
 let userLng = null;
+
+// Explore Map state
+let exploreMap = null;
+let exploreClusterGroup = null;
+let exploreMarkerMap = new Map();
+let followedVenueIds = new Set();
+let exploreFetchController = null;
+let exploreDebounceTimer = null;
+let exploreInitialized = false;
 
 // US states for filter dropdown
 const US_STATES = [
@@ -137,6 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
         userLat = user.coordinates.lat;
         userLng = user.coordinates.lng;
     }
+
+    // Restore saved tab/map state (e.g., returning from venue profile)
+    restoreVenuePageState();
 });
 
 function switchTab(tabName) {
@@ -157,6 +220,31 @@ function switchTab(tabName) {
     }
     if (tabName === 'following') {
         loadFollowedVenues();
+    }
+    if (tabName === 'explore') {
+        initExploreMap();
+        setTimeout(() => {
+            exploreMap.invalidateSize();
+            if (!exploreInitialized) {
+                exploreInitialized = true;
+                if (userLat && userLng) {
+                    exploreMap.setView([userLat, userLng], 10);
+                } else {
+                    exploreMap.setView([39.8283, -98.5795], 5);
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                userLat = pos.coords.latitude;
+                                userLng = pos.coords.longitude;
+                                exploreMap.setView([userLat, userLng], 10);
+                            },
+                            () => {}
+                        );
+                    }
+                }
+            }
+        }, 100);
+        loadFollowedVenueIds();
     }
 }
 
@@ -403,6 +491,319 @@ function renderPagination(containerId, currentPage, totalPages, callback) {
     container.innerHTML = html;
     window._paginate = callback;
 }
+
+// ===== EXPLORE MAP =====
+function initExploreMap() {
+    if (exploreMap) return;
+
+    exploreMap = L.map('exploreMap', { scrollWheelZoom: false }).setView([39.8283, -98.5795], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(exploreMap);
+
+    exploreMap.on('click', () => exploreMap.scrollWheelZoom.enable());
+    exploreMap.on('mouseout', () => exploreMap.scrollWheelZoom.disable());
+
+    exploreClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 14,
+        iconCreateFunction: function(cluster) {
+            const count = cluster.getChildCount();
+            let size = 'small';
+            if (count >= 50) size = 'large';
+            else if (count >= 10) size = 'medium';
+            return L.divIcon({
+                html: `<div><span>${count}</span></div>`,
+                className: `marker-cluster marker-cluster-${size}`,
+                iconSize: L.point(40, 40)
+            });
+        }
+    });
+    exploreMap.addLayer(exploreClusterGroup);
+
+    exploreMap.on('moveend', onExploreMapMoved);
+}
+
+function onExploreMapMoved() {
+    clearTimeout(exploreDebounceTimer);
+    exploreDebounceTimer = setTimeout(() => {
+        loadExploreVenues();
+    }, 400);
+}
+
+async function loadExploreVenues() {
+    if (exploreFetchController) {
+        exploreFetchController.abort();
+    }
+    exploreFetchController = new AbortController();
+
+    const center = exploreMap.getCenter();
+    const bounds = exploreMap.getBounds();
+
+    const ne = bounds.getNorthEast();
+    const radiusMiles = center.distanceTo(ne) / 1609.34;
+    const cappedRadius = Math.min(radiusMiles, 500);
+
+    if (exploreMap.getZoom() < 5) {
+        document.getElementById('exploreCount').textContent = 'Zoom in to discover venues';
+        return;
+    }
+
+    document.getElementById('exploreCount').textContent = 'Loading venues...';
+
+    try {
+        const res = await fetch(
+            `${API_BASE}/venues/map-markers?longitude=${center.lng}&latitude=${center.lat}&maxDistance=${Math.ceil(cappedRadius)}&limit=200`,
+            { signal: exploreFetchController.signal }
+        );
+        const data = await res.json();
+
+        if (data.success) {
+            updateExploreMarkers(data.venues);
+            document.getElementById('exploreCount').textContent =
+                `${data.count} venue${data.count !== 1 ? 's' : ''} in this area`;
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Explore venues error:', err);
+        document.getElementById('exploreCount').textContent = 'Error loading venues';
+    }
+}
+
+function updateExploreMarkers(venues) {
+    const incomingIds = new Set();
+
+    venues.forEach(venue => {
+        if (!venue.location?.coordinates || venue.location.coordinates.length !== 2) return;
+
+        const venueId = venue._id;
+        incomingIds.add(venueId);
+
+        if (exploreMarkerMap.has(venueId)) return;
+
+        const [lng, lat] = venue.location.coordinates;
+        const isFollowing = followedVenueIds.has(venueId);
+
+        const markerIcon = L.divIcon({
+            className: `venue-marker ${isFollowing ? 'venue-marker-following' : 'venue-marker-default'}`,
+            html: '<svg class="venue-marker-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+            popupAnchor: [0, -28]
+        });
+
+        const marker = L.marker([lat, lng], { icon: markerIcon });
+
+        marker.bindPopup(() => buildVenuePopup(venue, followedVenueIds.has(venueId)), {
+            maxWidth: 300,
+            className: 'venue-popup-wrapper'
+        });
+
+        exploreClusterGroup.addLayer(marker);
+        exploreMarkerMap.set(venueId, marker);
+    });
+
+    const bufferedBounds = exploreMap.getBounds().pad(0.5);
+    for (const [venueId, marker] of exploreMarkerMap) {
+        if (!incomingIds.has(venueId) && !bufferedBounds.contains(marker.getLatLng())) {
+            exploreClusterGroup.removeLayer(marker);
+            exploreMarkerMap.delete(venueId);
+        }
+    }
+}
+
+function buildVenuePopup(venue, isFollowing) {
+    const location = [venue.city, venue.state].filter(Boolean).join(', ');
+    const capacity = venue.capacity ? `Capacity: ${venue.capacity.toLocaleString()}` : '';
+    const upcoming = venue.stats?.upcomingEvents ? `${venue.stats.upcomingEvents} upcoming` : '';
+    const imgSrc = venue.images?.hero || venue.images?.thumbnail || '';
+
+    return `
+        <div class="venue-popup">
+            ${imgSrc ? `<img src="${imgSrc}" alt="${venue.name}" class="venue-popup-img" onerror="this.style.display='none'">` : ''}
+            <div class="venue-popup-name">${venue.name}</div>
+            <div class="venue-popup-location">${location}</div>
+            <div class="venue-popup-badges">
+                ${capacity ? `<span class="venue-popup-badge" style="background:#f1f5f9;color:#475569;">${capacity}</span>` : ''}
+                ${upcoming ? `<span class="venue-popup-badge" style="background:#eff6ff;color:#3b82f6;">${upcoming}</span>` : ''}
+            </div>
+            <div class="venue-popup-actions">
+                <a href="venue-profile.html?id=${venue._id}"
+                   style="flex:1;text-align:center;padding:0.375rem 0.75rem;background:#1e293b;color:white;font-size:0.8rem;border-radius:0.5rem;text-decoration:none;">
+                    View Profile
+                </a>
+                ${token ? `
+                    <button onclick="toggleExploreFollow('${venue._id}', this)"
+                        style="padding:0.375rem 0.75rem;font-size:0.8rem;border-radius:0.5rem;border:1px solid ${isFollowing ? '#bbf7d0' : '#e2e8f0'};background:${isFollowing ? '#f0fdf4' : 'white'};color:${isFollowing ? '#16a34a' : '#475569'};">
+                        ${isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+async function toggleExploreFollow(venueId, btn) {
+    if (!token) {
+        alert('Please log in to follow venues');
+        return;
+    }
+
+    const isCurrentlyFollowing = followedVenueIds.has(venueId);
+    const method = isCurrentlyFollowing ? 'DELETE' : 'POST';
+
+    try {
+        const res = await fetch(`${API_BASE}/venues/${venueId}/follow`, {
+            method,
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            if (isCurrentlyFollowing) {
+                followedVenueIds.delete(venueId);
+                btn.textContent = 'Follow';
+                btn.style.borderColor = '#e2e8f0';
+                btn.style.background = 'white';
+                btn.style.color = '#475569';
+            } else {
+                followedVenueIds.add(venueId);
+                btn.textContent = 'Following';
+                btn.style.borderColor = '#bbf7d0';
+                btn.style.background = '#f0fdf4';
+                btn.style.color = '#16a34a';
+            }
+            updateMarkerFollowState(venueId, !isCurrentlyFollowing);
+        } else {
+            alert(data.message || 'Could not update follow status');
+        }
+    } catch (err) {
+        console.error('Explore follow error:', err);
+    }
+}
+
+function updateMarkerFollowState(venueId, isNowFollowing) {
+    const marker = exploreMarkerMap.get(venueId);
+    if (!marker) return;
+
+    const newIcon = L.divIcon({
+        className: `venue-marker ${isNowFollowing ? 'venue-marker-following' : 'venue-marker-default'}`,
+        html: '<svg class="venue-marker-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -28]
+    });
+    marker.setIcon(newIcon);
+}
+
+async function loadFollowedVenueIds() {
+    if (!token) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/venues/following`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.success && data.venues) {
+            followedVenueIds = new Set(data.venues.map(v => v._id));
+
+            for (const [venueId] of exploreMarkerMap) {
+                if (followedVenueIds.has(venueId)) {
+                    updateMarkerFollowState(venueId, true);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading followed venues:', err);
+    }
+}
+
+function centerOnUser() {
+    if (!exploreMap) return;
+
+    if (userLat && userLng) {
+        exploreMap.setView([userLat, userLng], 10);
+    } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userLat = pos.coords.latitude;
+                userLng = pos.coords.longitude;
+                exploreMap.setView([userLat, userLng], 10);
+            },
+            () => alert('Unable to get your location')
+        );
+    } else {
+        alert('Geolocation is not supported by your browser');
+    }
+}
+
+// ===== STATE PERSISTENCE (survive navigation to venue profile and back) =====
+function saveVenuePageState() {
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'discover';
+    const state = { tab: activeTab };
+
+    if (activeTab === 'explore' && exploreMap) {
+        const center = exploreMap.getCenter();
+        state.exploreLat = center.lat;
+        state.exploreLng = center.lng;
+        state.exploreZoom = exploreMap.getZoom();
+    }
+    if (activeTab === 'nearby' && nearbyMap) {
+        const center = nearbyMap.getCenter();
+        state.nearbyLat = center.lat;
+        state.nearbyLng = center.lng;
+        state.nearbyZoom = nearbyMap.getZoom();
+    }
+
+    sessionStorage.setItem('venuesPageState', JSON.stringify(state));
+}
+
+function restoreVenuePageState() {
+    const raw = sessionStorage.getItem('venuesPageState');
+    if (!raw) return;
+
+    // Only restore if we came from venue-profile (back navigation)
+    if (!document.referrer.includes('venue-profile.html')) {
+        sessionStorage.removeItem('venuesPageState');
+        return;
+    }
+
+    const state = JSON.parse(raw);
+    sessionStorage.removeItem('venuesPageState');
+
+    if (state.tab && state.tab !== 'discover') {
+        // Switch to saved tab
+        switchTab(state.tab);
+
+        if (state.tab === 'explore' && state.exploreLat != null) {
+            // Override the default init — set saved position after map is ready
+            setTimeout(() => {
+                if (exploreMap) {
+                    exploreInitialized = true;
+                    exploreMap.setView([state.exploreLat, state.exploreLng], state.exploreZoom);
+                }
+            }, 200);
+        }
+        if (state.tab === 'nearby' && state.nearbyLat != null) {
+            setTimeout(() => {
+                if (nearbyMap) {
+                    nearbyMap.setView([state.nearbyLat, state.nearbyLng], state.nearbyZoom);
+                }
+            }, 200);
+        }
+    }
+}
+
+// Save state before navigating away — intercept all venue profile links
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href*="venue-profile.html"]');
+    if (link) saveVenuePageState();
+});
 </script>
 </body>
 </html>

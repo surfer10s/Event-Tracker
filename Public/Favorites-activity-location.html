@@ -287,26 +287,29 @@
 
                 favoriteEvents = [];
                 if (favData.success && favData.artists && favData.artists.length > 0) {
-                    for (const artist of favData.artists) {
-                        try {
-                            console.log(`Loading events for ${artist.name} (${artist._id})...`);
-                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
-                            const eventData = await eventResponse.json();
-                            console.log(`Events for ${artist.name}:`, eventData);
-                            if (eventData.success && eventData.events) {
-                                const now = new Date();
-                                eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
-                                    favoriteEvents.push({
-                                        ...event,
-                                        artistName: artist.name,
-                                        artistId: artist._id,
-                                        source: 'favorite',
-                                        reason: '⭐ Favorite'
-                                    });
+                    // Bulk fetch all favorite artist events in one request
+                    const artistIds = favData.artists.map(a => a._id).join(',');
+                    const artistMap = {};
+                    favData.artists.forEach(a => { artistMap[a._id] = a.name; });
+
+                    try {
+                        const eventResponse = await fetch(`${API_BASE_URL}/events/bulk-artists?artistIds=${artistIds}`);
+                        const eventData = await eventResponse.json();
+                        console.log('Bulk favorite events:', eventData);
+                        if (eventData.success && eventData.events) {
+                            const now = new Date();
+                            eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
+                                const aId = event.artist?._id || event.artist;
+                                favoriteEvents.push({
+                                    ...event,
+                                    artistName: artistMap[aId] || event.artist?.name || 'Unknown',
+                                    artistId: aId,
+                                    source: 'favorite',
+                                    reason: '⭐ Favorite'
                                 });
-                            }
-                        } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
-                    }
+                            });
+                        }
+                    } catch (error) { console.error('Error bulk loading favorite events:', error); }
                 }
 
                 // Load music taste artists (for expand feature)
@@ -344,28 +347,36 @@
                     musicTasteArtists = data.artists;
                     document.getElementById('expandedCount').textContent = data.artists.length;
                     
-                    // Load events for music taste artists
+                    // Bulk fetch all music taste artist events in one request
                     musicTasteEvents = [];
-                    for (const artist of data.artists) {
-                        try {
-                            const eventResponse = await fetch(`${API_BASE_URL}/events/artist/${artist._id}`);
-                            const eventData = await eventResponse.json();
-                            if (eventData.success && eventData.events) {
-                                const now = new Date();
-                                const reasonBadge = artist.source === 'liked_song' ? '🎵 Liked Song' :
-                                                   artist.source === 'playlist' ? '📋 Playlist' : '🎧 Music Library';
-                                eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
-                                    musicTasteEvents.push({
-                                        ...event,
-                                        artistName: artist.name,
-                                        artistId: artist._id,
-                                        source: 'music_taste',
-                                        reason: reasonBadge
-                                    });
+                    const artistIds = data.artists.map(a => a._id).join(',');
+                    const artistLookup = {};
+                    data.artists.forEach(a => {
+                        artistLookup[a._id] = {
+                            name: a.name,
+                            reason: a.source === 'liked_song' ? '🎵 Liked Song' :
+                                    a.source === 'playlist' ? '📋 Playlist' : '🎧 Music Library'
+                        };
+                    });
+
+                    try {
+                        const eventResponse = await fetch(`${API_BASE_URL}/events/bulk-artists?artistIds=${artistIds}`);
+                        const eventData = await eventResponse.json();
+                        if (eventData.success && eventData.events) {
+                            const now = new Date();
+                            eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
+                                const aId = event.artist?._id || event.artist;
+                                const info = artistLookup[aId] || { name: event.artist?.name || 'Unknown', reason: '🎧 Music Library' };
+                                musicTasteEvents.push({
+                                    ...event,
+                                    artistName: info.name,
+                                    artistId: aId,
+                                    source: 'music_taste',
+                                    reason: info.reason
                                 });
-                            }
-                        } catch (error) { console.error(`Error loading events for ${artist.name}:`, error); }
-                    }
+                            });
+                        }
+                    } catch (error) { console.error('Error bulk loading music taste events:', error); }
                 }
             } catch (error) {
                 console.error('Error loading music taste artists:', error);
