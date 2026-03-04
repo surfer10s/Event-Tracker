@@ -376,7 +376,7 @@ async function loadNotifications() {
     const container = document.getElementById('notificationList');
     
     try {
-        const response = await fetch('http://localhost:5000/api/v1/notifications?limit=10', {
+        const response = await fetch('/api/v1/notifications?limit=10', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -436,7 +436,7 @@ async function openNotification(notificationId, ticketUrl) {
     
     // Mark as read
     try {
-        await fetch(`http://localhost:5000/api/v1/notifications/${notificationId}/read`, {
+        await fetch(`/api/v1/notifications/${notificationId}/read`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -460,7 +460,7 @@ async function markAllNotificationsRead() {
     const token = localStorage.getItem('token');
     
     try {
-        await fetch('http://localhost:5000/api/v1/notifications/read-all', {
+        await fetch('/api/v1/notifications/read-all', {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -489,7 +489,7 @@ async function loadNotificationCount() {
     if (!token) return;
     
     try {
-        const response = await fetch('http://localhost:5000/api/v1/notifications/unread-count', {
+        const response = await fetch('/api/v1/notifications/unread-count', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();

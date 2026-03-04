@@ -1,7 +1,7 @@
 // Shared Admin Sidebar Component for Event Tracker
 // Include this file in any admin page and call initAdminSidebar() to render the sidebar
 
-const ADMIN_API_BASE = 'http://localhost:5000/api/v1';
+const ADMIN_API_BASE = '/api/v1';
 
 const ADMIN_SIDEBAR_CONFIG = {
     navItems: [

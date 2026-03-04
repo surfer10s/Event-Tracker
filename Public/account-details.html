@@ -387,7 +387,7 @@
     </main>
 
     <script>
-        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const API_BASE_URL = '/api/v1';
         let token = localStorage.getItem('token');
 
         if (!token) { window.location.href = 'auth.html'; }
@@ -553,7 +553,7 @@
         function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'auth.html'; }
 
         // === YouTube Music Connection ===
-        const YT_API_BASE = 'http://localhost:5000/api/youtube'; // YouTube routes use different prefix
+        const YT_API_BASE = '/api/youtube'; // YouTube routes use different prefix
         
         async function checkYouTubeMusicStatus() {
             try {
@@ -612,7 +612,7 @@
 
         function connectYouTubeMusic() {
             // Redirect to OAuth flow with token
-            window.location.href = `http://localhost:5000/auth/youtube?token=${token}`;
+            window.location.href = `/auth/youtube?token=${token}`;
         }
 
         async function disconnectYouTubeMusic() {

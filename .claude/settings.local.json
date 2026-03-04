@@ -6,7 +6,16 @@
       "Bash(ls:*)",
       "Bash(curl:*)",
       "Bash(node:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(code:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git mv:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(find .:*)",
+      "WebFetch(domain:eventtracker.cloud)",
+      "Bash(sed:*)"
     ]
   }
 }

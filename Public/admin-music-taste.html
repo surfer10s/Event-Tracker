@@ -89,7 +89,7 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        const API_BASE_URL = '/api/v1';
         const token = localStorage.getItem('token');
 
         if (!token) {
@@ -120,7 +120,7 @@
 
         async function loadSummary() {
             try {
-                const res = await fetch('http://localhost:5000/api/music-taste/admin/summary', {
+                const res = await fetch('/api/music-taste/admin/summary', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -138,7 +138,7 @@
 
         async function loadTopArtists() {
             try {
-                const res = await fetch('http://localhost:5000/api/music-taste/admin/top-artists?limit=24', {
+                const res = await fetch('/api/music-taste/admin/top-artists?limit=24', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -161,7 +161,7 @@
 
         async function loadUserList() {
             try {
-                const res = await fetch('http://localhost:5000/api/music-taste/admin/users', {
+                const res = await fetch('/api/music-taste/admin/users', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -193,7 +193,7 @@
             document.getElementById('modalContent').innerHTML = '<p class="text-slate-500">Loading...</p>';
             
             try {
-                const res = await fetch(`http://localhost:5000/api/music-taste/admin/user/${userId}`, {
+                const res = await fetch(`/api/music-taste/admin/user/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
