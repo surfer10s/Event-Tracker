@@ -4,8 +4,8 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../config/database');
-const Event = require('../models/Event');
-const Venue = require('../models/Venue');
+const Event = require('../models/event');
+const Venue = require('../models/venue');
 
 async function extractVenues() {
     await connectDB();

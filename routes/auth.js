@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
-const User = require('../models/User');
+const User = require('../models/user');
 
 // POST /api/v1/auth/register - Register new user (sends verification email)
 router.post('/register', authController.register);

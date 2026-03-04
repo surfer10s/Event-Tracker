@@ -12,7 +12,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Anthropic = require('@anthropic-ai/sdk');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 
 const args = process.argv.slice(2);
 function getArg(flag) {

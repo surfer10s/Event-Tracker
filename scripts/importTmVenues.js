@@ -8,7 +8,7 @@
 require('dotenv').config();
 const axios = require('axios');
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 
 const TM_BASE_URL = 'https://app.ticketmaster.com/discovery/v2';
 const API_KEY = process.env.TICKETMASTER_API_KEY;

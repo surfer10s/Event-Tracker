@@ -14,7 +14,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 const tmService = require('../services/ticketmasterService');
 const setlistService = require('../services/setlistService');
 

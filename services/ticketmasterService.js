@@ -4,10 +4,10 @@
 
 const axios = require('axios');
 const Anthropic = require('@anthropic-ai/sdk');
-const Artist = require('../models/Artist');
-const Event = require('../models/Event');
-const Tour = require('../models/Tour');
-const Venue = require('../models/Venue');
+const Artist = require('../models/artist');
+const Event = require('../models/event');
+const Tour = require('../models/tour');
+const Venue = require('../models/venue');
 const { fetchVenuePhoto } = require('./venuePhotoService');
 
 // Base URL for Ticketmaster Discovery API
@@ -312,7 +312,7 @@ class TicketmasterService {
       await artist.save();
 
       // Find or create Venue document
-      const Venue = require('../models/Venue');
+      const Venue = require('../models/venue');
       let venueRef = null;
       if (formattedEvent.venue?.name && formattedEvent.venue?.city && formattedEvent.venue.name !== 'Venue TBA') {
         try {

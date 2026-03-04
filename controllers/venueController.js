@@ -1,7 +1,7 @@
 // Venue Controller
-const Venue = require('../models/Venue');
-const Event = require('../models/Event');
-const User = require('../models/User');
+const Venue = require('../models/venue');
+const Event = require('../models/event');
+const User = require('../models/user');
 const ticketmasterService = require('../services/ticketmasterService');
 
 const VENUE_SYNC_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours

@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const SongCache = require('../models/SongCache');
-const UserMusicTaste = require('../models/UserMusicTaste');
+const User = require('../models/user');
+const SongCache = require('../models/songcache');
+const UserMusicTaste = require('../models/usermusictaste');
 const { requireAdmin } = require('../middleware/adminAuth');
 
 // ============================================

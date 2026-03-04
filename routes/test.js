@@ -102,7 +102,7 @@ router.get('/artists', async (req, res) => {
 // GET /api/v1/test/db-events
 router.get('/db-events', async (req, res) => {
   try {
-    const Event = require('../models/Event');
+    const Event = require('../models/event');
     
     const events = await Event.find()
       .populate('artist')
@@ -127,7 +127,7 @@ router.get('/db-events', async (req, res) => {
 // GET /api/v1/test/db-artists
 router.get('/db-artists', async (req, res) => {
   try {
-    const Artist = require('../models/Artist');
+    const Artist = require('../models/artist');
     
     const artists = await Artist.find()
       .sort({ name: 1 })

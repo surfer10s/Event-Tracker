@@ -153,7 +153,7 @@ app.listen(PORT, () => {
   `);
 
   // Daily cleanup: delete notifications for past events (runs at 3:00 AM)
-  const Notification = require('./models/Notification');
+  const Notification = require('./models/notification');
   cron.schedule('0 3 * * *', async () => {
     try {
       const result = await Notification.deleteMany({

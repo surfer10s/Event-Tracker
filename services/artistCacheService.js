@@ -2,8 +2,8 @@
 // Caches artists from UserMusicTaste by searching Ticketmaster
 // Designed to run as a nightly job
 
-const Artist = require('../models/Artist');
-const UserMusicTaste = require('../models/UserMusicTaste');
+const Artist = require('../models/artist');
+const UserMusicTaste = require('../models/usermusictaste');
 const ticketmasterService = require('./ticketmasterService');
 
 // Track cache job statistics

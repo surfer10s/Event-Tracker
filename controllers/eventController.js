@@ -2,8 +2,8 @@
 // Business logic for event operations
 // Think of these as stored procedures that handle the actual work
 
-const Event = require('../models/Event');
-const Artist = require('../models/Artist');
+const Event = require('../models/event');
+const Artist = require('../models/artist');
 
 // In-memory event cache keyed by artist ID
 // Stores { events: [...], cachedAt: timestamp }

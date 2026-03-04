@@ -10,7 +10,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 
 // --- CLI args ---
 const args = process.argv.slice(2);

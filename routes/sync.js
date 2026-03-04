@@ -220,7 +220,7 @@ router.post('/cleanup', protect, async (req, res) => {
 // GET /api/v1/sync/venue-enrich-stats - Get venue enrichment statistics
 router.get('/venue-enrich-stats', protect, async (req, res) => {
     try {
-        const Venue = require('../models/Venue');
+        const Venue = require('../models/venue');
         const total = await Venue.countDocuments();
         const hasCapacity = await Venue.countDocuments({ capacity: { $ne: null } });
         const hasType = await Venue.countDocuments({ venueType: { $ne: null } });

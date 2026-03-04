@@ -2,7 +2,7 @@
 // Use this middleware to protect admin-only routes
 
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('../models/user');
 
 // Middleware to verify JWT and check admin status
 const requireAdmin = async (req, res, next) => {

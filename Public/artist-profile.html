@@ -1380,7 +1380,7 @@
                                 </div>
                             </div>
                             <div class="flex flex-col gap-2">
-                                <a href="Event-details.html?id=${event._id || event.id || ''}&tmId=${event.externalIds?.ticketmaster || event.ticketmasterId || event.tmId || ''}" onclick="event.stopPropagation()" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
+                                <a href="event-details.html?id=${event._id || event.id || ''}&tmId=${event.externalIds?.ticketmaster || event.ticketmasterId || event.tmId || ''}" onclick="event.stopPropagation()" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm text-center">View Details</a>
                                 ${event.affiliateLinks?.ticketmaster?.url ? `<a href="${event.affiliateLinks.ticketmaster.url}" target="_blank" onclick="event.stopPropagation()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm text-center">Get Tickets</a>` : ''}
                             </div>
                         </div>

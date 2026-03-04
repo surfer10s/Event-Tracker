@@ -17,7 +17,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Anthropic = require('@anthropic-ai/sdk');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 const tmService = require('../services/ticketmasterService');
 const setlistService = require('../services/setlistService');
 

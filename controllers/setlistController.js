@@ -2,7 +2,7 @@
 // Handles requests for setlist data, artist history, and tour stats
 
 const setlistService = require('../services/setlistService');
-const Artist = require('../models/Artist');
+const Artist = require('../models/artist');
 
 // Search for artists on Setlist.fm
 exports.searchArtists = async (req, res) => {

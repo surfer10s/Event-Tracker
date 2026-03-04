@@ -3,7 +3,7 @@
 // Cross-reference tour data, get setlists, venue history, and artist stats
 
 const axios = require('axios');
-const Artist = require('../models/Artist');
+const Artist = require('../models/artist');
 
 // Base URL for Setlist.fm API
 const SETLIST_BASE_URL = 'https://api.setlist.fm/rest/1.0';

@@ -6,7 +6,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const DELAY_MS = 100; // 100ms = 10 req/sec (well under Google's 50 req/sec limit)

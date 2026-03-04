@@ -1,6 +1,6 @@
 const Category = require('../models/category');
 const ArtistCategory = require('../models/artistcategory');
-const Artist = require('../models/Artist');
+const Artist = require('../models/artist');
 
 // @desc    Create new category
 // @route   POST /api/v1/categories

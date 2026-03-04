@@ -1,10 +1,10 @@
 // Background Sync Service
 // Periodically syncs Ticketmaster events for all users' favorite artists and music taste artists
 
-const User = require('../models/User');
-const Artist = require('../models/Artist');
-const Event = require('../models/Event');
-const UserMusicTaste = require('../models/UserMusicTaste');
+const User = require('../models/user');
+const Artist = require('../models/artist');
+const Event = require('../models/event');
+const UserMusicTaste = require('../models/usermusictaste');
 const ticketmasterService = require('./ticketmasterService');
 const EventEmitter = require('events');
 

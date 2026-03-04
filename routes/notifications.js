@@ -1,7 +1,7 @@
 // Notification Routes
 const express = require('express');
 const router = express.Router();
-const Notification = require('../models/Notification');
+const Notification = require('../models/notification');
 const { protect } = require('../middleware/auth');
 const notificationService = require('../services/notificationService');
 const nodemailer = require('nodemailer');
@@ -192,7 +192,7 @@ router.post('/send-all-digests', protect, async (req, res) => {
 
 // Helper: Send daily digest email to a user
 async function sendDailyDigest(userId) {
-    const User = require('../models/User');
+    const User = require('../models/user');
     const user = await User.findById(userId);
     
     if (!user || !user.email) {
@@ -253,7 +253,7 @@ async function sendDailyDigest(userId) {
 
 // Helper: Send digests to all users with pending notifications
 async function sendAllDailyDigests() {
-    const User = require('../models/User');
+    const User = require('../models/user');
     
     // Find users with pending email notifications
     const usersWithNotifications = await Notification.distinct('userId', {

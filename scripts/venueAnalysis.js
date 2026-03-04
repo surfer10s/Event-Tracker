@@ -2,7 +2,7 @@
 // Quick venue analysis script
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 
 async function run() {
   await mongoose.connect(process.env.MONGODB_URI);

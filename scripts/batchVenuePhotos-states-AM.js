@@ -6,7 +6,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 const { fetchVenuePhoto } = require('../services/venuePhotoService');
 
 const DELAY_MS = 1500;

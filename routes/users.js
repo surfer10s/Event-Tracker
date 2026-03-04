@@ -10,8 +10,8 @@ const {
 } = require('../controllers/concerthistorycontroller');
 const { protect } = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/adminAuth');
-const UserMusicTaste = require('../models/UserMusicTaste');
-const Artist = require('../models/Artist');
+const UserMusicTaste = require('../models/usermusictaste');
+const Artist = require('../models/artist');
 
 // All routes are protected (require authentication)
 
@@ -93,7 +93,7 @@ router.get('/music-taste-artists', protect, async (req, res) => {
 // Admin Portal Routes for User Management
 // ============================================
 
-const User = require('../models/User');
+const User = require('../models/user');
 
 // GET /api/v1/users/admin/list - Get all users for admin
 router.get('/admin/list', requireAdmin, async (req, res) => {

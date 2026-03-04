@@ -6,8 +6,8 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Event = require('../models/Event');
-const Venue = require('../models/Venue');
+const Event = require('../models/event');
+const Venue = require('../models/venue');
 const { fetchVenuePhoto } = require('../services/venuePhotoService');
 
 const DELAY_MS = 1500; // delay between venues to be polite to APIs

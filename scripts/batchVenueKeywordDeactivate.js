@@ -7,7 +7,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Venue = require('../models/Venue');
+const Venue = require('../models/venue');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const MAX_SCORE = 15;

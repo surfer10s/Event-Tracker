@@ -1,9 +1,9 @@
 // Notification Service - Checks for matching events and creates notifications
-const User = require('../models/User');
-const Artist = require('../models/Artist');
-const Event = require('../models/Event');
-const Notification = require('../models/Notification');
-const UserMusicTaste = require('../models/UserMusicTaste');
+const User = require('../models/user');
+const Artist = require('../models/artist');
+const Event = require('../models/event');
+const Notification = require('../models/notification');
+const UserMusicTaste = require('../models/usermusictaste');
 
 // Haversine formula to calculate distance between two coordinates
 function calculateDistance(lat1, lon1, lat2, lon2) {

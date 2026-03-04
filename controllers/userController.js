@@ -1,6 +1,6 @@
 // User Controller - Favorites management and profile updates
-const User = require('../models/User');
-const Artist = require('../models/Artist');
+const User = require('../models/user');
+const Artist = require('../models/artist');
 const ticketmasterService = require('../services/ticketmasterService');
 const { geocodeAddress } = require('../services/geocodingService');
 
@@ -170,7 +170,7 @@ exports.getFavoriteArtists = async (req, res) => {
       .populate('favoriteArtists', 'name genre images tourStatus stats tourDates');
 
     // Update tour dates for each artist
-    const Event = require('../models/Event');
+    const Event = require('../models/event');
     
     const artistsWithDates = await Promise.all(
       user.favoriteArtists.map(async (artist) => {
