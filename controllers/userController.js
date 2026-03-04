@@ -325,10 +325,10 @@ exports.updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    if (!currentPassword || !newPassword) {
+    if (!newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide current and new password'
+        message: 'Please provide a new password'
       });
     }
 
@@ -349,15 +349,23 @@ exports.updatePassword = async (req, res) => {
       });
     }
 
-    // Check current password
-    const isPasswordMatch = await user.comparePassword(currentPassword);
-
-    if (!isPasswordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
+    // If user already has a password, require current password
+    if (user.password) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide current password'
+        });
+      }
+      const isPasswordMatch = await user.matchPassword(currentPassword);
+      if (!isPasswordMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Current password is incorrect'
+        });
+      }
     }
+    // If user has no password (Google-only), allow setting one without current password
 
     // Update password
     user.password = newPassword;

@@ -22,6 +22,23 @@ const generateToken = (userId) => {
     });
 };
 
+// Export for use in routes/auth.js (Google OAuth)
+exports.generateToken = generateToken;
+
+// Generate a unique username from Google email prefix
+const generateUniqueUsername = async (email) => {
+    const base = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '');
+    let username = base;
+    let suffix = 1;
+    while (await User.findOne({ username })) {
+        username = `${base}${suffix}`;
+        suffix++;
+    }
+    return username;
+};
+
+exports.generateUniqueUsername = generateUniqueUsername;
+
 // Generate random 6-digit code
 const generateResetCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -61,11 +78,14 @@ exports.register = async (req, res) => {
         });
 
         if (existingUser) {
+            const message = existingUser.email === email
+                ? (existingUser.authProvider === 'google'
+                    ? 'This email is linked to a Google account. Please use "Sign in with Google".'
+                    : 'Email already registered')
+                : 'Username already taken';
             return res.status(400).json({
                 success: false,
-                message: existingUser.email === email 
-                    ? 'Email already registered' 
-                    : 'Username already taken'
+                message
             });
         }
 
@@ -147,6 +167,14 @@ exports.login = async (req, res) => {
             });
         }
 
+        // If user has no password (Google-only account), suggest Google sign-in
+        if (!user.password) {
+            return res.status(401).json({
+                success: false,
+                message: 'This account uses Google sign-in. Please use the "Sign in with Google" button.'
+            });
+        }
+
         // Check password
         const isMatch = await user.matchPassword(password);
 
@@ -195,11 +223,16 @@ exports.login = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id);
+        const user = await User.findById(req.user.id).select('+password');
+
+        const userObj = user.toObject();
+        userObj.hasPassword = !!user.password;
+        userObj.authProvider = user.authProvider || 'local';
+        delete userObj.password;
 
         res.json({
             success: true,
-            user
+            user: userObj
         });
     } catch (error) {
         console.error('Get me error:', error);
