@@ -48,9 +48,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static frontend files from 'public' folder
+// Serve static frontend files from 'Public' folder
 // This serves your HTML, CSS, JS files at the root URL
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'Public')));
 
 // API Routes
 // We'll create these route files next
