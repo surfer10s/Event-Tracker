@@ -347,9 +347,8 @@
                     musicTasteArtists = data.artists;
                     document.getElementById('expandedCount').textContent = data.artists.length;
                     
-                    // Bulk fetch all music taste artist events in one request
+                    // Bulk fetch music taste artist events in chunks to avoid URI length limits
                     musicTasteEvents = [];
-                    const artistIds = data.artists.map(a => a._id).join(',');
                     const artistLookup = {};
                     data.artists.forEach(a => {
                         artistLookup[a._id] = {
@@ -360,21 +359,26 @@
                     });
 
                     try {
-                        const eventResponse = await fetch(`${API_BASE_URL}/events/bulk-artists?artistIds=${artistIds}`);
-                        const eventData = await eventResponse.json();
-                        if (eventData.success && eventData.events) {
-                            const now = new Date();
-                            eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
-                                const aId = event.artist?._id || event.artist;
-                                const info = artistLookup[aId] || { name: event.artist?.name || 'Unknown', reason: '🎧 Music Library' };
-                                musicTasteEvents.push({
-                                    ...event,
-                                    artistName: info.name,
-                                    artistId: aId,
-                                    source: 'music_taste',
-                                    reason: info.reason
+                        const allIds = data.artists.map(a => a._id);
+                        const CHUNK_SIZE = 50;
+                        const now = new Date();
+                        for (let i = 0; i < allIds.length; i += CHUNK_SIZE) {
+                            const chunk = allIds.slice(i, i + CHUNK_SIZE).join(',');
+                            const eventResponse = await fetch(`${API_BASE_URL}/events/bulk-artists?artistIds=${chunk}`);
+                            const eventData = await eventResponse.json();
+                            if (eventData.success && eventData.events) {
+                                eventData.events.filter(event => new Date(event.date) >= now).forEach(event => {
+                                    const aId = event.artist?._id || event.artist;
+                                    const info = artistLookup[aId] || { name: event.artist?.name || 'Unknown', reason: '🎧 Music Library' };
+                                    musicTasteEvents.push({
+                                        ...event,
+                                        artistName: info.name,
+                                        artistId: aId,
+                                        source: 'music_taste',
+                                        reason: info.reason
+                                    });
                                 });
-                            });
+                            }
                         }
                     } catch (error) { console.error('Error bulk loading music taste events:', error); }
                 }
