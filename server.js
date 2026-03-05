@@ -113,7 +113,7 @@ console.log('YouTube routes loaded:', typeof youtubeRoutes);
 app.use(youtubeRoutes);
 
 // Artist routes - /api/v1/artists/...
-// app.use(`${API_PREFIX}/artists`, require('./routes/artists'));
+app.use(`${API_PREFIX}/artists`, require('./routes/artists'));
 
 // Tour routes - /api/v1/tours/...
 // app.use(`${API_PREFIX}/tours`, require('./routes/tours'));
