@@ -4,6 +4,7 @@
 
 const axios = require('axios');
 const Artist = require('../models/artist');
+const SetlistCache = require('../models/setlistcache');
 
 // Base URL for Setlist.fm API
 const SETLIST_BASE_URL = 'https://api.setlist.fm/rest/1.0';
@@ -89,7 +90,7 @@ class SetlistService {
     }
   }
 
-  // Get artist setlists
+  // Get artist setlists (caches results as side effect)
   async getArtistSetlists(mbid, page = 1) {
     try {
       const response = await axios.get(`${SETLIST_BASE_URL}/artist/${mbid}/setlists`, {
@@ -100,10 +101,14 @@ class SetlistService {
       });
 
       const setlists = response.data.setlist || [];
-      
+      const formatted = setlists.map(setlist => this.formatSetlist(setlist));
+
+      // Cache all eligible setlists as side effect
+      SetlistCache.cacheMany(formatted);
+
       return {
         success: true,
-        setlists: setlists.map(setlist => this.formatSetlist(setlist)),
+        setlists: formatted,
         pagination: {
           page: response.data.page,
           itemsPerPage: response.data.itemsPerPage,
@@ -121,12 +126,33 @@ class SetlistService {
     }
   }
 
-  // Get recent setlists for an artist (most recent tour data)
+  // Get recent setlists for an artist (cache-first, falls back to API)
   async getRecentSetlists(mbid, limit = 20) {
     try {
+      // Check if cache has enough results
+      const cachedDocs = await SetlistCache.getArtistCache(mbid, limit);
+      if (cachedDocs.length >= limit) {
+        return {
+          success: true,
+          setlists: cachedDocs.map(d => d.data),
+          count: cachedDocs.length,
+          fromCache: true
+        };
+      }
+
+      // Not enough cached — fetch from API
       const result = await this.getArtistSetlists(mbid, 1);
-      
+
       if (!result.success) {
+        // API failed but we have some cache — return what we have
+        if (cachedDocs.length > 0) {
+          return {
+            success: true,
+            setlists: cachedDocs.map(d => d.data),
+            count: cachedDocs.length,
+            fromCache: true
+          };
+        }
         return result;
       }
 
@@ -149,16 +175,27 @@ class SetlistService {
     }
   }
 
-  // Get setlist by ID
+  // Get setlist by ID (cache-first)
   async getSetlist(setlistId) {
     try {
+      // Check cache first
+      const cached = await SetlistCache.getCached(setlistId);
+      if (cached) {
+        return { success: true, setlist: cached, fromCache: true };
+      }
+
       const response = await axios.get(`${SETLIST_BASE_URL}/setlist/${setlistId}`, {
         headers: this.getHeaders()
       });
 
+      const formatted = this.formatSetlist(response.data);
+
+      // Cache as side effect (only if 3+ days old)
+      SetlistCache.cacheIfEligible(formatted);
+
       return {
         success: true,
-        setlist: this.formatSetlist(response.data)
+        setlist: formatted
       };
 
     } catch (error) {
@@ -202,10 +239,14 @@ class SetlistService {
       });
 
       const setlists = response.data.setlist || [];
+      const formatted = setlists.map(setlist => this.formatSetlist(setlist));
+
+      // Cache all eligible setlists as side effect
+      SetlistCache.cacheMany(formatted);
 
       return {
         success: true,
-        setlists: setlists.map(setlist => this.formatSetlist(setlist)),
+        setlists: formatted,
         pagination: {
           page: response.data.page,
           itemsPerPage: response.data.itemsPerPage,

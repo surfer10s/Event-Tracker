@@ -63,7 +63,7 @@ const SIDEBAR_ICONS = {
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
     </svg>`,
-    chevronDown: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400">
+    chevronDown: `<svg id="userMenuChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400">
         <polyline points="6 9 12 15 18 9"></polyline>
     </svg>`,
     logout: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -352,6 +352,11 @@ function handleSidebarResize() {
 }
 
 function toggleUserMenu() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = 'auth.html';
+        return;
+    }
     document.getElementById('userDropdown').classList.toggle('hidden');
     // Close notifications if open
     document.getElementById('notificationDropdown')?.classList.add('hidden');
@@ -599,6 +604,12 @@ function initSidebar(pageTitle) {
         }
     });
     
+    // Hide chevron and dropdown elements if not logged in
+    if (!localStorage.getItem('token')) {
+        const chevron = document.getElementById('userMenuChevron');
+        if (chevron) chevron.style.display = 'none';
+    }
+
     // Load notification count on page load
     loadNotificationCount();
 }
