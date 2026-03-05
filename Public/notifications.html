@@ -338,7 +338,7 @@
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs px-2 py-0.5 rounded-full ${style.badge}">${style.icon} ${n.reason}</span>
                                 </div>
-                                <p class="text-slate-700"><span class="text-slate-500">Venue:</span> ${n.venueName}</p>
+                                <p class="text-slate-700"><span class="text-slate-500">Venue:</span> ${n.venueId ? `<a href="venue-profile.html?id=${n.venueId}" class="text-blue-600 hover:text-blue-800 hover:underline">${n.venueName}</a>` : n.venueName}</p>
                                 <p class="text-slate-700"><span class="text-slate-500">Time:</span> ${formatTime(n.eventDate) || 'TBD'}</p>
                                 <p class="text-slate-700"><span class="text-slate-500">Distance:</span> ${n.distance} miles</p>
                             </div>
@@ -371,7 +371,7 @@
                                 <span class="text-slate-600">${formatTime(n.eventDate) || 'TBD'}</span>
                                 ${isUnread ? '<span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>' : ''}
                             </div>
-                            <p class="text-slate-600">${n.venueName} - ${n.venueCity}, ${n.venueState}</p>
+                            <p class="text-slate-600">${n.venueId ? `<a href="venue-profile.html?id=${n.venueId}" class="hover:text-slate-800 hover:underline">${n.venueName}</a>` : n.venueName} - ${n.venueCity}, ${n.venueState}</p>
                             <div class="flex items-center gap-3 text-xs text-slate-400">
                                 <span class="px-2 py-0.5 rounded-full ${style.badge}">${style.icon} ${n.reason}</span>
                                 <span>${n.distance} mi</span>

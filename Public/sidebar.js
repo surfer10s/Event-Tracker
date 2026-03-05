@@ -425,7 +425,7 @@ function renderNotification(n) {
                 <span class="text-xs text-slate-400">${n.distance} mi</span>
             </div>
             <p class="font-semibold text-slate-800 text-sm">${n.artistName}</p>
-            <p class="text-xs text-slate-500">${date} • ${n.venueName}</p>
+            <p class="text-xs text-slate-500">${date} • ${n.venueId ? `<a href="venue-profile.html?id=${n.venueId}" class="hover:text-slate-700 hover:underline" onclick="event.stopPropagation()">${n.venueName}</a>` : n.venueName}</p>
             <p class="text-xs text-slate-400">${n.venueCity}, ${n.venueState}</p>
         </div>
     `;

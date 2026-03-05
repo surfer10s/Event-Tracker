@@ -191,7 +191,7 @@
                             <h3 class="text-lg font-bold text-slate-800 mb-4">Venue</h3>
                             <div class="space-y-3">
                                 <div>
-                                    <p id="venueName" class="font-semibold text-slate-800"></p>
+                                    <a id="venueProfileLink" href="#" class="font-semibold text-slate-800 hover:text-slate-600 hover:underline"><span id="venueName"></span></a>
                                     <p id="venueAddress" class="text-sm text-slate-600"></p>
                                     <p id="venueLocation" class="text-sm text-slate-600"></p>
                                 </div>
@@ -347,6 +347,13 @@
 
             // Venue
             document.getElementById('venueName').textContent = event.venue.name;
+            if (event.venueRef) {
+                document.getElementById('venueProfileLink').href = `venue-profile.html?id=${event.venueRef}`;
+            } else {
+                document.getElementById('venueProfileLink').removeAttribute('href');
+                document.getElementById('venueProfileLink').style.cursor = 'default';
+                document.getElementById('venueProfileLink').classList.remove('hover:text-slate-600', 'hover:underline');
+            }
             document.getElementById('venueAddress').textContent = event.venue.address || '';
             document.getElementById('venueLocation').textContent = [event.venue.city, event.venue.state, event.venue.country].filter(Boolean).join(', ');
             

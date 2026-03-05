@@ -334,7 +334,7 @@
                     
                     const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: '#475569', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.7 }).addTo(map);
                     const date = new Date(event.date);
-                    marker.bindPopup(`<div class="p-2"><p class="font-bold">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p><p class="text-sm">${event.venue.name}</p><p class="text-sm text-gray-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p></div>`);
+                    marker.bindPopup(`<div class="p-2"><p class="font-bold">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p><p class="text-sm">${event.venueRef ? `<a href="venue-profile.html?id=${event.venueRef}" class="text-blue-600 hover:underline">${event.venue.name}</a>` : event.venue.name}</p><p class="text-sm text-gray-600">${event.venue.city}, ${event.venue.state || event.venue.country}</p></div>`);
                     markers.push(marker);
                 }
             });
@@ -367,7 +367,7 @@
                                     <div class="flex items-center gap-2 mb-1">
                                         <span class="text-lg font-bold text-slate-700">${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                                     </div>
-                                    <h4 class="font-bold text-slate-800">${venue.name}</h4>
+                                    <h4 class="font-bold text-slate-800">${event.venueRef ? `<a href="venue-profile.html?id=${event.venueRef}" class="hover:text-slate-600 hover:underline" onclick="event.stopPropagation()">${venue.name}</a>` : venue.name}</h4>
                                     <p class="text-sm text-slate-600">${venue.city}, ${venue.state || venue.country}</p>
                                 </div>
                             </div>

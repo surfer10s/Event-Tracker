@@ -24,6 +24,10 @@ const notificationSchema = new mongoose.Schema({
     venueName: String,
     venueCity: String,
     venueState: String,
+    venueId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Venue'
+    },
     ticketUrl: String,
     distance: Number, // miles from user
     

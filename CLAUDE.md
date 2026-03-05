@@ -355,6 +355,9 @@ YOUTUBE_CLIENT_ID=xxxxx
 YOUTUBE_CLIENT_SECRET=xxxxx
 YOUTUBE_REDIRECT_URI=http://localhost:5000/auth/youtube/callback
 
+# Google Login OAuth (same client as YouTube, different redirect)
+GOOGLE_LOGIN_REDIRECT_URI=http://localhost:5000/api/v1/auth/google/callback
+
 # Email (SMTP)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -418,14 +421,23 @@ node scripts/make-admin.js <email>
 - Access type must be `offline` to get refresh tokens
 
 ### File Naming
-- Some HTML files use capital letters (e.g., `Event-details.html`, `Discover-Artists.html`)
-- Case matters on some servers - be consistent in links
+- All model files and HTML pages have been normalized to **lowercase** for Linux compatibility
+- Models: `user.js`, `event.js`, `artist.js`, `venue.js`, `tour.js`, `notification.js`, `songcache.js`, `usermusictaste.js`, `category.js`, `artistcategory.js`, `concerthistory.js`
+- All require() statements use lowercase paths (e.g., `require('../models/user')`)
+- HTML files: `discover-artists.html`, `event-details.html`, `favorites-activity.html`, etc.
+- **Never create new files with uppercase** — Linux (VPS) is case-sensitive
 
 ### Authentication Flow
-- Users must verify email before login
+- Users must verify email before login (unless Google OAuth — auto-verified)
 - JWT tokens expire in 30 days
 - Password reset codes expire in 15 minutes
 - Email verification tokens expire in 24 hours
+- **Google OAuth login**: Users can sign in with Google (no password needed)
+  - Uses same Google Cloud OAuth client as YouTube (different redirect URI + scopes)
+  - No passport.js — plain `fetch()` like YouTube OAuth
+  - Account linking: if Google email matches existing account, auto-links
+  - Google-only users can set a password from account-details page
+  - Routes: `GET /api/v1/auth/google` and `GET /api/v1/auth/google/callback`
 
 ### Geospatial Queries
 - Event venues have 2dsphere index for proximity search
@@ -477,9 +489,9 @@ node scripts/make-admin.js <email>
 
 ## Frontend Pages Summary
 
-- **User Pages**: auth, index, account-details, favorites, Favorites-Activity, Favorites-activity-location, Discover-Artists, discover-concerts, artist-profile, venue-profile, venues, future-concerts, tour-map, Event-details, concert-history, Notifications, manage-categories
+- **User Pages**: auth, index, account-details, favorites, favorites-activity, favorites-activity-location, discover-artists, discover-concerts, artist-profile, venue-profile, venues, future-concerts, tour-map, event-details, concert-history, notifications, manage-categories
 - **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-music-taste, admin-song-cache
-- **Testing Pages**: YouTubeTest, SeatGeek-test, cache-admin, music-taste-admin
+- **Testing Pages**: youtubetest, seatgeek-test, cache-admin, music-taste-admin
 
 ## Architecture Patterns
 
@@ -511,21 +523,63 @@ node scripts/make-admin.js <email>
 6. **Logs**: Check console for sync progress and errors
 7. **Port Conflicts**: Only run one server instance at a time
 
-## Production Considerations
+## Production Deployment (Hostinger VPS)
 
-1. **Environment**: Set `NODE_ENV=production`
-2. **Secrets**: Use proper secrets manager for API keys
-3. **Database**: Use MongoDB Atlas or hosted instance
-4. **Email**: Configure production SMTP server
-5. **CORS**: Update allowed origins for production domain
-6. **Google OAuth**: Publish app in Google Cloud Console
-7. **SSL/TLS**: Use HTTPS for OAuth callback URLs
-8. **Monitoring**: Add logging and error tracking
-9. **Rate Limiting**: Implement API rate limiting middleware
-10. **Caching**: Consider Redis for session storage
+**Live site**: https://eventtracker.cloud
+**VPS IP**: 86.38.218.225
+**VPS path**: `/root/event-tracker/`
+**Process manager**: PM2 (`event-tracker` process name)
+**Reverse proxy**: Nginx → localhost:5000
+**SSL**: Let's Encrypt via Certbot (auto-renews, expires 2026-06-03)
+
+### Deploy Updates
+```bash
+# 1. Local: commit and push
+git add -A && git commit -m "description" && git push
+
+# 2. VPS (SSH): pull and restart
+cd ~/event-tracker && git pull && pm2 restart event-tracker
+
+# 3. Verify
+pm2 logs event-tracker --lines 10
+```
+
+### VPS Commands
+```bash
+pm2 status                        # Check process status
+pm2 logs event-tracker --lines 30 # View recent logs
+pm2 restart event-tracker         # Restart server
+nano ~/event-tracker/.env         # Edit environment variables
+nginx -t && systemctl restart nginx  # Test & restart Nginx
+```
+
+### Frontend API URLs
+- All frontend files use **relative URLs** (e.g., `/api/v1/...` not `http://localhost:5000/api/v1/...`)
+- This ensures they work on both localhost and production
+- **Never hardcode `localhost:5000`** in frontend files
+
+### Google OAuth (Production)
+- Google Cloud Console has redirect URIs for both localhost and production
+- Production redirect URIs:
+  - `https://eventtracker.cloud/auth/youtube/callback`
+  - `https://eventtracker.cloud/api/v1/auth/google/callback`
+- **Google OAuth app is in "Testing" mode** — YouTube sync limited to approved test users
+- To allow public access: Google Cloud Console → OAuth consent screen → Publish App
+
+### Production .env Differences
+- `NODE_ENV=production`
+- `FRONTEND_URL=https://eventtracker.cloud`
+- `YOUTUBE_REDIRECT_URI=https://eventtracker.cloud/auth/youtube/callback`
+- `GOOGLE_LOGIN_REDIRECT_URI=https://eventtracker.cloud/api/v1/auth/google/callback`
+
+### DNS
+- Domain: `eventtracker.cloud`
+- A record → `86.38.218.225` (TTL: 300)
+- www CNAME → `eventtracker.cloud`
+- Managed via Hostinger hPanel
 
 ---
 
-**Last Updated**: 2026-02-25
-**Version**: 1.2.0
+**Last Updated**: 2026-03-04
+**Version**: 1.3.0
 **Author**: Billy Wagner

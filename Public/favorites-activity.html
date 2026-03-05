@@ -544,7 +544,7 @@
                                             ${statusBadge}
                                         </div>
                                         <h3 class="font-bold text-slate-800">${event.name}</h3>
-                                        <p class="text-sm font-semibold text-slate-600">${event.venue.name}</p>
+                                        <p class="text-sm font-semibold text-slate-600">${event.venueRef ? `<a href="venue-profile.html?id=${event.venueRef}" class="hover:text-slate-800 hover:underline">${event.venue.name}</a>` : event.venue.name}</p>
                                         <p class="text-sm text-slate-500">${event.venue.city}, ${event.venue.state || event.venue.country}</p>
                                         <div class="flex flex-wrap items-center gap-2 mt-3">
                                             ${pricePill}

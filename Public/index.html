@@ -520,7 +520,7 @@
                                     <p class="text-xs text-slate-500">${formatDate(event.date)}</p>
                                 </div>
                             </div>
-                            <p class="text-sm text-slate-600 mb-1">${venue.name || 'Venue TBA'}</p>
+                            <p class="text-sm text-slate-600 mb-1">${event.venueRef ? `<a href="venue-profile.html?id=${event.venueRef}" class="hover:text-slate-800 hover:underline">${venue.name || 'Venue TBA'}</a>` : (venue.name || 'Venue TBA')}</p>
                             <p class="text-xs text-slate-400">${venue.city || ''}${venue.state ? ', ' + venue.state : ''}</p>
                         </div>
                     </div>
@@ -797,7 +797,7 @@
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                                 </svg>
-                                ${venue.name}
+                                ${event.venueRef ? `<a href="venue-profile.html?id=${event.venueRef}" class="hover:text-slate-800 hover:underline">${venue.name}</a>` : venue.name}
                             </div>
                         </div>
                         
