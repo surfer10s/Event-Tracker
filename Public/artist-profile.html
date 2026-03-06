@@ -675,6 +675,16 @@
         let pastSetlists = []; // Store for playlist creation
 
         function displayPastConcerts(setlists) {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            setlists = setlists.filter(s => {
+                const p = s.eventDate.split('-');
+                return new Date(p[2], p[1] - 1, p[0]) < now;
+            });
+            if (setlists.length === 0) {
+                document.getElementById('pastConcertsList').innerHTML = `<p class="text-center text-slate-600 py-8">No past concerts found</p>`;
+                return;
+            }
             pastSetlists = setlists; // Store for later use
             const html = setlists.map((show, index) => {
                 // Build setlist HTML if songs exist

@@ -353,7 +353,17 @@
 
         function displaySearchResults(setlists, showLoadMore = false) {
             const container = document.getElementById('searchResults');
-            let html = setlists.map(setlist => {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const pastSetlists = setlists.filter(s => {
+                const d = new Date(s.eventDate.split('-').reverse().join('-'));
+                return d < now;
+            });
+            if (pastSetlists.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-500 py-8">No past concerts found. Try different search criteria.</p>`;
+                return;
+            }
+            let html = pastSetlists.map(setlist => {
                 const date = new Date(setlist.eventDate.split('-').reverse().join('-'));
                 const venue = setlist.venue;
                 return `
