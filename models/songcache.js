@@ -25,8 +25,7 @@ const songCacheSchema = new mongoose.Schema({
   
   // YouTube data
   videoId: {
-    type: String,
-    required: true
+    type: String
   },
   videoTitle: {
     type: String
@@ -38,6 +37,15 @@ const songCacheSchema = new mongoose.Schema({
     type: String
   },
   
+  // Spotify data
+  spotify: {
+    trackId: String,
+    trackUri: String,
+    trackName: String,
+    artistName: String,
+    albumName: String
+  },
+
   // Metadata
   searchQuery: {
     type: String
@@ -171,6 +179,62 @@ songCacheSchema.statics.invalidateByVideoId = async function(videoId) {
   }
   
   return result;
+};
+
+// Static method to find cached Spotify track
+songCacheSchema.statics.findSpotifyTrack = async function(artist, title) {
+  const artistNorm = this.normalize(artist);
+  const titleNorm = this.normalize(title);
+
+  const cached = await this.findOneAndUpdate(
+    {
+      artistNormalized: artistNorm,
+      titleNormalized: titleNorm,
+      'spotify.trackId': { $exists: true, $ne: null }
+    },
+    {
+      $inc: { useCount: 1 },
+      $set: { lastUsedAt: new Date() }
+    },
+    { new: true }
+  );
+
+  return cached;
+};
+
+// Static method to cache a Spotify track
+songCacheSchema.statics.cacheSpotifyTrack = async function(artist, title, trackData) {
+  const artistNorm = this.normalize(artist);
+  const titleNorm = this.normalize(title);
+
+  try {
+    const cached = await this.findOneAndUpdate(
+      { artistNormalized: artistNorm, titleNormalized: titleNorm },
+      {
+        $set: {
+          artist: artist,
+          title: title,
+          artistNormalized: artistNorm,
+          titleNormalized: titleNorm,
+          'spotify.trackId': trackData.trackId,
+          'spotify.trackUri': trackData.trackUri,
+          'spotify.trackName': trackData.trackName,
+          'spotify.artistName': trackData.artistName,
+          'spotify.albumName': trackData.albumName,
+          lastUsedAt: new Date()
+        },
+        $inc: { useCount: 1 },
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { upsert: true, new: true }
+    );
+    return cached;
+  } catch (error) {
+    if (error.code === 11000) {
+      return await this.findOne({ artistNormalized: artistNorm, titleNormalized: titleNorm });
+    }
+    throw error;
+  }
 };
 
 module.exports = mongoose.model('SongCache', songCacheSchema);

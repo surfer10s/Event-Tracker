@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const artistSchema = new mongoose.Schema({
   name: { type: String, required: true },
   videoCount: { type: Number, default: 1 },
-  sources: [{ type: String, enum: ['liked', 'playlist'] }],
+  sources: [{ type: String, enum: ['liked', 'playlist', 'spotify_follow', 'spotify_saved', 'spotify_playlist'] }],
   firstSeen: { type: Date, default: Date.now },
   lastSeen: { type: Date, default: Date.now }
 }, { _id: false });

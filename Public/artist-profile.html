@@ -119,18 +119,20 @@
                         <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
                 </button>
-                <!-- Future services -->
-                <div class="w-full flex items-center gap-4 p-4 border border-dashed border-slate-300 rounded-xl opacity-50">
+                <button onclick="selectService('spotify')" class="w-full flex items-center gap-4 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
                     <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="#1DB954">
                             <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                         </svg>
                     </div>
                     <div class="text-left flex-1">
-                        <p class="font-bold text-slate-500">Spotify</p>
-                        <p class="text-sm text-slate-400">Coming soon</p>
+                        <p class="font-bold text-slate-800">Spotify</p>
+                        <p class="text-sm text-slate-500" id="spotifyServiceStatus">Checking...</p>
                     </div>
-                </div>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
                 <div class="w-full flex items-center gap-4 p-4 border border-dashed border-slate-300 rounded-xl opacity-50">
                     <div class="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="#FC3C44">
@@ -190,7 +192,13 @@
         <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col">
             <div class="p-6 border-b border-slate-200">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-xl font-bold text-slate-800" id="progressTitle">Creating Playlist...</h3>
+                    <div class="flex items-center gap-3">
+                        <div id="progressServiceIcon" class="hidden w-10 h-10 rounded-lg flex items-center justify-center"></div>
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800" id="progressTitle">Creating Playlist...</h3>
+                            <p class="text-sm text-slate-600 mt-1" id="progressSubtitle">Adding songs to your playlist...</p>
+                        </div>
+                    </div>
                     <div id="progressSpinner" class="animate-spin">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
                             <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
@@ -198,20 +206,13 @@
                         </svg>
                     </div>
                 </div>
-                <p class="text-sm text-slate-600 mt-1" id="progressSubtitle">Adding songs to your playlist...</p>
             </div>
             <div class="flex-1 overflow-y-auto p-6" id="progressSongList">
                 <!-- Songs will be listed here -->
             </div>
             <div class="p-6 border-t border-slate-200" id="progressFooter" style="display: none;">
                 <div class="flex gap-3">
-                    <button onclick="closeProgressModal()" class="flex-1 px-4 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold">Close</button>
-                    <button onclick="openPlaylistInYouTube()" id="openPlaylistBtn" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold flex items-center justify-center gap-2">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                        </svg>
-                        Open in YouTube
-                    </button>
+                    <button onclick="closeProgressModal()" class="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-semibold">Close</button>
                 </div>
             </div>
         </div>
@@ -753,20 +754,19 @@
         // Playlist creation state
         let selectedSetlistIndex = null;
         let selectedService = null;
-        let createdPlaylistUrl = null;
 
         // Service Modal Functions
         async function openServiceModal(index) {
             selectedSetlistIndex = index;
             document.getElementById('serviceModal').classList.remove('hidden');
-            
+
             // Check YouTube connection status
             try {
                 const statusRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/status`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const status = await statusRes.json();
-                
+
                 const statusEl = document.getElementById('youtubeServiceStatus');
                 if (status.connected) {
                     statusEl.innerHTML = '<span class="text-emerald-600">Connected</span>';
@@ -775,6 +775,23 @@
                 }
             } catch (error) {
                 document.getElementById('youtubeServiceStatus').innerHTML = '<span class="text-rose-600">Error checking status</span>';
+            }
+
+            // Check Spotify connection status
+            try {
+                const spotifyRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/spotify/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const spotifyStatus = await spotifyRes.json();
+
+                const spotifyStatusEl = document.getElementById('spotifyServiceStatus');
+                if (spotifyStatus.connected) {
+                    spotifyStatusEl.innerHTML = '<span class="text-emerald-600">Connected</span>';
+                } else {
+                    spotifyStatusEl.innerHTML = '<span class="text-slate-500">Not connected - <a href="account-details.html" class="text-blue-600 underline">Connect</a></span>';
+                }
+            } catch (error) {
+                document.getElementById('spotifyServiceStatus').innerHTML = '<span class="text-rose-600">Error checking status</span>';
             }
         }
 
@@ -787,20 +804,29 @@
 
         async function selectService(service) {
             selectedService = service;
-            
+
             if (service === 'youtube') {
-                // Check if connected
                 const statusRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/status`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const status = await statusRes.json();
-                
+
                 if (!status.connected) {
                     alert('Please connect your YouTube account first in Account Details.');
                     return;
                 }
+            } else if (service === 'spotify') {
+                const statusRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/spotify/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const status = await statusRes.json();
+
+                if (!status.connected) {
+                    alert('Please connect your Spotify account first in Account Details.');
+                    return;
+                }
             }
-            
+
             closeServiceModal(false);  // Don't clear the index
             openNameModal();
         }
@@ -839,26 +865,33 @@
         }
 
         async function startPlaylistCreation() {
+            if (selectedService === 'spotify') {
+                return startSpotifyPlaylistCreation();
+            }
+            return startYouTubePlaylistCreation();
+        }
+
+        async function startYouTubePlaylistCreation() {
             const show = pastSetlists[selectedSetlistIndex];
             const playlistName = document.getElementById('playlistNameInput').value.trim();
             const includeCovers = document.getElementById('includeCoversCheckbox').checked;
             const songLimitValue = document.getElementById('songLimitInput').value;
             const songLimit = songLimitValue ? parseInt(songLimitValue, 10) : null;
-            
+
             if (!playlistName) {
                 alert('Please enter a playlist name');
                 return;
             }
-            
+
             closeNameModal();
-            
+
             // Show progress modal
             document.getElementById('progressModal').classList.remove('hidden');
             document.getElementById('progressTitle').textContent = 'Creating Playlist...';
             document.getElementById('progressSubtitle').textContent = 'Adding songs to your playlist...';
             document.getElementById('progressSpinner').style.display = 'block';
             document.getElementById('progressFooter').style.display = 'none';
-            
+
             // Build song list - filter out covers if not included
             const allSongs = show.songs.map(song => ({
                 artist: show.artist.name,
@@ -866,15 +899,15 @@
                 isCover: !!song.cover,
                 originalArtist: song.cover?.name || null
             }));
-            
+
             let songs = includeCovers ? allSongs : allSongs.filter(song => !song.isCover);
-            
+
             // Apply song limit if set (dev feature)
             if (songLimit && songLimit > 0) {
                 songs = songs.slice(0, songLimit);
                 console.log(`Dev: Limited to ${songLimit} songs`);
             }
-            
+
             document.getElementById('progressSongList').innerHTML = songs.map((song, i) => `
                 <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0" id="song-row-${i}">
                     <div class="w-6 h-6 flex items-center justify-center" id="song-status-${i}">
@@ -888,14 +921,14 @@
                     </div>
                 </div>
             `).join('');
-            
+
             try {
                 // Create playlist first
                 const playlistDesc = `Setlist from ${show.artist.name} at ${show.venue.name}, ${show.venue.city.name} on ${parseSetlistDate(show.eventDate)}. Created by Event Tracker.`;
-                
+
                 const createRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/playlists`, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
@@ -905,97 +938,88 @@
                         privacyStatus: 'private'
                     })
                 });
-                
+
                 const playlist = await createRes.json();
-                
+
                 if (playlist.error) {
                     throw new Error(playlist.error);
                 }
-                
-                createdPlaylistUrl = `https://www.youtube.com/playlist?list=${playlist.id}`;
+
                 let addedCount = 0;
                 let failedCount = 0;
                 let cachedCount = 0;
-                
+
                 // Add songs one by one
                 for (let i = 0; i < songs.length; i++) {
                     const song = songs[i];
                     let videoId = null;
-                    
+
                     try {
                         let fromCache = false;
-                        
+
                         if (song.isCover) {
-                            // For covers: first try the performing artist's version
                             const artistSearchRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}&maxResults=1`, {
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
                             const artistSearchData = await artistSearchRes.json();
-                            
-                            // Check for API errors (quota, etc)
+
                             if (artistSearchData.error) {
                                 throw new Error(artistSearchData.error);
                             }
-                            
+
                             fromCache = artistSearchData.fromCache || false;
-                            
+
                             if (artistSearchData.items && artistSearchData.items.length > 0) {
                                 videoId = artistSearchData.items[0].id.videoId;
                             } else {
-                                // Fall back to original artist's version
                                 const originalSearchRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(song.originalArtist)}&title=${encodeURIComponent(song.title)}&maxResults=1`, {
                                     headers: { 'Authorization': `Bearer ${token}` }
                                 });
                                 const originalSearchData = await originalSearchRes.json();
-                                
-                                // Check for API errors
+
                                 if (originalSearchData.error) {
                                     throw new Error(originalSearchData.error);
                                 }
-                                
+
                                 fromCache = originalSearchData.fromCache || false;
-                                
+
                                 if (originalSearchData.items && originalSearchData.items.length > 0) {
                                     videoId = originalSearchData.items[0].id.videoId;
                                 }
                             }
                         } else {
-                            // Regular song search - use artist/title for caching
                             const searchRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/search?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}&maxResults=1`, {
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
                             const searchData = await searchRes.json();
-                            
-                            // Check for API errors
+
                             if (searchData.error) {
                                 throw new Error(searchData.error);
                             }
-                            
+
                             fromCache = searchData.fromCache || false;
-                            
+
                             if (searchData.items && searchData.items.length > 0) {
                                 videoId = searchData.items[0].id.videoId;
                             }
                         }
-                        
+
                         if (videoId) {
-                            // Add to playlist - include artist and title for lazy invalidation
                             const addRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/playlists/${playlist.id}/items`, {
                                 method: 'POST',
-                                headers: { 
+                                headers: {
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${token}`
                                 },
-                                body: JSON.stringify({ 
+                                body: JSON.stringify({
                                     videoId,
                                     artist: song.isCover ? (fromCache ? song.artist : song.originalArtist) : song.artist,
                                     title: song.title
                                 })
                             });
-                            
+
                             const addData = await addRes.json();
-                            
-                            // Handle video unavailable - re-search without cache
+
                             if (addData.videoUnavailable) {
                                 console.log(`Video unavailable for "${song.title}", re-searching...`);
                                 const retryArtist = song.isCover ? song.originalArtist : song.artist;
@@ -1003,24 +1027,23 @@
                                     headers: { 'Authorization': `Bearer ${token}` }
                                 });
                                 const retryData = await retryRes.json();
-                                
+
                                 if (retryData.items && retryData.items.length > 0) {
                                     const newVideoId = retryData.items[0].id.videoId;
                                     const retryAddRes = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/youtube/playlists/${playlist.id}/items`, {
                                         method: 'POST',
-                                        headers: { 
+                                        headers: {
                                             'Content-Type': 'application/json',
                                             'Authorization': `Bearer ${token}`
                                         },
                                         body: JSON.stringify({ videoId: newVideoId })
                                     });
                                     const retryAddData = await retryAddRes.json();
-                                    
+
                                     if (retryAddData.error) {
                                         throw new Error(retryAddData.error);
                                     }
-                                    
-                                    // Show purple for recovered from invalid cache
+
                                     document.getElementById(`song-status-${i}`).innerHTML = `
                                         <svg class="text-purple-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                             <path d="M20 6L9 17l-5-5"/>
@@ -1035,7 +1058,6 @@
                             } else if (addData.error) {
                                 throw new Error(addData.error);
                             } else {
-                                // Show different icon for cached vs fresh
                                 if (fromCache) {
                                     document.getElementById(`song-status-${i}`).innerHTML = `
                                         <svg class="text-blue-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -1058,7 +1080,6 @@
                             throw new Error('No video found');
                         }
                     } catch (songError) {
-                        // Check if it's a quota error
                         if (songError.message?.includes('quota') || songError.message?.includes('Quota')) {
                             document.getElementById('progressSubtitle').textContent = 'YouTube API quota exceeded. Try again tomorrow.';
                             document.getElementById(`song-status-${i}`).innerHTML = `
@@ -1070,10 +1091,9 @@
                             `;
                             document.getElementById(`song-title-${i}`).classList.add('text-amber-600');
                             failedCount++;
-                            break; // Stop processing
+                            break;
                         }
-                        
-                        // Update UI - failed
+
                         document.getElementById(`song-status-${i}`).innerHTML = `
                             <svg class="text-rose-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1083,48 +1103,168 @@
                         document.getElementById(`song-title-${i}`).classList.add('text-rose-600');
                         failedCount++;
                     }
-                    
-                    // Small delay to avoid rate limiting
+
                     await new Promise(resolve => setTimeout(resolve, 500));
-                    
-                    // Check for quota exceeded
+
                     if (document.getElementById('progressSubtitle').textContent.includes('quota')) {
-                        break; // Stop processing if quota exceeded
+                        break;
                     }
                 }
-                
+
                 // Complete
-                document.getElementById('progressTitle').textContent = 'Playlist Created!';
-                let summaryParts = [`${addedCount} songs added`];
-                if (cachedCount > 0) {
-                    summaryParts.push(`${cachedCount} from cache`);
-                }
-                if (failedCount > 0) {
-                    summaryParts.push(`${failedCount} not found`);
-                }
-                document.getElementById('progressSubtitle').textContent = summaryParts.join(', ');
-                document.getElementById('progressSpinner').style.display = 'none';
-                document.getElementById('progressFooter').style.display = 'block';
-                
+                showProgressComplete('youtube', addedCount, cachedCount, failedCount);
+
             } catch (error) {
                 console.error('Failed to create playlist:', error);
-                document.getElementById('progressTitle').textContent = 'Error';
-                document.getElementById('progressSubtitle').textContent = error.message;
-                document.getElementById('progressSpinner').style.display = 'none';
+                showProgressError(error.message);
                 document.getElementById('progressFooter').style.display = 'block';
-                document.getElementById('openPlaylistBtn').style.display = 'none';
             }
+        }
+
+        async function startSpotifyPlaylistCreation() {
+            const show = pastSetlists[selectedSetlistIndex];
+            const playlistName = document.getElementById('playlistNameInput').value.trim();
+            const includeCovers = document.getElementById('includeCoversCheckbox').checked;
+            const songLimitValue = document.getElementById('songLimitInput').value;
+            const songLimit = songLimitValue ? parseInt(songLimitValue, 10) : null;
+
+            if (!playlistName) {
+                alert('Please enter a playlist name');
+                return;
+            }
+
+            closeNameModal();
+
+            // Show progress modal
+            document.getElementById('progressModal').classList.remove('hidden');
+            document.getElementById('progressTitle').textContent = 'Creating Spotify Playlist...';
+            document.getElementById('progressSubtitle').textContent = 'Searching and adding songs...';
+            document.getElementById('progressSpinner').style.display = 'block';
+            document.getElementById('progressFooter').style.display = 'none';
+
+            // Build song list
+            const allSongs = show.songs.map(song => ({
+                artist: show.artist.name,
+                title: song.name,
+                isCover: !!song.cover,
+                originalArtist: song.cover?.name || null
+            }));
+
+            let songs = includeCovers ? allSongs : allSongs.filter(song => !song.isCover);
+
+            if (songLimit && songLimit > 0) {
+                songs = songs.slice(0, songLimit);
+                console.log(`Dev: Limited to ${songLimit} songs`);
+            }
+
+            document.getElementById('progressSongList').innerHTML = songs.map((song, i) => `
+                <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0" id="song-row-${i}">
+                    <div class="w-6 h-6 flex items-center justify-center" id="song-status-${i}">
+                        <svg class="animate-pulse text-slate-300" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700" id="song-title-${i}">${song.title}</p>
+                        <p class="text-xs text-slate-500">${song.artist}${song.isCover ? ` (${song.originalArtist} cover)` : ''}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            try {
+                const playlistDesc = `Setlist from ${show.artist.name} at ${show.venue.name}, ${show.venue.city.name} on ${parseSetlistDate(show.eventDate)}. Created by Event Tracker.`;
+
+                const response = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/api/spotify/create-playlist-with-songs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: playlistName,
+                        description: playlistDesc,
+                        songs: songs
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Update song statuses from results
+                if (data.results) {
+                    data.results.forEach((result, i) => {
+                        if (result.status === 'found') {
+                            if (result.fromCache) {
+                                document.getElementById(`song-status-${i}`).innerHTML = `
+                                    <svg class="text-blue-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <path d="M20 6L9 17l-5-5"/>
+                                    </svg>
+                                `;
+                                document.getElementById(`song-title-${i}`).classList.add('text-blue-700');
+                            } else {
+                                document.getElementById(`song-status-${i}`).innerHTML = `
+                                    <svg class="text-emerald-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <path d="M20 6L9 17l-5-5"/>
+                                    </svg>
+                                `;
+                                document.getElementById(`song-title-${i}`).classList.add('text-emerald-700');
+                            }
+                        } else {
+                            document.getElementById(`song-status-${i}`).innerHTML = `
+                                <svg class="text-rose-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            `;
+                            document.getElementById(`song-title-${i}`).classList.add('text-rose-600');
+                        }
+                    });
+                }
+
+                // Complete
+                showProgressComplete('spotify', data.addedCount, data.cachedCount, data.failedCount);
+
+            } catch (error) {
+                console.error('Failed to create Spotify playlist:', error);
+                showProgressError(error.message);
+            }
+        }
+
+        function showProgressComplete(service, addedCount, cachedCount, failedCount) {
+            const iconEl = document.getElementById('progressServiceIcon');
+            if (service === 'spotify') {
+                iconEl.className = 'w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-100';
+                iconEl.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`;
+                document.getElementById('progressTitle').textContent = 'Playlist created in Spotify';
+            } else {
+                iconEl.className = 'w-10 h-10 rounded-lg flex items-center justify-center bg-red-100';
+                iconEl.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="#DC2626"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+                document.getElementById('progressTitle').textContent = 'Playlist created in YouTube Music';
+            }
+            iconEl.classList.remove('hidden');
+
+            let summaryParts = [`${addedCount} songs added`];
+            if (cachedCount > 0) summaryParts.push(`${cachedCount} from cache`);
+            if (failedCount > 0) summaryParts.push(`${failedCount} not found`);
+            document.getElementById('progressSubtitle').textContent = summaryParts.join(', ');
+            document.getElementById('progressSpinner').style.display = 'none';
+            document.getElementById('progressFooter').style.display = 'block';
+        }
+
+        function showProgressError(message) {
+            document.getElementById('progressServiceIcon').classList.add('hidden');
+            document.getElementById('progressTitle').textContent = 'Error';
+            document.getElementById('progressSubtitle').textContent = message;
+            document.getElementById('progressSpinner').style.display = 'none';
+            document.getElementById('progressFooter').style.display = 'block';
         }
 
         function closeProgressModal() {
             document.getElementById('progressModal').classList.add('hidden');
-            createdPlaylistUrl = null;
-        }
-
-        function openPlaylistInYouTube() {
-            if (createdPlaylistUrl) {
-                window.open(createdPlaylistUrl, '_blank');
-            }
+            document.getElementById('progressServiceIcon').classList.add('hidden');
         }
 
         function toggleSetlist(index) {

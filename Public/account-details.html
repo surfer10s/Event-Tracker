@@ -297,8 +297,8 @@
                         </div>
                     </div>
 
-                    <!-- Spotify (Coming Soon) -->
-                    <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 opacity-60">
+                    <!-- Spotify -->
+                    <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:border-slate-300 transition-colors" id="spotifyMusicCard">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
@@ -307,11 +307,11 @@
                             </div>
                             <div>
                                 <h3 class="font-semibold text-slate-800">Spotify</h3>
-                                <p class="text-sm text-slate-400">Coming Soon</p>
+                                <p class="text-sm text-slate-500" id="spotifyMusicStatus">Checking connection...</p>
                             </div>
                         </div>
-                        <div>
-                            <span class="px-4 py-2 bg-slate-200 text-slate-500 rounded-lg text-sm font-medium">Coming Soon</span>
+                        <div id="spotifyMusicActions">
+                            <!-- Actions will be populated by JS -->
                         </div>
                     </div>
 
@@ -676,6 +676,146 @@
 
         // Check YouTube status on page load
         checkYouTubeMusicStatus();
+
+        // === Spotify Connection ===
+        const SPOTIFY_API_BASE = '/api/spotify';
+
+        async function checkSpotifyStatus() {
+            try {
+                const response = await fetch(`${SPOTIFY_API_BASE}/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                const statusEl = document.getElementById('spotifyMusicStatus');
+                const actionsEl = document.getElementById('spotifyMusicActions');
+                const cardEl = document.getElementById('spotifyMusicCard');
+
+                if (data.connected) {
+                    cardEl.classList.add('border-emerald-200', 'bg-emerald-50/50');
+                    cardEl.classList.remove('border-slate-200');
+
+                    const displayName = data.displayName || 'Connected';
+
+                    statusEl.innerHTML = `
+                        <span class="text-emerald-600 font-medium">Connected</span>
+                        <span class="text-slate-400 mx-1">&bull;</span>
+                        <span class="text-slate-500">${displayName}</span>
+                    `;
+
+                    actionsEl.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <button onclick="syncSpotifyMusicTaste()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm">
+                                Sync Library
+                            </button>
+                            <button onclick="disconnectSpotify()" class="px-4 py-2 text-rose-600 hover:bg-rose-50 rounded-lg font-medium text-sm">
+                                Disconnect
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    statusEl.textContent = 'Not connected';
+                    actionsEl.innerHTML = `
+                        <button onclick="connectSpotify()" class="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">
+                            Connect
+                        </button>
+                    `;
+                }
+            } catch (error) {
+                console.error('Check Spotify status error:', error);
+                document.getElementById('spotifyMusicStatus').textContent = 'Unable to check status';
+                document.getElementById('spotifyMusicActions').innerHTML = `
+                    <button onclick="connectSpotify()" class="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">
+                        Connect
+                    </button>
+                `;
+            }
+        }
+
+        function connectSpotify() {
+            window.location.href = `/auth/spotify?token=${token}`;
+        }
+
+        async function disconnectSpotify() {
+            if (!confirm('Are you sure you want to disconnect Spotify? Your synced music taste data will be preserved.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SPOTIFY_API_BASE}/disconnect`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Spotify disconnected', 'success');
+                    checkSpotifyStatus();
+                } else {
+                    showToast(data.error || 'Failed to disconnect', 'error');
+                }
+            } catch (error) {
+                console.error('Spotify disconnect error:', error);
+                showToast('Failed to disconnect', 'error');
+            }
+        }
+
+        async function syncSpotifyMusicTaste() {
+            const actionsEl = document.getElementById('spotifyMusicActions');
+
+            actionsEl.innerHTML = `
+                <div class="flex items-center gap-2 text-slate-500">
+                    <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm">Syncing...</span>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${SPOTIFY_API_BASE}/sync-music-taste`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(`Synced ${data.artistCount} artists from your Spotify library!`, 'success');
+                } else {
+                    showToast(data.error || 'Failed to sync', 'error');
+                }
+            } catch (error) {
+                console.error('Spotify sync error:', error);
+                showToast('Failed to sync music taste', 'error');
+            }
+
+            checkSpotifyStatus();
+        }
+
+        // Check Spotify status on page load
+        checkSpotifyStatus();
+
+        // Handle URL params for OAuth callbacks
+        (function handleOAuthParams() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('spotify_connected') === 'true') {
+                showToast('Spotify connected successfully!', 'success');
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+            if (params.get('spotify_error')) {
+                showToast('Spotify connection failed: ' + params.get('spotify_error'), 'error');
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+            if (params.get('youtube_connected') === 'true') {
+                showToast('YouTube Music connected successfully!', 'success');
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+            if (params.get('youtube_error')) {
+                showToast('YouTube connection failed: ' + params.get('youtube_error'), 'error');
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        })();
     </script>
 </body>
 </html>

@@ -112,6 +112,11 @@ const youtubeRoutes = require('./routes/youtube');
 console.log('YouTube routes loaded:', typeof youtubeRoutes);
 app.use(youtubeRoutes);
 
+// Spotify OAuth and playlist routes
+const spotifyRoutes = require('./routes/spotify');
+console.log('Spotify routes loaded:', typeof spotifyRoutes);
+app.use(spotifyRoutes);
+
 // Artist routes - /api/v1/artists/...
 app.use(`${API_PREFIX}/artists`, require('./routes/artists'));
 

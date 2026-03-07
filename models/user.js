@@ -107,7 +107,18 @@ const userSchema = new mongoose.Schema({
         channelTitle: String,
         connectedAt: Date
     },
-    
+
+    // Spotify Music integration
+    spotifyMusic: {
+        connected: { type: Boolean, default: false },
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Date,
+        spotifyUserId: String,
+        displayName: String,
+        connectedAt: Date
+    },
+
     // Admin role
     isAdmin: {
         type: Boolean,
