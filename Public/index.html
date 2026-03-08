@@ -198,83 +198,6 @@
                 </div>
             </div>
 
-            <!-- Search Section (collapsible) -->
-            <div id="searchSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-bold text-slate-800">Search Events</h2>
-                    <button onclick="toggleSearchSection()" class="text-slate-500 hover:text-slate-700">
-                        <svg id="searchToggleIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="18 15 12 9 6 15"></polyline>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div id="searchContent">
-                    <!-- Search Mode Selection -->
-                    <div class="flex items-center gap-6 mb-4">
-                        <div class="flex items-center gap-2">
-                            <input type="radio" id="searchDatabase" name="searchMode" value="database" class="text-slate-600">
-                            <label for="searchDatabase" class="text-sm font-medium text-slate-700">Search Database</label>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="radio" id="searchLive" name="searchMode" value="live" checked class="text-slate-600">
-                            <label for="searchLive" class="text-sm font-medium text-slate-700">Search Live (Ticketmaster)</label>
-                        </div>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <input
-                            type="text"
-                            id="cityFilter"
-                            placeholder="City"
-                            class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700"
-                        />
-                        <select id="stateFilter" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700">
-                            <option value="">All States</option>
-                            <option value="AL">Alabama</option>
-                            <option value="AK">Alaska</option>
-                            <option value="AZ">Arizona</option>
-                            <option value="AR">Arkansas</option>
-                            <option value="CA">California</option>
-                            <option value="CO">Colorado</option>
-                            <option value="CT">Connecticut</option>
-                            <option value="FL">Florida</option>
-                            <option value="GA">Georgia</option>
-                            <option value="IL">Illinois</option>
-                            <option value="IN">Indiana</option>
-                            <option value="LA">Louisiana</option>
-                            <option value="MD">Maryland</option>
-                            <option value="MA">Massachusetts</option>
-                            <option value="MI">Michigan</option>
-                            <option value="MN">Minnesota</option>
-                            <option value="MO">Missouri</option>
-                            <option value="NV">Nevada</option>
-                            <option value="NJ">New Jersey</option>
-                            <option value="NY">New York</option>
-                            <option value="NC">North Carolina</option>
-                            <option value="OH">Ohio</option>
-                            <option value="OR">Oregon</option>
-                            <option value="PA">Pennsylvania</option>
-                            <option value="TN">Tennessee</option>
-                            <option value="TX">Texas</option>
-                            <option value="WA">Washington</option>
-                        </select>
-                        <input
-                            type="date"
-                            id="startDateFilter"
-                            class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-slate-700"
-                        />
-                        <button
-                            onclick="handleSearch()"
-                            class="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-800 transition-colors font-semibold"
-                        >
-                            Search
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             <!-- Events Section -->
             <div class="mb-4">
                 <h2 class="text-lg font-bold text-slate-800 mb-4">Browse Events</h2>
@@ -311,46 +234,20 @@
     <script>
         const API_BASE_URL = '/api/v1';
         let currentPage = 1;
-        let currentFilters = {};
-        let searchMode = 'live';
         let selectedArtistId = null;
         let artistSearchTimeout = null;
         let cachedArtistResults = {};
         let token = localStorage.getItem('token');
         let currentUser = null;
 
-        function showSearchSection() {
-            document.getElementById('searchSection').scrollIntoView({ behavior: 'smooth' });
-            if (window.innerWidth < 1024) toggleSidebar();
-        }
-
-        function toggleSearchSection() {
-            const content = document.getElementById('searchContent');
-            const icon = document.getElementById('searchToggleIcon');
-            content.classList.toggle('hidden');
-            icon.style.transform = content.classList.contains('hidden') ? 'rotate(180deg)' : '';
-        }
-
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize sidebar from sidebar.js
             initSidebar('Home');
-            
+
             loadUser();
             fetchDatabaseEvents(1);
             loadUserStats();
-            
-            // Add enter key support for search
-            document.getElementById('searchInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleSearch();
-            });
-
-            // Search mode change handler
-            document.querySelectorAll('input[name="searchMode"]').forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    searchMode = e.target.value;
-                });
-            });
 
             // Artist autocomplete for search
             document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -671,37 +568,18 @@
             }
         }
 
-        async function handleSearch() {
-            const searchQuery = document.getElementById('searchInput').value.trim();
-            const city = document.getElementById('cityFilter').value.trim();
-            const state = document.getElementById('stateFilter').value;
-            const startDate = document.getElementById('startDateFilter').value;
-
-            currentFilters = { query: searchQuery, city, state, startDate };
-
-            if (searchMode === 'database') {
-                fetchDatabaseEvents(1);
-            } else {
-                fetchLiveEvents();
-            }
-        }
-
         async function fetchDatabaseEvents(page = 1) {
             showLoading();
             currentPage = page;
 
             try {
                 let url = `${API_BASE_URL}/events?page=${page}&limit=20`;
-                
-                if (currentFilters.city) url += `&city=${encodeURIComponent(currentFilters.city)}`;
-                if (currentFilters.state) url += `&state=${encodeURIComponent(currentFilters.state)}`;
-                if (currentFilters.startDate) url += `&startDate=${currentFilters.startDate}`;
 
                 const response = await fetch(url);
                 const data = await response.json();
 
                 hideLoading();
-                
+
                 if (data.success && data.events && data.events.length > 0) {
                     displayEvents(data.events);
                     displayPagination(data.currentPage, data.totalPages, data.total);
@@ -714,38 +592,7 @@
             }
         }
 
-        async function fetchLiveEvents() {
-            showLoading();
-
-            try {
-                let url = `${API_BASE_URL}/events/search?`;
-                const params = [];
-
-                if (currentFilters.query) params.push(`keyword=${encodeURIComponent(currentFilters.query)}`);
-                if (currentFilters.city) params.push(`city=${encodeURIComponent(currentFilters.city)}`);
-                if (currentFilters.state) params.push(`stateCode=${encodeURIComponent(currentFilters.state)}`);
-                if (currentFilters.startDate) params.push(`startDateTime=${currentFilters.startDate}T00:00:00Z`);
-
-                url += params.join('&');
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                hideLoading();
-
-                if (data.success && data.events && data.events.length > 0) {
-                    displayEvents(data.events, true);
-                    document.getElementById('pagination').style.display = 'none';
-                } else {
-                    document.getElementById('eventsGrid').style.display = 'none';
-                    document.getElementById('noResults').style.display = 'block';
-                }
-            } catch (error) {
-                showError('Failed to search events');
-            }
-        }
-
-        function displayEvents(events, isLive = false) {
+        function displayEvents(events) {
             document.getElementById('eventsGrid').style.display = 'grid';
             document.getElementById('noResults').style.display = 'none';
             
@@ -755,9 +602,6 @@
                 const images = event.images || {};
                 const artistName = event.artist?.name || event.artistName || 'Various Artists';
                 const artistId = event.artist?._id || event.artist?.externalIds?.ticketmaster || '';
-                const sourceBadge = isLive ? 
-                    '<span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-1 rounded-full">Live</span>' :
-                    '<span class="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">Saved</span>';
                 const venue = event.venue || {};
                 const ticketInfo = event.ticketInfo || {};
                 const eventId = event._id || event.externalIds?.ticketmaster;
@@ -782,9 +626,8 @@
                     `}
                     
                     <div class="p-4">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="font-bold text-lg line-clamp-2 flex-1 text-slate-800">${event.name}</h3>
-                            ${sourceBadge}
+                        <div class="mb-2">
+                            <h3 class="font-bold text-lg line-clamp-2 text-slate-800">${event.name}</h3>
                         </div>
                         
                         <a href="${artistTourLink}" class="text-sm text-slate-600 font-semibold hover:text-slate-800 mb-2 inline-block">
