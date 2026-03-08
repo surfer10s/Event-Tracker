@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Usage - Event Tracker Admin</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+    <style>
+        .quota-bar { height: 24px; border-radius: 6px; overflow: hidden; background: #e2e8f0; }
+        .quota-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease; }
+        .quota-green { background: #22c55e; }
+        .quota-yellow { background: #eab308; }
+        .quota-red { background: #ef4444; }
+        .trend-bar { display: inline-block; min-width: 4px; border-radius: 2px; vertical-align: bottom; }
+        .trend-bar-calls { background: #6366f1; }
+        .trend-bar-errors { background: #ef4444; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div id="sidebar-container"></div>
+
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 mb-1">API Usage Dashboard</h1>
+                    <p class="text-slate-600 text-sm">Monitor external API calls, errors, and quota usage</p>
+                </div>
+                <div class="mt-3 sm:mt-0 flex gap-2">
+                    <button onclick="loadData('today')" id="btn-today" class="range-btn px-4 py-2 text-sm font-medium rounded-lg border transition-colors">Today</button>
+                    <button onclick="loadData('7d')" id="btn-7d" class="range-btn px-4 py-2 text-sm font-medium rounded-lg border transition-colors">7 Days</button>
+                    <button onclick="loadData('30d')" id="btn-30d" class="range-btn px-4 py-2 text-sm font-medium rounded-lg border transition-colors">30 Days</button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Total Calls</p>
+                    <p class="text-2xl font-bold text-slate-800" id="totalCalls">-</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Total Errors</p>
+                    <p class="text-2xl font-bold text-rose-600" id="totalErrors">-</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Error Rate</p>
+                    <p class="text-2xl font-bold text-slate-800" id="errorRate">-</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Active Services</p>
+                    <p class="text-2xl font-bold text-indigo-600" id="activeServices">-</p>
+                </div>
+            </div>
+
+            <!-- Quota Gauges -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-5" id="quota-ticketmaster">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-sm font-semibold text-slate-700">Ticketmaster Quota</p>
+                        <p class="text-sm text-slate-500" id="tm-quota-text">- / 5,000</p>
+                    </div>
+                    <div class="quota-bar">
+                        <div class="quota-fill quota-green" id="tm-quota-bar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Daily API calls (resets ~12:47 PM ET)</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5" id="quota-youtube">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-sm font-semibold text-slate-700">YouTube Quota</p>
+                        <p class="text-sm text-slate-500" id="yt-quota-text">- / 10,000</p>
+                    </div>
+                    <div class="quota-bar">
+                        <div class="quota-fill quota-green" id="yt-quota-bar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Daily quota units (search=100, list=1)</p>
+                </div>
+            </div>
+
+            <!-- Daily Trend -->
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6" id="trend-container" style="display:none;">
+                <h2 class="text-sm font-semibold text-slate-700 mb-3">Daily Trend</h2>
+                <div class="flex items-end gap-1 h-24" id="trend-chart"></div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-indigo-500 inline-block"></span> Calls</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block"></span> Errors</span>
+                </div>
+            </div>
+
+            <!-- Service Breakdown Table -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="px-5 py-4 border-b border-slate-100">
+                    <h2 class="text-sm font-semibold text-slate-700">Service Breakdown</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-slate-500 border-b border-slate-100">
+                                <th class="px-5 py-3 font-medium">Service</th>
+                                <th class="px-5 py-3 font-medium text-right">Calls</th>
+                                <th class="px-5 py-3 font-medium text-right">Errors</th>
+                                <th class="px-5 py-3 font-medium text-right">Error %</th>
+                                <th class="px-5 py-3 font-medium text-right">Avg Latency</th>
+                                <th class="px-5 py-3 font-medium text-right">Max Latency</th>
+                                <th class="px-5 py-3 font-medium text-center">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serviceTable">
+                            <tr><td colspan="7" class="px-5 py-8 text-center text-slate-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Endpoint Detail Panel -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden" id="endpoint-panel" style="display:none;">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-slate-700">Endpoint Breakdown: <span id="ep-service-name" class="text-indigo-600"></span></h2>
+                    <button onclick="closeEndpointPanel()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-slate-500 border-b border-slate-100">
+                                <th class="px-5 py-3 font-medium">Endpoint</th>
+                                <th class="px-5 py-3 font-medium text-right">Calls</th>
+                                <th class="px-5 py-3 font-medium text-right">Errors</th>
+                                <th class="px-5 py-3 font-medium text-right">Error %</th>
+                                <th class="px-5 py-3 font-medium text-right">Avg Latency</th>
+                                <th class="px-5 py-3 font-medium text-right">Max Latency</th>
+                            </tr>
+                        </thead>
+                        <tbody id="endpointTable">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = '/api/v1';
+        const token = localStorage.getItem('token');
+        let currentRange = 'today';
+
+        if (!token) window.location.href = 'auth.html';
+
+        const SERVICE_LABELS = {
+            ticketmaster: 'Ticketmaster',
+            seatgeek: 'SeatGeek',
+            setlistfm: 'Setlist.fm',
+            lastfm: 'Last.fm',
+            youtube: 'YouTube',
+            spotify: 'Spotify',
+            google_geocoding: 'Google Geocoding',
+            google_auth: 'Google Auth',
+            google_places: 'Google Places',
+            wikipedia: 'Wikipedia',
+            anthropic: 'Claude AI'
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('API Usage');
+            loadUser();
+            loadData('today');
+        });
+
+        async function loadUser() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) updateAdminSidebarUser(data.user);
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        function setActiveRange(range) {
+            currentRange = range;
+            document.querySelectorAll('.range-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-300', 'hover:bg-slate-50');
+            });
+            const active = document.getElementById(`btn-${range}`);
+            if (active) {
+                active.classList.remove('bg-white', 'text-slate-600', 'border-slate-300', 'hover:bg-slate-50');
+                active.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+            }
+        }
+
+        async function loadData(range) {
+            setActiveRange(range);
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/admin/api-usage?range=${range}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                // Summary cards
+                document.getElementById('totalCalls').textContent = data.summary.totalCalls.toLocaleString();
+                document.getElementById('totalErrors').textContent = data.summary.totalErrors.toLocaleString();
+                document.getElementById('errorRate').textContent = data.summary.errorRate + '%';
+                document.getElementById('activeServices').textContent = data.summary.activeServices;
+
+                // Quota gauges
+                renderQuota('tm', data.quotas.ticketmaster, 5000);
+                renderQuota('yt', data.quotas.youtube, 10000);
+
+                // Service table
+                renderServiceTable(data.services);
+
+                // Daily trend (only for 7d/30d)
+                if (range !== 'today' && data.daily.length > 1) {
+                    document.getElementById('trend-container').style.display = 'block';
+                    renderTrend(data.daily);
+                } else {
+                    document.getElementById('trend-container').style.display = 'none';
+                }
+
+                // Close endpoint panel on range change
+                closeEndpointPanel();
+
+            } catch (err) {
+                console.error('Load data error:', err);
+                document.getElementById('serviceTable').innerHTML =
+                    `<tr><td colspan="7" class="px-5 py-8 text-center text-rose-500">Error loading data: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderQuota(prefix, quotaData, defaultLimit) {
+            const used = quotaData?.used || 0;
+            const limit = quotaData?.limit || defaultLimit;
+            const pct = Math.min((used / limit) * 100, 100);
+
+            document.getElementById(`${prefix}-quota-text`).textContent = `${used.toLocaleString()} / ${limit.toLocaleString()}`;
+
+            const bar = document.getElementById(`${prefix}-quota-bar`);
+            bar.style.width = pct + '%';
+            bar.className = 'quota-fill ' + (pct >= 80 ? 'quota-red' : pct >= 60 ? 'quota-yellow' : 'quota-green');
+        }
+
+        function renderServiceTable(services) {
+            if (!services || services.length === 0) {
+                document.getElementById('serviceTable').innerHTML =
+                    '<tr><td colspan="7" class="px-5 py-8 text-center text-slate-400">No API calls recorded yet. Trigger some actions and wait 30 seconds for data to appear.</td></tr>';
+                return;
+            }
+
+            document.getElementById('serviceTable').innerHTML = services.map(svc => {
+                const avgLatency = svc.avgLatencyMs;
+                const errorClass = svc.errorRate > 10 ? 'text-rose-600 font-semibold' : svc.errorRate > 0 ? 'text-amber-600' : 'text-slate-500';
+
+                return `
+                    <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="px-5 py-3 font-medium text-slate-800">${SERVICE_LABELS[svc.service] || svc.service}</td>
+                        <td class="px-5 py-3 text-right text-slate-700">${svc.totalCalls.toLocaleString()}</td>
+                        <td class="px-5 py-3 text-right ${svc.totalErrors > 0 ? 'text-rose-600' : 'text-slate-500'}">${svc.totalErrors}</td>
+                        <td class="px-5 py-3 text-right ${errorClass}">${svc.errorRate}%</td>
+                        <td class="px-5 py-3 text-right text-slate-600">${avgLatency}ms</td>
+                        <td class="px-5 py-3 text-right text-slate-600">${svc.maxLatencyMs.toLocaleString()}ms</td>
+                        <td class="px-5 py-3 text-center">
+                            <button onclick="viewEndpoints('${svc.service}')" class="px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">View</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderTrend(daily) {
+            const chart = document.getElementById('trend-chart');
+            if (!daily || daily.length === 0) {
+                chart.innerHTML = '<span class="text-slate-400 text-xs">No data</span>';
+                return;
+            }
+
+            const maxCalls = Math.max(...daily.map(d => d.calls), 1);
+
+            chart.innerHTML = daily.map(d => {
+                const callH = Math.max((d.calls / maxCalls) * 80, 2);
+                const errH = d.errors > 0 ? Math.max((d.errors / maxCalls) * 80, 2) : 0;
+                const dateLabel = d.date.slice(5); // MM-DD
+
+                return `
+                    <div class="flex flex-col items-center flex-1" title="${d.date}: ${d.calls} calls, ${d.errors} errors">
+                        <div class="flex items-end gap-px" style="height:80px;">
+                            <span class="trend-bar trend-bar-calls" style="height:${callH}px; width:8px;"></span>
+                            ${errH > 0 ? `<span class="trend-bar trend-bar-errors" style="height:${errH}px; width:8px;"></span>` : ''}
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1">${dateLabel}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function viewEndpoints(service) {
+            const panel = document.getElementById('endpoint-panel');
+            panel.style.display = 'block';
+            document.getElementById('ep-service-name').textContent = SERVICE_LABELS[service] || service;
+            document.getElementById('endpointTable').innerHTML = '<tr><td colspan="6" class="px-5 py-4 text-center text-slate-400">Loading...</td></tr>';
+
+            // Scroll to panel
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            try {
+                // For multi-day ranges, fetch today's endpoint breakdown
+                const res = await fetch(`${API_BASE_URL}/admin/api-usage/endpoints/${service}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                if (!data.endpoints || data.endpoints.length === 0) {
+                    document.getElementById('endpointTable').innerHTML =
+                        '<tr><td colspan="6" class="px-5 py-4 text-center text-slate-400">No endpoint data for today</td></tr>';
+                    return;
+                }
+
+                document.getElementById('endpointTable').innerHTML = data.endpoints.map(ep => {
+                    const errorClass = ep.errorRate > 10 ? 'text-rose-600' : ep.errorRate > 0 ? 'text-amber-600' : 'text-slate-500';
+                    return `
+                        <tr class="border-b border-slate-50">
+                            <td class="px-5 py-3 font-mono text-xs text-slate-700">${ep.path}</td>
+                            <td class="px-5 py-3 text-right text-slate-700">${ep.calls}</td>
+                            <td class="px-5 py-3 text-right ${ep.errors > 0 ? 'text-rose-600' : 'text-slate-500'}">${ep.errors}</td>
+                            <td class="px-5 py-3 text-right ${errorClass}">${ep.errorRate}%</td>
+                            <td class="px-5 py-3 text-right text-slate-600">${ep.avgLatencyMs}ms</td>
+                            <td class="px-5 py-3 text-right text-slate-600">${ep.maxLatencyMs}ms</td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                document.getElementById('endpointTable').innerHTML =
+                    `<tr><td colspan="6" class="px-5 py-4 text-center text-rose-500">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        function closeEndpointPanel() {
+            document.getElementById('endpoint-panel').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

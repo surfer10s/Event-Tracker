@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const apiTracker = require('../services/apiusagetracker');
+const googleAuthFetch = apiTracker.trackedFetch('google_auth');
 const User = require('../models/user');
 
 // POST /api/v1/auth/register - Register new user (sends verification email)
@@ -64,7 +66,7 @@ router.get('/google/callback', async (req, res) => {
 
     try {
         // Exchange auth code for access token
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        const tokenResponse = await googleAuthFetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -84,7 +86,7 @@ router.get('/google/callback', async (req, res) => {
         }
 
         // Fetch user profile from Google
-        const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        const profileResponse = await googleAuthFetch('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { 'Authorization': `Bearer ${tokens.access_token}` }
         });
 

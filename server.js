@@ -9,6 +9,7 @@ const cors = require('cors');
 const path = require('path');
 const cron = require('node-cron');
 const connectDB = require('./config/database');
+const apiUsageTracker = require('./services/apiusagetracker');
 
 // Initialize Express app
 const app = express();
@@ -120,6 +121,9 @@ app.use(spotifyRoutes);
 // Artist routes - /api/v1/artists/...
 app.use(`${API_PREFIX}/artists`, require('./routes/artists'));
 
+// API Usage admin routes - /api/v1/admin/api-usage/...
+app.use(`${API_PREFIX}/admin/api-usage`, require('./routes/apiusage'));
+
 // Tour routes - /api/v1/tours/...
 // app.use(`${API_PREFIX}/tours`, require('./routes/tours'));
 
@@ -146,6 +150,9 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
+
+// Start API usage tracker
+apiUsageTracker.start();
 
 app.listen(PORT, () => {
   console.log(`

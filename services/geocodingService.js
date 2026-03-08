@@ -1,6 +1,9 @@
 // Geocoding Service - Google Maps Geocoding API
 // Converts addresses to latitude/longitude coordinates
 
+const apiTracker = require('./apiusagetracker');
+const googleFetch = apiTracker.trackedFetch('google_geocoding');
+
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 
 /**
@@ -42,7 +45,7 @@ async function geocodeAddress({ street, city, state, zipcode }) {
     try {
         const url = `${GOOGLE_GEOCODING_URL}?address=${encodeURIComponent(addressString)}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
         
-        const response = await fetch(url);
+        const response = await googleFetch(url);
         const data = await response.json();
 
         if (data.status === 'OK' && data.results && data.results.length > 0) {

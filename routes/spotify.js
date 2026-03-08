@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const SongCache = require('../models/songcache');
 const UserMusicTaste = require('../models/usermusictaste');
+const apiTracker = require('../services/apiusagetracker');
+const spotifyFetch = apiTracker.trackedFetch('spotify');
 
 // ============================================
 // Auth Middleware
@@ -87,7 +89,7 @@ router.get('/auth/spotify/callback', async (req, res) => {
     }
 
     // Exchange code for tokens (Spotify uses Basic auth header)
-    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+    const tokenResponse = await spotifyFetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -112,7 +114,7 @@ router.get('/auth/spotify/callback', async (req, res) => {
     // Fetch user profile for display name
     let profileInfo = {};
     try {
-      const profileRes = await fetch('https://api.spotify.com/v1/me', {
+      const profileRes = await spotifyFetch('https://api.spotify.com/v1/me', {
         headers: { 'Authorization': `Bearer ${tokens.access_token}` }
       });
       const profile = await profileRes.json();
@@ -201,7 +203,7 @@ async function getValidSpotifyToken(user) {
       throw new Error('Token expired and no refresh token available. Please reconnect Spotify.');
     }
 
-    const response = await fetch('https://accounts.spotify.com/api/token', {
+    const response = await spotifyFetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -245,7 +247,7 @@ async function spotifyGetAll(accessToken, url, limit = 50) {
   let nextUrl = url.includes('?') ? `${url}&limit=${limit}` : `${url}?limit=${limit}`;
 
   while (nextUrl) {
-    const res = await fetch(nextUrl, {
+    const res = await spotifyFetch(nextUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     const data = await res.json();
@@ -424,7 +426,7 @@ router.get('/api/spotify/search', authenticateUser, async (req, res) => {
     const accessToken = await getValidSpotifyToken(user);
     const query = `track:${title} artist:${artist}`;
 
-    const searchRes = await fetch(
+    const searchRes = await spotifyFetch(
       'https://api.spotify.com/v1/search?' + new URLSearchParams({
         q: query,
         type: 'track',
@@ -476,7 +478,7 @@ router.get('/api/spotify/playlists', authenticateUser, async (req, res) => {
   try {
     const accessToken = await getValidSpotifyToken(req.user);
 
-    const playlistRes = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
+    const playlistRes = await spotifyFetch('https://api.spotify.com/v1/me/playlists?limit=50', {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     const data = await playlistRes.json();
@@ -513,7 +515,7 @@ router.post('/api/spotify/create-playlist-with-songs', authenticateUser, async (
     const accessToken = await getValidSpotifyToken(user);
 
     // 1. Create playlist
-    const createRes = await fetch('https://api.spotify.com/v1/me/playlists', {
+    const createRes = await spotifyFetch('https://api.spotify.com/v1/me/playlists', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -558,7 +560,7 @@ router.post('/api/spotify/create-playlist-with-songs', authenticateUser, async (
         if (!trackData) {
           // Search Spotify
           const query = `track:${song.title} artist:${song.artist}`;
-          const searchRes = await fetch(
+          const searchRes = await spotifyFetch(
             'https://api.spotify.com/v1/search?' + new URLSearchParams({
               q: query,
               type: 'track',
@@ -595,7 +597,7 @@ router.post('/api/spotify/create-playlist-with-songs', authenticateUser, async (
           // If primary search fails for covers, try original artist
           if (!trackData && song.isCover && song.originalArtist) {
             const fallbackQuery = `track:${song.title} artist:${song.originalArtist}`;
-            const fallbackRes = await fetch(
+            const fallbackRes = await spotifyFetch(
               'https://api.spotify.com/v1/search?' + new URLSearchParams({
                 q: fallbackQuery,
                 type: 'track',
@@ -642,7 +644,7 @@ router.post('/api/spotify/create-playlist-with-songs', authenticateUser, async (
     if (trackUris.length > 0) {
       for (let i = 0; i < trackUris.length; i += 100) {
         const batch = trackUris.slice(i, i + 100);
-        const addRes = await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/items`, {
+        const addRes = await spotifyFetch(`https://api.spotify.com/v1/playlists/${playlist.id}/items`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,

@@ -5,6 +5,9 @@ const User = require('../models/user');
 const SongCache = require('../models/songcache');
 const UserMusicTaste = require('../models/usermusictaste');
 const { requireAdmin } = require('../middleware/adminAuth');
+const apiTracker = require('../services/apiusagetracker');
+const ytFetch = apiTracker.trackedFetch('youtube');
+const googleAuthFetch = apiTracker.trackedFetch('google_auth');
 
 // ============================================
 // Auth Middleware
@@ -85,7 +88,7 @@ router.get('/auth/youtube/callback', async (req, res) => {
     }
 
     // Exchange code for tokens
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    const tokenResponse = await googleAuthFetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -107,7 +110,7 @@ router.get('/auth/youtube/callback', async (req, res) => {
     // Get channel info to display to user
     let channelInfo = {};
     try {
-      const channelResponse = await fetch(
+      const channelResponse = await ytFetch(
         'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
         { headers: { 'Authorization': `Bearer ${tokens.access_token}` } }
       );
@@ -210,7 +213,7 @@ async function getValidAccessToken(user) {
     }
 
     // Refresh the token
-    const response = await fetch('https://oauth2.googleapis.com/token', {
+    const response = await googleAuthFetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -223,8 +226,18 @@ async function getValidAccessToken(user) {
 
     const tokens = await response.json();
 
-    if (tokens.error) {
-      throw new Error('Failed to refresh token: ' + tokens.error);
+    if (!response.ok || tokens.error) {
+      console.error('[YouTube] Token refresh failed:', tokens.error_description || tokens.error);
+      // If refresh token is revoked/expired, disconnect YouTube so user gets a clear reconnect prompt
+      if (tokens.error === 'invalid_grant') {
+        user.youtubeMusic.connected = false;
+        user.youtubeMusic.accessToken = undefined;
+        user.youtubeMusic.refreshToken = undefined;
+        user.youtubeMusic.expiresAt = undefined;
+        await user.save();
+        throw new Error('YouTube session expired. Please reconnect YouTube from Account Details. (Google OAuth apps in Testing mode expire refresh tokens after 7 days.)');
+      }
+      throw new Error('Failed to refresh token: ' + (tokens.error_description || tokens.error));
     }
 
     // Update user's tokens
@@ -246,7 +259,7 @@ async function getValidAccessToken(user) {
 async function searchAndCache(accessToken, artist, title) {
   const searchQuery = `${artist} ${title} official audio`;
   
-  const response = await fetch(
+  const response = await ytFetch(
     'https://www.googleapis.com/youtube/v3/search?' +
     new URLSearchParams({
       part: 'snippet',
@@ -308,7 +321,7 @@ async function addVideoToPlaylist(accessToken, playlistId, videoId, maxRetries =
       await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); // Backoff: 1.5s, 3s
     }
     
-    const response = await fetch(
+    const response = await ytFetch(
       'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet',
       {
         method: 'POST',
@@ -436,7 +449,7 @@ router.get('/api/youtube/playlists', authenticateUser, async (req, res) => {
   try {
     const accessToken = await getValidAccessToken(req.user);
 
-    const response = await fetch(
+    const response = await ytFetch(
       'https://www.googleapis.com/youtube/v3/playlists?' +
       new URLSearchParams({
         part: 'snippet,contentDetails',
@@ -473,7 +486,7 @@ router.post('/api/youtube/playlists', authenticateUser, async (req, res) => {
   try {
     const accessToken = await getValidAccessToken(req.user);
 
-    const response = await fetch(
+    const response = await ytFetch(
       'https://www.googleapis.com/youtube/v3/playlists?part=snippet,status',
       {
         method: 'POST',
@@ -495,8 +508,13 @@ router.post('/api/youtube/playlists', authenticateUser, async (req, res) => {
 
     const playlist = await response.json();
 
-    if (playlist.error) {
-      throw new Error(playlist.error.message);
+    if (!response.ok || playlist.error) {
+      const msg = playlist.error?.message || playlist.error || `HTTP ${response.status}`;
+      console.error('[YouTube] Create playlist failed:', response.status, msg);
+      if (response.status === 401) {
+        throw new Error('Unauthorized — your YouTube session may have expired. Please reconnect YouTube from Account Details.');
+      }
+      throw new Error(msg);
     }
 
     res.json(playlist);
@@ -514,7 +532,7 @@ router.delete('/api/youtube/playlists/:playlistId', authenticateUser, async (req
   try {
     const accessToken = await getValidAccessToken(req.user);
 
-    const response = await fetch(
+    const response = await ytFetch(
       `https://www.googleapis.com/youtube/v3/playlists?id=${playlistId}`,
       {
         method: 'DELETE',
@@ -557,7 +575,7 @@ router.get('/api/youtube/playlists/:playlistId/items', authenticateUser, async (
       params.append('pageToken', pageToken);
     }
 
-    const response = await fetch(
+    const response = await ytFetch(
       'https://www.googleapis.com/youtube/v3/playlistItems?' + params,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -640,7 +658,7 @@ router.delete('/api/youtube/playlist-items/:itemId', authenticateUser, async (re
   try {
     const accessToken = await getValidAccessToken(req.user);
 
-    const response = await fetch(
+    const response = await ytFetch(
       `https://www.googleapis.com/youtube/v3/playlistItems?id=${itemId}`,
       {
         method: 'DELETE',
@@ -705,7 +723,7 @@ router.get('/api/youtube/search', authenticateUser, async (req, res) => {
     const accessToken = await getValidAccessToken(req.user);
     const searchQuery = q || `${artist} ${title} official audio`;
 
-    const response = await fetch(
+    const response = await ytFetch(
       'https://www.googleapis.com/youtube/v3/search?' +
       new URLSearchParams({
         part: 'snippet',
@@ -768,7 +786,7 @@ router.get('/api/youtube/search-song', authenticateUser, async (req, res) => {
     // Build search query optimized for finding official audio/video
     const searchQuery = `${artist} ${title} official audio`;
 
-    const response = await fetch(
+    const response = await ytFetch(
       'https://www.googleapis.com/youtube/v3/search?' +
       new URLSearchParams({
         part: 'snippet',
@@ -815,7 +833,7 @@ router.post('/api/youtube/create-playlist-with-songs', authenticateUser, async (
     const accessToken = await getValidAccessToken(req.user);
 
     // Step 1: Create the playlist
-    const playlistResponse = await fetch(
+    const playlistResponse = await ytFetch(
       'https://www.googleapis.com/youtube/v3/playlists?part=snippet,status',
       {
         method: 'POST',
@@ -837,8 +855,13 @@ router.post('/api/youtube/create-playlist-with-songs', authenticateUser, async (
 
     const playlist = await playlistResponse.json();
 
-    if (playlist.error) {
-      throw new Error(playlist.error.message);
+    if (!playlistResponse.ok || playlist.error) {
+      const msg = playlist.error?.message || playlist.error || `HTTP ${playlistResponse.status}`;
+      console.error('[YouTube] Create playlist with songs failed:', playlistResponse.status, msg);
+      if (playlistResponse.status === 401) {
+        throw new Error('Unauthorized — your YouTube session may have expired. Please reconnect YouTube from Account Details.');
+      }
+      throw new Error(msg);
     }
 
     const playlistId = playlist.id;
@@ -853,7 +876,7 @@ router.post('/api/youtube/create-playlist-with-songs', authenticateUser, async (
       try {
         // Search for the song
         const searchQuery = `${song.artist} ${song.title} official audio`;
-        const searchResponse = await fetch(
+        const searchResponse = await ytFetch(
           'https://www.googleapis.com/youtube/v3/search?' +
           new URLSearchParams({
             part: 'snippet',
@@ -873,7 +896,7 @@ router.post('/api/youtube/create-playlist-with-songs', authenticateUser, async (
           const videoId = searchData.items[0].id.videoId;
 
           // Add to playlist
-          const addResponse = await fetch(
+          const addResponse = await ytFetch(
             'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet',
             {
               method: 'POST',
@@ -1299,7 +1322,7 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
         likedUrl.searchParams.set('maxResults', '50');
         if (nextPageToken) likedUrl.searchParams.set('pageToken', nextPageToken);
         
-        const likedRes = await fetch(likedUrl.toString(), {
+        const likedRes = await ytFetch(likedUrl.toString(), {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const likedData = await likedRes.json();
@@ -1347,7 +1370,7 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
         playlistsUrl.searchParams.set('maxResults', '50');
         if (nextPageToken) playlistsUrl.searchParams.set('pageToken', nextPageToken);
         
-        const playlistsRes = await fetch(playlistsUrl.toString(), {
+        const playlistsRes = await ytFetch(playlistsUrl.toString(), {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const playlistsData = await playlistsRes.json();
@@ -1377,7 +1400,7 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
           itemsUrl.searchParams.set('maxResults', '50');
           if (nextPageToken) itemsUrl.searchParams.set('pageToken', nextPageToken);
           
-          const itemsRes = await fetch(itemsUrl.toString(), {
+          const itemsRes = await ytFetch(itemsUrl.toString(), {
             headers: { 'Authorization': `Bearer ${accessToken}` }
           });
           const itemsData = await itemsRes.json();

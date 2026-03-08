@@ -4,6 +4,7 @@
 
 const axios = require('axios');
 const Anthropic = require('@anthropic-ai/sdk');
+const apiTracker = require('./apiusagetracker');
 const Artist = require('../models/artist');
 const Event = require('../models/event');
 const Tour = require('../models/tour');
@@ -17,7 +18,8 @@ class TicketmasterService {
   constructor() {
     this.apiKey = process.env.TICKETMASTER_API_KEY;
     this.affiliateId = process.env.TICKETMASTER_AFFILIATE_ID;
-    
+    this.axios = apiTracker.createTrackedAxios('ticketmaster', axios);
+
     if (!this.apiKey) {
       console.warn('WARNING: Ticketmaster API key not found in environment variables');
     }
@@ -70,7 +72,7 @@ class TicketmasterService {
       if (endDateTime) queryParams.endDateTime = endDateTime;
 
       // Make API request
-      const response = await axios.get(`${TM_BASE_URL}/events.json`, {
+      const response = await this.axios.get(`${TM_BASE_URL}/events.json`, {
         params: queryParams
       });
 
@@ -402,7 +404,7 @@ class TicketmasterService {
   // Get upcoming events for a specific artist (from TM API)
   async getArtistUpcomingEvents(artistId) {
     try {
-      const response = await axios.get(`${TM_BASE_URL}/events.json`, {
+      const response = await this.axios.get(`${TM_BASE_URL}/events.json`, {
         params: {
           apikey: this.apiKey,
           attractionId: artistId,
@@ -444,7 +446,7 @@ class TicketmasterService {
         params.classificationName = 'music';
       }
       
-      const response = await axios.get(`${TM_BASE_URL}/attractions.json`, { params });
+      const response = await this.axios.get(`${TM_BASE_URL}/attractions.json`, { params });
 
       const attractions = response.data._embedded?.attractions || [];
       
@@ -477,7 +479,7 @@ class TicketmasterService {
       // eventIds should be an array of Ticketmaster event IDs
       const ids = Array.isArray(eventIds) ? eventIds.join(',') : eventIds;
       
-      const response = await axios.get('https://app.ticketmaster.com/inventory-status/v1/availability', {
+      const response = await this.axios.get('https://app.ticketmaster.com/inventory-status/v1/availability', {
         params: {
           apikey: this.apiKey,
           events: ids
@@ -517,7 +519,7 @@ class TicketmasterService {
   // Fetch detailed venue info from TM Discovery API
   async getVenueDetails(tmVenueId) {
     try {
-      const response = await axios.get(`${TM_BASE_URL}/venues/${tmVenueId}.json`, {
+      const response = await this.axios.get(`${TM_BASE_URL}/venues/${tmVenueId}.json`, {
         params: { apikey: this.apiKey }
       });
 
@@ -588,7 +590,7 @@ class TicketmasterService {
   // Search TM for a venue by name/city and return the best-matching venue ID
   async lookupVenueTmId(name, city) {
     try {
-      const response = await axios.get(`${TM_BASE_URL}/venues.json`, {
+      const response = await this.axios.get(`${TM_BASE_URL}/venues.json`, {
         params: {
           apikey: this.apiKey,
           keyword: name,
@@ -621,6 +623,7 @@ class TicketmasterService {
     const location = [city, state].filter(Boolean).join(', ');
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const claudeStart = Date.now();
       try {
         const message = await client.messages.create({
           model: 'claude-haiku-4-5-20251001',
@@ -630,6 +633,7 @@ class TicketmasterService {
             content: `What is the seating/standing capacity, venue type, and indoor/outdoor status of "${venueName}" in ${location}? Reply ONLY with JSON, no other text: {"capacity": <number or null>, "venueType": "<Arena|Stadium|Amphitheater|Theater|Concert Hall|Club|Ballroom|Pavilion|Lounge|Music Venue|Festival Grounds or null>", "openAir": <true|false|null>}`
           }]
         });
+        apiTracker.track('anthropic', '/messages', Date.now() - claudeStart, 200, false);
         const text = message.content[0]?.text?.trim();
         if (!text) return null;
 
@@ -644,6 +648,7 @@ class TicketmasterService {
         };
       } catch (error) {
         const status = error?.status || error?.response?.status;
+        apiTracker.track('anthropic', '/messages', Date.now() - claudeStart, status || 0, true);
         const retryable = status >= 500 || status === 429 || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET';
 
         if (retryable && attempt < maxRetries) {

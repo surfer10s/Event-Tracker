@@ -11,7 +11,8 @@ const ADMIN_SIDEBAR_CONFIG = {
         { href: 'admin-sync.html', icon: 'sync', label: 'Background Sync' },
         { href: 'admin-notifications.html', icon: 'bell', label: 'Notifications' },
         { href: 'admin-music-taste.html', icon: 'heart', label: 'Music Taste' },
-        { href: 'admin-users.html', icon: 'user', label: 'Users' }
+        { href: 'admin-users.html', icon: 'user', label: 'Users' },
+        { href: 'admin-api-usage.html', icon: 'activity', label: 'API Usage' }
     ],
     mainAppLink: { href: 'index.html', icon: 'home', label: 'Back to Event Tracker' }
 };
@@ -49,6 +50,9 @@ const ADMIN_SIDEBAR_ICONS = {
     user: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
+    </svg>`,
+    activity: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
     </svg>`,
     home: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>

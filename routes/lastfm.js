@@ -1,6 +1,8 @@
 // Last.fm API Routes
 const express = require('express');
 const router = express.Router();
+const apiTracker = require('../services/apiusagetracker');
+const lastfmFetch = apiTracker.trackedFetch('lastfm');
 
 const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
 
@@ -19,7 +21,7 @@ router.get('/similar/:artistName', async (req, res) => {
         
         const url = `${LASTFM_API_URL}?method=artist.getsimilar&artist=${encodeURIComponent(artistName)}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=${limit}`;
         
-        const response = await fetch(url);
+        const response = await lastfmFetch(url);
         const data = await response.json();
         
         if (data.error) {
@@ -79,7 +81,7 @@ router.get('/artist/:artistName', async (req, res) => {
         
         const url = `${LASTFM_API_URL}?method=artist.getinfo&artist=${encodeURIComponent(artistName)}&api_key=${process.env.LASTFM_API_KEY}&format=json`;
         
-        const response = await fetch(url);
+        const response = await lastfmFetch(url);
         const data = await response.json();
         
         if (data.error) {
@@ -129,7 +131,7 @@ router.get('/top-artists', async (req, res) => {
         
         const url = `${LASTFM_API_URL}?method=chart.gettopartists&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=${limit}`;
         
-        const response = await fetch(url);
+        const response = await lastfmFetch(url);
         const data = await response.json();
         
         if (data.error) {

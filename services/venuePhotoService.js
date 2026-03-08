@@ -1,6 +1,10 @@
 // Venue Photo Service
 // Fetches real venue photos from Wikipedia, Wikimedia Commons, and Google Places
 const axios = require('axios');
+const apiTracker = require('./apiusagetracker');
+
+const wikiAxios = apiTracker.createTrackedAxios('wikipedia', axios);
+const googleAxios = apiTracker.createTrackedAxios('google_places', axios);
 
 // Wikipedia/Wikimedia APIs require a User-Agent header or they return 403
 const WIKI_HEADERS = {
@@ -55,7 +59,7 @@ async function tryWikipediaPageImage(name, city) {
 
   for (const title of titles) {
     const url = 'https://en.wikipedia.org/w/api.php';
-    const res = await axios.get(url, {
+    const res = await wikiAxios.get(url, {
       params: {
         action: 'query',
         titles: title,
@@ -104,7 +108,7 @@ async function tryWikipediaPageImage(name, city) {
  */
 async function tryWikimediaCommons(name, city) {
   const searchUrl = 'https://commons.wikimedia.org/w/api.php';
-  const searchRes = await axios.get(searchUrl, {
+  const searchRes = await wikiAxios.get(searchUrl, {
     params: {
       action: 'query',
       list: 'search',
@@ -122,7 +126,7 @@ async function tryWikimediaCommons(name, city) {
 
   // Get image info for each result
   const fileTitles = results.map(r => r.title).join('|');
-  const infoRes = await axios.get(searchUrl, {
+  const infoRes = await wikiAxios.get(searchUrl, {
     params: {
       action: 'query',
       titles: fileTitles,
@@ -172,7 +176,7 @@ async function tryGooglePlacesPhoto(name, city, state) {
   if (!apiKey) return null;
 
   // Search for the place
-  const searchRes = await axios.post(
+  const searchRes = await googleAxios.post(
     'https://places.googleapis.com/v1/places:searchText',
     { textQuery: `${name}, ${city}, ${state}` },
     {
@@ -192,7 +196,7 @@ async function tryGooglePlacesPhoto(name, city, state) {
   const photoName = photo.name; // e.g. "places/xxx/photos/yyy"
 
   // Get the actual photo URL
-  const mediaRes = await axios.get(
+  const mediaRes = await googleAxios.get(
     `https://places.googleapis.com/v1/${photoName}/media`,
     {
       params: {

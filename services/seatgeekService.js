@@ -2,6 +2,7 @@
 // Focused on fetching resale pricing data to enrich Ticketmaster events
 
 const axios = require('axios');
+const apiTracker = require('./apiusagetracker');
 
 const SEATGEEK_BASE_URL = 'https://api.seatgeek.com/2';
 
@@ -10,7 +11,8 @@ class SeatGeekService {
     this.clientId = process.env.SEATGEEK_API_KEY;
     this.clientSecret = process.env.SEATGEEK_CLIENT_SECRET;
     this.affiliateId = process.env.SEATGEEK_AFFILIATE_ID;
-    
+    this.axios = apiTracker.createTrackedAxios('seatgeek', axios);
+
     if (!this.clientId) {
       console.warn('WARNING: SeatGeek API key not found in environment variables');
     }
@@ -31,7 +33,7 @@ class SeatGeekService {
     try {
       const { perPage = 25, page = 1 } = options;
       
-      const response = await axios.get(`${SEATGEEK_BASE_URL}/events`, {
+      const response = await this.axios.get(`${SEATGEEK_BASE_URL}/events`, {
         params: {
           'performers.slug': this.slugify(performerName),
           per_page: perPage,
@@ -65,7 +67,7 @@ class SeatGeekService {
     try {
       const { perPage = 25, page = 1 } = options;
       
-      const response = await axios.get(`${SEATGEEK_BASE_URL}/events`, {
+      const response = await this.axios.get(`${SEATGEEK_BASE_URL}/events`, {
         params: {
           q: query,
           per_page: perPage,
@@ -92,7 +94,7 @@ class SeatGeekService {
   // Get a specific event by SeatGeek ID
   async getEventById(seatgeekId) {
     try {
-      const response = await axios.get(`${SEATGEEK_BASE_URL}/events/${seatgeekId}`, {
+      const response = await this.axios.get(`${SEATGEEK_BASE_URL}/events/${seatgeekId}`, {
         params: {
           client_id: this.clientId
         }
@@ -170,7 +172,7 @@ class SeatGeekService {
   // Get pricing data for an event
   async getPricingData(seatgeekEventId) {
     try {
-      const response = await axios.get(`${SEATGEEK_BASE_URL}/events/${seatgeekEventId}`, {
+      const response = await this.axios.get(`${SEATGEEK_BASE_URL}/events/${seatgeekEventId}`, {
         params: {
           client_id: this.clientId
         }
@@ -323,7 +325,7 @@ class SeatGeekService {
   // Search performers
   async searchPerformers(query) {
     try {
-      const response = await axios.get(`${SEATGEEK_BASE_URL}/performers`, {
+      const response = await this.axios.get(`${SEATGEEK_BASE_URL}/performers`, {
         params: {
           q: query,
           client_id: this.clientId
@@ -356,7 +358,7 @@ class SeatGeekService {
   // Test API connection
   async testConnection() {
     try {
-      const response = await axios.get(`${SEATGEEK_BASE_URL}/events`, {
+      const response = await this.axios.get(`${SEATGEEK_BASE_URL}/events`, {
         params: {
           per_page: 1,
           client_id: this.clientId

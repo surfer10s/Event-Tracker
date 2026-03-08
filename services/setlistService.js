@@ -3,6 +3,7 @@
 // Cross-reference tour data, get setlists, venue history, and artist stats
 
 const axios = require('axios');
+const apiTracker = require('./apiusagetracker');
 const Artist = require('../models/artist');
 const SetlistCache = require('../models/setlistcache');
 
@@ -12,7 +13,8 @@ const SETLIST_BASE_URL = 'https://api.setlist.fm/rest/1.0';
 class SetlistService {
   constructor() {
     this.apiKey = process.env.SETLISTFM_API_KEY;
-    
+    this.axios = apiTracker.createTrackedAxios('setlistfm', axios);
+
     if (!this.apiKey) {
       console.warn('WARNING: Setlist.fm API key not found in environment variables');
     }
@@ -29,7 +31,7 @@ class SetlistService {
   // Search for artists on Setlist.fm
   async searchArtists(query) {
     try {
-      const response = await axios.get(`${SETLIST_BASE_URL}/search/artists`, {
+      const response = await this.axios.get(`${SETLIST_BASE_URL}/search/artists`, {
         params: {
           artistName: query,
           p: 1,
@@ -72,7 +74,7 @@ class SetlistService {
   // Get artist details by MusicBrainz ID
   async getArtist(mbid) {
     try {
-      const response = await axios.get(`${SETLIST_BASE_URL}/artist/${mbid}`, {
+      const response = await this.axios.get(`${SETLIST_BASE_URL}/artist/${mbid}`, {
         headers: this.getHeaders()
       });
 
@@ -93,7 +95,7 @@ class SetlistService {
   // Get artist setlists (caches results as side effect)
   async getArtistSetlists(mbid, page = 1) {
     try {
-      const response = await axios.get(`${SETLIST_BASE_URL}/artist/${mbid}/setlists`, {
+      const response = await this.axios.get(`${SETLIST_BASE_URL}/artist/${mbid}/setlists`, {
         params: {
           p: page
         },
@@ -184,7 +186,7 @@ class SetlistService {
         return { success: true, setlist: cached, fromCache: true };
       }
 
-      const response = await axios.get(`${SETLIST_BASE_URL}/setlist/${setlistId}`, {
+      const response = await this.axios.get(`${SETLIST_BASE_URL}/setlist/${setlistId}`, {
         headers: this.getHeaders()
       });
 
@@ -233,7 +235,7 @@ class SetlistService {
       if (venueName) queryParams.venueName = venueName;
       if (year) queryParams.year = year;
 
-      const response = await axios.get(`${SETLIST_BASE_URL}/search/setlists`, {
+      const response = await this.axios.get(`${SETLIST_BASE_URL}/search/setlists`, {
         params: queryParams,
         headers: this.getHeaders()
       });
@@ -280,7 +282,7 @@ class SetlistService {
   // Get venue information
   async getVenue(venueId) {
     try {
-      const response = await axios.get(`${SETLIST_BASE_URL}/venue/${venueId}`, {
+      const response = await this.axios.get(`${SETLIST_BASE_URL}/venue/${venueId}`, {
         headers: this.getHeaders()
       });
 
