@@ -38,6 +38,7 @@
 - Setlist.fm - Concert setlists
 - Last.fm - Artist recommendations
 - YouTube OAuth - Music taste extraction
+- Spotify OAuth - Music taste extraction, playlist creation
 - Google Geocoding - Location services
 - Anthropic Claude AI (Haiku) - Venue capacity, type classification, indoor/outdoor detection
 
@@ -82,7 +83,8 @@ event-tracker-backend/
 │   ├── seatgeek.js              # /api/v1/seatgeek/*
 │   ├── artistCache.js           # /api/v1/artist-cache/*
 │   ├── test.js                  # /api/v1/test/*
-│   └── youtube.js               # /auth/youtube/*, /api/youtube/*
+│   ├── youtube.js               # /auth/youtube/*, /api/youtube/*
+│   └── spotify.js               # /auth/spotify/*, /api/spotify/*
 ├── services/                    # Reusable business logic
 │   ├── ticketmasterService.js   # TM API + venue enrichment + Claude AI lookup
 │   ├── seatgeekService.js
@@ -187,6 +189,15 @@ event-tracker-backend/
 - Cover song handling: tries performing artist first, falls back to original
 - Cached search results with lazy invalidation for unavailable videos
 
+### Spotify Integration
+- OAuth 2.0 connection (scopes: user-library-read, playlist-modify-public/private, playlist-read-private, user-read-private, user-follow-read)
+- Music taste sync: followed artists, saved tracks, playlist tracks
+- Track search with SongCache (artist+title → trackId/trackUri)
+- Playlist creation from past concert setlists (via artist-profile page)
+- Cover song handling: tries performing artist first, falls back to original
+- Batch track add (up to 100 URIs per request)
+- Token refresh uses Basic auth header (base64 client_id:client_secret)
+
 ### Background Sync System
 - Periodic full sync of artist events
 - Real-time progress via Server-Sent Events (SSE)
@@ -206,6 +217,7 @@ event-tracker-backend/
 - Concert preferences (budget, seat section)
 - Geocoded location (lat/lng)
 - YouTube OAuth tokens
+- Spotify OAuth tokens (spotifyMusic subdocument)
 - Favorite artists array
 - Admin flag
 
@@ -252,8 +264,8 @@ event-tracker-backend/
 - Deduplication
 
 ### UserMusicTaste
-- YouTube-extracted artists
-- Video counts and sources
+- YouTube and Spotify extracted artists
+- Video/track counts and sources (liked, playlist, spotify_follow, spotify_saved, spotify_playlist)
 - Sync history
 
 ### Venue
@@ -268,7 +280,7 @@ event-tracker-backend/
 - Static method: `findOrCreateFromEventVenue()` for dedup on event import
 
 ### SongCache
-- YouTube video cache
+- YouTube video cache + Spotify track cache
 - Artist + title → videoId mapping
 
 ## Important API Endpoints
@@ -355,6 +367,11 @@ YOUTUBE_CLIENT_ID=xxxxx
 YOUTUBE_CLIENT_SECRET=xxxxx
 YOUTUBE_REDIRECT_URI=http://localhost:5000/auth/youtube/callback
 
+# Spotify OAuth
+SPOTIFY_CLIENT_ID=xxxxx
+SPOTIFY_CLIENT_SECRET=xxxxx
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:5000/auth/spotify/callback
+
 # Google Login OAuth (same client as YouTube, different redirect)
 GOOGLE_LOGIN_REDIRECT_URI=http://localhost:5000/api/v1/auth/google/callback
 
@@ -419,6 +436,14 @@ node scripts/make-admin.js <email>
 - Refresh tokens may expire after 7 days if Google app is in "Testing" mode
 - Publish app in Google Cloud Console for indefinite refresh tokens
 - Access type must be `offline` to get refresh tokens
+
+### Spotify OAuth
+- Tokens expire after 1 hour but auto-refresh
+- Token refresh uses `Authorization: Basic base64(client_id:client_secret)` header
+- Spotify may return a new refresh token on refresh — always save it
+- App in **Development Mode** — only allowlisted users can use write operations (playlist create/modify)
+- Add users in Spotify Developer Dashboard → Settings → User Management
+- Local redirect URI uses `127.0.0.1` (not `localhost`) — must match exactly in dashboard
 
 ### File Naming
 - All model files and HTML pages have been normalized to **lowercase** for Linux compatibility
@@ -485,7 +510,8 @@ node scripts/make-admin.js <email>
 - YouTube: 10,000 quota units/day (search = 100 units)
 - Setlist.fm: No official limit, respect rate limiting
 - Anthropic Claude AI: API key required, ~$0.001-0.003 per venue lookup using Haiku model
-- Song cache reduces YouTube API usage
+- Spotify: No strict daily quota, but rate limited (429 responses with Retry-After header)
+- Song cache reduces YouTube and Spotify API usage
 
 ## Frontend Pages Summary
 
@@ -566,11 +592,17 @@ nginx -t && systemctl restart nginx  # Test & restart Nginx
 - **Google OAuth app is in "Testing" mode** — YouTube sync limited to approved test users
 - To allow public access: Google Cloud Console → OAuth consent screen → Publish App
 
+### Spotify OAuth (Production)
+- Spotify Developer Dashboard has redirect URIs for both localhost and production
+- Production redirect URI: `https://eventtracker.cloud/auth/spotify/callback`
+- **Spotify app in Development Mode** — only allowlisted users can create/modify playlists
+
 ### Production .env Differences
 - `NODE_ENV=production`
 - `FRONTEND_URL=https://eventtracker.cloud`
 - `YOUTUBE_REDIRECT_URI=https://eventtracker.cloud/auth/youtube/callback`
 - `GOOGLE_LOGIN_REDIRECT_URI=https://eventtracker.cloud/api/v1/auth/google/callback`
+- `SPOTIFY_REDIRECT_URI=https://eventtracker.cloud/auth/spotify/callback`
 
 ### DNS
 - Domain: `eventtracker.cloud`
@@ -580,6 +612,6 @@ nginx -t && systemctl restart nginx  # Test & restart Nginx
 
 ---
 
-**Last Updated**: 2026-03-04
-**Version**: 1.3.0
+**Last Updated**: 2026-03-07
+**Version**: 1.4.0
 **Author**: Billy Wagner
