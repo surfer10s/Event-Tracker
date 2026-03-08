@@ -149,18 +149,6 @@ venueSchema.pre('save', function (next) {
 venueSchema.statics.findOrCreateFromEventVenue = async function (venueData) {
     const key = `${(venueData.name || '').toLowerCase()}|${(venueData.city || '').toLowerCase()}|${(venueData.state || '').toUpperCase()}`;
 
-    // Search including inactive venues to avoid creating duplicates
-    let venue = await this.findOne({ normalizedKey: key, includeInactive: true });
-    if (venue) {
-        // Reactivate soft-deleted venues that have new events
-        if (venue.isActive === false) {
-            venue.isActive = true;
-            await venue.save();
-            console.log(`[Venue] Reactivated "${venue.name}" (${venue.city}, ${venue.state}) — new event activity`);
-        }
-        return venue;
-    }
-
     // Build location if coordinates exist
     let location;
     if (venueData.location?.coordinates?.length === 2) {
@@ -170,23 +158,33 @@ venueSchema.statics.findOrCreateFromEventVenue = async function (venueData) {
         };
     }
 
-    venue = await this.create({
-        name: venueData.name,
-        address: venueData.address,
-        city: venueData.city,
-        state: venueData.state,
-        country: venueData.country || 'US',
-        zipCode: venueData.zipCode,
-        location,
-        capacity: venueData.capacity,
-        ...(venueData.venueType && { venueType: venueData.venueType }),
-        ...(venueData.url && { url: venueData.url }),
-        ...(venueData.generalInfo && { generalInfo: venueData.generalInfo }),
-        ...(venueData.boxOfficeInfo && { boxOfficeInfo: venueData.boxOfficeInfo }),
-        ...(venueData.parkingDetail && { parkingDetail: venueData.parkingDetail }),
-        ...(venueData.accessibleSeatingDetail && { accessibleSeatingDetail: venueData.accessibleSeatingDetail }),
-        ...(venueData.social && { social: venueData.social })
-    });
+    // Atomic upsert to avoid race condition duplicates
+    // includeInactive in query filter so pre-find middleware doesn't exclude inactive venues
+    const venue = await this.findOneAndUpdate(
+        { normalizedKey: key, includeInactive: true },
+        {
+            $setOnInsert: {
+                name: venueData.name,
+                normalizedKey: key,
+                address: venueData.address,
+                city: venueData.city,
+                state: venueData.state,
+                country: venueData.country || 'US',
+                zipCode: venueData.zipCode,
+                ...(location && { location }),
+                capacity: venueData.capacity,
+                ...(venueData.venueType && { venueType: venueData.venueType }),
+                ...(venueData.url && { url: venueData.url }),
+                ...(venueData.generalInfo && { generalInfo: venueData.generalInfo }),
+                ...(venueData.boxOfficeInfo && { boxOfficeInfo: venueData.boxOfficeInfo }),
+                ...(venueData.parkingDetail && { parkingDetail: venueData.parkingDetail }),
+                ...(venueData.accessibleSeatingDetail && { accessibleSeatingDetail: venueData.accessibleSeatingDetail }),
+                ...(venueData.social && { social: venueData.social })
+            },
+            $set: { isActive: true }
+        },
+        { upsert: true, new: true }
+    );
 
     return venue;
 };

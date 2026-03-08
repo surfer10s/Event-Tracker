@@ -284,25 +284,25 @@ class TicketmasterService {
         'externalIds.ticketmaster': formattedEvent.externalIds.ticketmaster
       });
 
-      // Find or create the artist
-      let artist = await Artist.findOne({
-        'externalIds.ticketmaster': formattedEvent.artistInfo.externalId
-      });
-
-      if (!artist) {
-        artist = await Artist.create({
-          name: formattedEvent.artistInfo.name,
-          externalIds: {
-            ticketmaster: formattedEvent.artistInfo.externalId
-          },
-          genre: formattedEvent.artistInfo.genre ? [formattedEvent.artistInfo.genre] : [],
-          images: {
-            large: formattedEvent.artistInfo.images?.[0]?.url
-          },
-          tourStatus: 'active',
-          lastUpdated: new Date()
-        });
-      }
+      // Find or create the artist (atomic upsert to avoid race condition duplicates)
+      let artist = await Artist.findOneAndUpdate(
+        { 'externalIds.ticketmaster': formattedEvent.artistInfo.externalId },
+        {
+          $setOnInsert: {
+            name: formattedEvent.artistInfo.name,
+            externalIds: {
+              ticketmaster: formattedEvent.artistInfo.externalId
+            },
+            genre: formattedEvent.artistInfo.genre ? [formattedEvent.artistInfo.genre] : [],
+            images: {
+              large: formattedEvent.artistInfo.images?.[0]?.url
+            },
+            tourStatus: 'active',
+            lastUpdated: new Date()
+          }
+        },
+        { upsert: true, new: true }
+      );
 
       // Update artist stats
       artist.stats.upcomingEvents = await Event.countDocuments({
