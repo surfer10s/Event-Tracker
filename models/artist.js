@@ -88,6 +88,11 @@ const artistSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+
+  // When TM events were last fetched for this artist (24hr cooldown)
+  lastEventsSyncedAt: {
+    type: Date
+  },
   
   // Whether this artist should be actively tracked
   // Set to false for inactive/disbanded artists to save API calls

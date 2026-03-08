@@ -406,7 +406,8 @@ class TicketmasterService {
         params: {
           apikey: this.apiKey,
           attractionId: artistId,
-          sort: 'date,asc'
+          sort: 'date,asc',
+          size: 200
         }
       });
 
