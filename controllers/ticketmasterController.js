@@ -2,6 +2,8 @@
 // Handles live searches directly to Ticketmaster API
 
 const ticketmasterService = require('../services/ticketmasterService');
+const Artist = require('../models/artist');
+const Event = require('../models/event');
 
 // Live search Ticketmaster API
 exports.liveSearch = async (req, res) => {
@@ -98,8 +100,32 @@ exports.searchArtists = async (req, res) => {
 exports.getArtistEvents = async (req, res) => {
   try {
     const { artistId } = req.params;
-    const { page = 0, size = 20 } = req.query;
+    const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+    // Check if we have fresh data in the database
+    const artist = await Artist.findOne({ 'externalIds.ticketmaster': artistId });
+
+    if (artist && artist.lastEventsSyncedAt) {
+      const age = Date.now() - new Date(artist.lastEventsSyncedAt).getTime();
+      if (age < COOLDOWN_MS) {
+        // Serve from database
+        const events = await Event.find({
+          artist: artist._id,
+          date: { $gte: new Date() }
+        }).sort({ date: 1 }).populate('artist');
+
+        console.log(`Serving ${events.length} cached events for ${artist.name} (synced ${Math.round(age / 3600000)}h ago)`);
+
+        return res.json({
+          success: true,
+          source: 'database',
+          count: events.length,
+          events: events
+        });
+      }
+    }
+
+    // Fetch fresh from Ticketmaster
     console.log(`Fetching live events for Ticketmaster artist: ${artistId}`);
 
     const result = await ticketmasterService.getArtistUpcomingEvents(artistId);
@@ -112,9 +138,15 @@ exports.getArtistEvents = async (req, res) => {
       });
     }
 
-    // Save to MongoDB in background
+    // Save to MongoDB in background and update cooldown
     if (result.events.length > 0) {
       saveEventsInBackground(result.events);
+    }
+
+    // Update lastEventsSyncedAt on the artist
+    if (artist) {
+      artist.lastEventsSyncedAt = new Date();
+      artist.save().catch(err => console.error('Error updating lastEventsSyncedAt:', err.message));
     }
 
     res.json({
