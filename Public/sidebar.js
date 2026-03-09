@@ -127,21 +127,21 @@ function generateNavItems() {
 
 function generateSidebarHTML() {
     return `
-        <aside id="sidebar" class="sidebar fixed left-0 top-0 bottom-0 w-64 bg-slate-800 text-white p-4 z-50">
-            <div class="flex items-center gap-3 mb-8 px-2">
+        <aside id="sidebar" class="sidebar fixed left-0 top-0 bottom-0 w-64 bg-slate-800 text-white flex flex-col z-50">
+            <div class="flex items-center gap-3 px-6 pt-4 pb-4 shrink-0">
                 <button onclick="toggleSidebar()" class="p-1 hover:bg-slate-700 rounded-lg">
                     ${SIDEBAR_ICONS.menu}
                 </button>
                 ${SIDEBAR_ICONS.music}
                 <span class="font-bold text-lg">Event Tracker</span>
             </div>
-            
-            <nav class="space-y-1">
+
+            <nav class="flex-1 overflow-y-auto px-4 space-y-1 overscroll-contain">
                 ${generateNavItems()}
             </nav>
-            
+
             <!-- Dark Mode Toggle -->
-            <div class="absolute bottom-20 left-4 right-4">
+            <div class="px-4 pt-2 shrink-0">
                 <button onclick="toggleDarkMode()" class="w-full flex items-center justify-between px-4 py-3 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
                     <span class="flex items-center gap-3">
                         <span id="darkModeIcon">${SIDEBAR_ICONS.moon}</span>
@@ -152,8 +152,8 @@ function generateSidebarHTML() {
                     </div>
                 </button>
             </div>
-            
-            <div class="absolute bottom-4 left-4 right-4">
+
+            <div class="px-4 pb-4 pt-2 shrink-0">
                 <a href="account-details.html" id="userSidebarInfo" class="bg-slate-700 rounded-lg p-4 hidden block hover:bg-slate-600 transition-colors">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center font-semibold text-slate-300" id="sidebarUserInitial">?</div>
@@ -166,7 +166,7 @@ function generateSidebarHTML() {
             </div>
         </aside>
 
-        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleSidebar()"></div>
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
     `;
 }
 
@@ -320,12 +320,16 @@ function toggleSidebar() {
     if (sidebarOpen) {
         sidebar.classList.remove('collapsed');
         if (window.innerWidth >= 1024) mainContent.classList.remove('expanded');
-        if (window.innerWidth < 1024) overlay.classList.remove('hidden');
+        if (window.innerWidth < 1024) {
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
         headerHamburger.classList.add('hidden');
     } else {
         sidebar.classList.add('collapsed');
         mainContent.classList.add('expanded');
         overlay.classList.add('hidden');
+        document.body.style.overflow = '';
         headerHamburger.classList.remove('hidden');
     }
 }
@@ -341,12 +345,14 @@ function handleSidebarResize() {
         mainContent.classList.remove('expanded');
         overlay.classList.add('hidden');
         headerHamburger.classList.add('hidden');
+        document.body.style.overflow = '';
         sidebarOpen = true;
     } else {
         sidebar.classList.add('collapsed');
         mainContent.classList.add('expanded');
         overlay.classList.add('hidden');
         headerHamburger.classList.remove('hidden');
+        document.body.style.overflow = '';
         sidebarOpen = false;
     }
 }
@@ -588,10 +594,24 @@ function initSidebar(pageTitle) {
     const isDark = document.body.classList.contains('dark-mode');
     updateDarkModeUI(isDark);
     
+    // Setup overlay close — only on taps, not scroll/drag gestures
+    const overlay = document.getElementById('sidebarOverlay');
+    if (overlay) {
+        let overlayTouchMoved = false;
+        overlay.addEventListener('touchstart', () => { overlayTouchMoved = false; }, { passive: true });
+        overlay.addEventListener('touchmove', () => { overlayTouchMoved = true; }, { passive: true });
+        overlay.addEventListener('click', () => {
+            if (!overlayTouchMoved) {
+                toggleSidebar();
+            }
+            overlayTouchMoved = false;
+        });
+    }
+
     // Initialize responsive behavior
     handleSidebarResize();
     window.addEventListener('resize', handleSidebarResize);
-    
+
     // Close user dropdown when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#userMenuContainer')) {

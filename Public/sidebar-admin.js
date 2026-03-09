@@ -103,25 +103,25 @@ function generateAdminNavItems() {
 function generateAdminSidebarHTML() {
     const mainApp = ADMIN_SIDEBAR_CONFIG.mainAppLink;
     return `
-        <aside id="sidebar" class="sidebar fixed left-0 top-0 bottom-0 w-64 bg-indigo-900 text-white p-4 z-50">
-            <div class="flex items-center gap-3 mb-8 px-2">
+        <aside id="sidebar" class="sidebar fixed left-0 top-0 bottom-0 w-64 bg-indigo-900 text-white flex flex-col z-50">
+            <div class="flex items-center gap-3 px-6 pt-4 pb-4 shrink-0">
                 <button onclick="toggleAdminSidebar()" class="p-1 hover:bg-indigo-700 rounded-lg">
                     ${ADMIN_SIDEBAR_ICONS.menu}
                 </button>
                 ${ADMIN_SIDEBAR_ICONS.settings}
                 <span class="font-bold text-lg">Admin Portal</span>
             </div>
-            
-            <nav class="space-y-1">
+
+            <nav class="flex-1 overflow-y-auto px-4 space-y-1 overscroll-contain">
                 ${generateAdminNavItems()}
             </nav>
-            
-            <div class="absolute bottom-4 left-4 right-4 space-y-2">
+
+            <div class="px-4 pb-4 pt-2 space-y-2 shrink-0">
                 <a href="${mainApp.href}" class="flex items-center gap-3 px-4 py-3 text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors border border-indigo-700">
                     ${ADMIN_SIDEBAR_ICONS[mainApp.icon]}
                     ${mainApp.label}
                 </a>
-                
+
                 <div id="userAdminSidebarInfo" class="bg-indigo-800 rounded-lg p-4 hidden">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-semibold text-indigo-200" id="adminSidebarUserInitial">?</div>
@@ -134,7 +134,7 @@ function generateAdminSidebarHTML() {
             </div>
         </aside>
 
-        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleAdminSidebar()"></div>
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
     `;
 }
 
@@ -200,16 +200,20 @@ function toggleAdminSidebar() {
     const headerHamburger = document.getElementById('headerHamburger');
     
     adminSidebarOpen = !adminSidebarOpen;
-    
+
     if (adminSidebarOpen) {
         sidebar.classList.remove('collapsed');
         if (window.innerWidth >= 1024) mainContent.classList.remove('expanded');
-        if (window.innerWidth < 1024) overlay.classList.remove('hidden');
+        if (window.innerWidth < 1024) {
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
         headerHamburger.classList.add('hidden');
     } else {
         sidebar.classList.add('collapsed');
         mainContent.classList.add('expanded');
         overlay.classList.add('hidden');
+        document.body.style.overflow = '';
         headerHamburger.classList.remove('hidden');
     }
 }
@@ -225,12 +229,14 @@ function handleAdminSidebarResize() {
         mainContent.classList.remove('expanded');
         overlay.classList.add('hidden');
         headerHamburger.classList.add('hidden');
+        document.body.style.overflow = '';
         adminSidebarOpen = true;
     } else {
         sidebar.classList.add('collapsed');
         mainContent.classList.add('expanded');
         overlay.classList.add('hidden');
         headerHamburger.classList.remove('hidden');
+        document.body.style.overflow = '';
         adminSidebarOpen = false;
     }
 }
@@ -312,9 +318,23 @@ async function initAdminSidebar(pageTitle) {
         headerContainer.innerHTML = generateAdminHeaderHTML(pageTitle);
     }
     
+    // Setup overlay close — only on taps, not scroll/drag gestures
+    const overlay = document.getElementById('sidebarOverlay');
+    if (overlay) {
+        let overlayTouchMoved = false;
+        overlay.addEventListener('touchstart', () => { overlayTouchMoved = false; }, { passive: true });
+        overlay.addEventListener('touchmove', () => { overlayTouchMoved = true; }, { passive: true });
+        overlay.addEventListener('click', () => {
+            if (!overlayTouchMoved) {
+                toggleAdminSidebar();
+            }
+            overlayTouchMoved = false;
+        });
+    }
+
     handleAdminSidebarResize();
     window.addEventListener('resize', handleAdminSidebarResize);
-    
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#userMenuContainer')) {
             const dropdown = document.getElementById('userDropdown');
