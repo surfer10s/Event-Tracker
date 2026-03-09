@@ -3,6 +3,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireAdmin } = require('../middleware/adminAuth');
 const ticketmasterService = require('../services/ticketmasterService');
 
 // Test: Search Ticketmaster API directly
@@ -38,7 +39,7 @@ router.get('/search', async (req, res) => {
 // Test: Import events to database
 // POST /api/v1/test/import
 // Body: { "keyword": "Taylor Swift", "city": "Los Angeles", "size": 5 }
-router.post('/import', async (req, res) => {
+router.post('/import', requireAdmin, async (req, res) => {
   try {
     const { keyword, city, stateCode, size = 10 } = req.body;
     
@@ -100,7 +101,7 @@ router.get('/artists', async (req, res) => {
 
 // Test: Get events from database
 // GET /api/v1/test/db-events
-router.get('/db-events', async (req, res) => {
+router.get('/db-events', requireAdmin, async (req, res) => {
   try {
     const Event = require('../models/event');
     
@@ -125,7 +126,7 @@ router.get('/db-events', async (req, res) => {
 
 // Test: Get artists from database
 // GET /api/v1/test/db-artists
-router.get('/db-artists', async (req, res) => {
+router.get('/db-artists', requireAdmin, async (req, res) => {
   try {
     const Artist = require('../models/artist');
     

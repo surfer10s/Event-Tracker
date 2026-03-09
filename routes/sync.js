@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/adminAuth');
 const backgroundSyncService = require('../services/backgroundSyncService');
 const notificationService = require('../services/notificationService');
 
@@ -58,7 +59,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // POST /api/v1/sync/full - Run full sync for all artists (admin)
-router.post('/full', protect, async (req, res) => {
+router.post('/full', requireAdmin, async (req, res) => {
     try {
         console.log(`Full sync triggered by user: ${req.user.username}`);
         
@@ -79,7 +80,7 @@ router.post('/full', protect, async (req, res) => {
 });
 
 // POST /api/v1/sync/full-blocking - Run full sync and wait for result (admin)
-router.post('/full-blocking', protect, async (req, res) => {
+router.post('/full-blocking', requireAdmin, async (req, res) => {
     try {
         console.log(`Full sync (blocking) triggered by user: ${req.user.username}`);
         const result = await backgroundSyncService.runFullSync({ verbose: true });
@@ -100,8 +101,8 @@ router.post('/my-artists', protect, async (req, res) => {
     }
 });
 
-// POST /api/v1/sync/full-pipeline - Run full sync + notification check + send digests
-router.post('/full-pipeline', protect, async (req, res) => {
+// POST /api/v1/sync/full-pipeline - Run full sync + notification check + send digests (admin)
+router.post('/full-pipeline', requireAdmin, async (req, res) => {
     try {
         console.log(`\n========================================`);
         console.log(`FULL PIPELINE triggered by: ${req.user.username}`);
@@ -207,7 +208,7 @@ router.post('/my-pipeline', protect, async (req, res) => {
 });
 
 // POST /api/v1/sync/cleanup - Clean up old events (admin)
-router.post('/cleanup', protect, async (req, res) => {
+router.post('/cleanup', requireAdmin, async (req, res) => {
     try {
         const { daysOld = 30 } = req.body;
         const result = await backgroundSyncService.cleanupOldEvents(daysOld);
@@ -217,8 +218,8 @@ router.post('/cleanup', protect, async (req, res) => {
     }
 });
 
-// GET /api/v1/sync/venue-enrich-stats - Get venue enrichment statistics
-router.get('/venue-enrich-stats', protect, async (req, res) => {
+// GET /api/v1/sync/venue-enrich-stats - Get venue enrichment statistics (admin)
+router.get('/venue-enrich-stats', requireAdmin, async (req, res) => {
     try {
         const Venue = require('../models/venue');
         const total = await Venue.countDocuments();
@@ -239,7 +240,7 @@ router.get('/venue-enrich-stats', protect, async (req, res) => {
 
 // POST /api/v1/sync/enrich-venues - Batch enrich all venues missing data (admin)
 // Body: { retryIncomplete: true } to re-try venues still missing capacity/type/openAir
-router.post('/enrich-venues', protect, async (req, res) => {
+router.post('/enrich-venues', requireAdmin, async (req, res) => {
     try {
         const ticketmasterService = require('../services/ticketmasterService');
         const retryIncomplete = req.body?.retryIncomplete || false;
@@ -258,8 +259,8 @@ router.post('/enrich-venues', protect, async (req, res) => {
     }
 });
 
-// GET /api/v1/sync/artists - Get list of artists that will be synced
-router.get('/artists', protect, async (req, res) => {
+// GET /api/v1/sync/artists - Get list of artists that will be synced (admin)
+router.get('/artists', requireAdmin, async (req, res) => {
     try {
         const artists = await backgroundSyncService.getArtistsToSync();
         res.json({ 

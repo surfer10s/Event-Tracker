@@ -3,11 +3,11 @@
 
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/adminAuth');
 const artistCacheService = require('../services/artistCacheService');
 
 // GET /api/v1/artist-cache/stats - Get cache job statistics
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', requireAdmin, async (req, res) => {
     try {
         const stats = artistCacheService.getCacheStats();
         res.json({ success: true, stats });
@@ -17,7 +17,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // GET /api/v1/artist-cache/coverage - Get cache coverage info
-router.get('/coverage', protect, async (req, res) => {
+router.get('/coverage', requireAdmin, async (req, res) => {
     try {
         const coverage = await artistCacheService.getCacheCoverage();
         res.json({ success: true, coverage });
@@ -27,7 +27,7 @@ router.get('/coverage', protect, async (req, res) => {
 });
 
 // GET /api/v1/artist-cache/uncached - Get list of uncached artists
-router.get('/uncached', protect, async (req, res) => {
+router.get('/uncached', requireAdmin, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
         const uncached = await artistCacheService.getUncachedArtists();
@@ -42,7 +42,7 @@ router.get('/uncached', protect, async (req, res) => {
 });
 
 // POST /api/v1/artist-cache/run - Run the cache job
-router.post('/run', protect, async (req, res) => {
+router.post('/run', requireAdmin, async (req, res) => {
     try {
         const { maxArtists = 100, dryRun = false } = req.body;
         
@@ -62,7 +62,7 @@ router.post('/run', protect, async (req, res) => {
 });
 
 // POST /api/v1/artist-cache/single - Cache a single artist by name
-router.post('/single', protect, async (req, res) => {
+router.post('/single', requireAdmin, async (req, res) => {
     try {
         const { artistName } = req.body;
         

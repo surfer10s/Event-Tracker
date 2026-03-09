@@ -96,18 +96,6 @@ tourSchema.index({ status: 1 });
 // Compound index for finding active tours by artist
 tourSchema.index({ artist: 1, status: 1, startDate: 1 });
 
-// Static method to find active tours
-tourSchema.statics.findActiveTours = function() {
-  return this.find({
-    status: { $in: ['on_sale', 'in_progress'] },
-    startDate: { $lte: new Date() },
-    $or: [
-      { endDate: { $gte: new Date() } },
-      { endDate: null }
-    ]
-  }).populate('artist');
-};
-
 // Instance method to check if tour is currently happening
 tourSchema.methods.isActive = function() {
   const now = new Date();

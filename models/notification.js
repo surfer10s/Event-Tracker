@@ -79,13 +79,6 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ userId: 1, status: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, eventHash: 1 }, { unique: true });
 
-// Static method to check if notification already exists
-notificationSchema.statics.exists = async function(userId, eventId) {
-    const hash = `${userId}-${eventId}`;
-    const existing = await this.findOne({ eventHash: hash });
-    return !!existing;
-};
-
 // Static method to create notification if not exists
 notificationSchema.statics.createIfNew = async function(data) {
     const hash = `${data.userId}-${data.eventId}`;
@@ -124,18 +117,6 @@ notificationSchema.statics.getUnreadCount = async function(userId) {
         status: { $in: ['pending', 'sent'] },
         channel: 'in_app'
     });
-};
-
-// Static method to get notifications for daily digest
-notificationSchema.statics.getPendingDigest = async function(userId) {
-    return await this.find({
-        userId,
-        status: 'pending',
-        channel: 'email'
-    })
-    .sort({ tier: 1, eventDate: 1 }) // Favorites first, then by date
-    .populate('artistId', 'name images')
-    .populate('eventId');
 };
 
 // Mark as read

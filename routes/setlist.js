@@ -3,6 +3,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireAdmin } = require('../middleware/adminAuth');
 const setlistController = require('../controllers/setlistController');
 
 // GET /api/v1/setlist/search - Search for setlists (simplified endpoint)
@@ -58,7 +59,7 @@ router.get('/setlist/:setlistId', setlistController.getSetlist);
 // POST /api/v1/setlist/link/:artistId - Link a database artist with Setlist.fm
 // Params: artistId (MongoDB ObjectId)
 // Example: POST /api/v1/setlist/link/507f1f77bcf86cd799439011
-router.post('/link/:artistId', setlistController.linkArtist);
+router.post('/link/:artistId', requireAdmin, setlistController.linkArtist);
 
 // GET /api/v1/setlist/db-artist/:artistId/setlists - Get setlists for a database artist
 // Params: artistId (MongoDB ObjectId)

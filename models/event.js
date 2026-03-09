@@ -206,36 +206,6 @@ eventSchema.index({ artist: 1, date: 1, 'ticketInfo.status': 1 });
 // Index for venue reference queries
 eventSchema.index({ venueRef: 1, date: 1 });
 
-// Static method to find upcoming events
-eventSchema.statics.findUpcoming = function(limit = 50) {
-  return this.find({
-    date: { $gte: new Date() },
-    'ticketInfo.status': { $in: ['on_sale', 'not_yet_on_sale'] }
-  })
-  .sort({ date: 1 })
-  .limit(limit)
-  .populate('artist');
-};
-
-// Static method to find events near a location
-eventSchema.statics.findNearby = function(coordinates, maxDistance = 50) {
-  // maxDistance in miles, convert to meters
-  const meters = maxDistance * 1609.34;
-  
-  return this.find({
-    'venue.coordinates': {
-      $near: {
-        $geometry: {
-          type: 'Point',
-          coordinates: coordinates  // [longitude, latitude]
-        },
-        $maxDistance: meters
-      }
-    },
-    date: { $gte: new Date() }
-  });
-};
-
 // Instance method to increment click count (for tracking affiliate performance)
 eventSchema.methods.recordClick = async function(platform) {
   this.clickCount += 1;

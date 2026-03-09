@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/notification');
 const { protect } = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/adminAuth');
 const notificationService = require('../services/notificationService');
 const nodemailer = require('nodemailer');
 
@@ -157,8 +158,8 @@ router.post('/check', protect, async (req, res) => {
     }
 });
 
-// POST /api/v1/notifications/check-all - Admin: Check all users (protected - add admin check in production)
-router.post('/check-all', protect, async (req, res) => {
+// POST /api/v1/notifications/check-all - Admin: Check all users
+router.post('/check-all', requireAdmin, async (req, res) => {
     try {
         const result = await notificationService.checkEventsForAllUsers();
         res.json(result);
@@ -180,7 +181,7 @@ router.post('/send-digest', protect, async (req, res) => {
 });
 
 // POST /api/v1/notifications/send-all-digests - Admin: Send digests to all users
-router.post('/send-all-digests', protect, async (req, res) => {
+router.post('/send-all-digests', requireAdmin, async (req, res) => {
     try {
         const result = await sendAllDailyDigests();
         res.json(result);

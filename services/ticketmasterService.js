@@ -472,50 +472,6 @@ class TicketmasterService {
     }
   }
 
-  // Check inventory status for events (requires Inventory Status API access)
-  // Contact devportalinquiry@ticketmaster.com to request access
-  async checkInventoryStatus(eventIds) {
-    try {
-      // eventIds should be an array of Ticketmaster event IDs
-      const ids = Array.isArray(eventIds) ? eventIds.join(',') : eventIds;
-      
-      const response = await this.axios.get('https://app.ticketmaster.com/inventory-status/v1/availability', {
-        params: {
-          apikey: this.apiKey,
-          events: ids
-        }
-      });
-
-      // Response format:
-      // [{ 
-      //   eventId: "xxx",
-      //   status: "TICKETS_AVAILABLE" | "TICKETS_NOT_AVAILABLE",
-      //   resaleStatus: "TICKETS_AVAILABLE" | "TICKETS_NOT_AVAILABLE",
-      //   currency: "USD",
-      //   priceRanges: [
-      //     { type: "primary", minPrice: 59.00, maxPrice: 249.00, listingsExtendBeyondMax: false },
-      //     { type: "resale", minPrice: 69.00, maxPrice: 2000.00, listingsExtendBeyondMax: true }
-      //   ]
-      // }]
-      
-      return {
-        success: true,
-        inventory: response.data
-      };
-
-    } catch (error) {
-      // If 403, likely don't have access to this API
-      if (error.response?.status === 403) {
-        console.log('Inventory Status API requires authorization. Contact devportalinquiry@ticketmaster.com');
-      }
-      return {
-        success: false,
-        error: error.message,
-        needsAuth: error.response?.status === 403
-      };
-    }
-  }
-
   // Fetch detailed venue info from TM Discovery API
   async getVenueDetails(tmVenueId) {
     try {
@@ -848,57 +804,6 @@ class TicketmasterService {
     return venueDoc;
   }
 
-  // Update events in database with inventory status
-  async updateEventInventory(eventId) {
-    try {
-      // Find event in our database
-      const event = await Event.findOne({ 'externalIds.ticketmaster': eventId });
-      if (!event) {
-        return { success: false, error: 'Event not found' };
-      }
-
-      // Check inventory status
-      const inventoryResult = await this.checkInventoryStatus(eventId);
-      if (!inventoryResult.success) {
-        return inventoryResult;
-      }
-
-      const inventory = inventoryResult.inventory[0];
-      if (!inventory) {
-        return { success: false, error: 'No inventory data returned' };
-      }
-
-      // Update event with inventory data
-      event.ticketInfo.status = inventory.status === 'TICKETS_AVAILABLE' ? 'on_sale' : 'sold_out';
-      event.ticketInfo.resaleStatus = inventory.resaleStatus === 'TICKETS_AVAILABLE' ? 'available' : 'not_available';
-      
-      // Update price ranges from inventory API (more accurate/real-time)
-      if (inventory.priceRanges) {
-        event.ticketInfo.priceRanges = inventory.priceRanges.map(pr => ({
-          type: pr.type,
-          min: pr.minPrice,
-          max: pr.maxPrice,
-          currency: inventory.currency
-        }));
-        
-        // Update main min/max from primary prices
-        const primary = inventory.priceRanges.find(pr => pr.type === 'primary');
-        if (primary) {
-          event.ticketInfo.minPrice = primary.minPrice;
-          event.ticketInfo.maxPrice = primary.maxPrice;
-        }
-      }
-      
-      event.ticketInfo.lastInventoryCheck = new Date();
-      await event.save();
-
-      return { success: true, event };
-
-    } catch (error) {
-      console.error('Error updating event inventory:', error.message);
-      return { success: false, error: error.message };
-    }
-  }
 }
 
 // Export singleton instance

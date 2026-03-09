@@ -115,17 +115,6 @@ artistSchema.index({ nextTourDate: 1 });
 // Index for text search (allows searching artist names)
 artistSchema.index({ name: 'text', genre: 'text' });
 
-// Static method to find artists by tour status
-// Static methods are like stored procedures - called on the model itself
-artistSchema.statics.findByTourStatus = function(status) {
-  return this.find({ tourStatus: status, isActive: true });
-};
-
-// Instance method to check if artist has upcoming events
-artistSchema.methods.hasUpcomingEvents = function() {
-  return this.stats.upcomingEvents > 0;
-};
-
 // Virtual for checking if data is stale (older than 24 hours)
 artistSchema.virtual('needsUpdate').get(function() {
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

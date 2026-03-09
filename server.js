@@ -124,9 +124,6 @@ app.use(`${API_PREFIX}/artists`, require('./routes/artists'));
 // API Usage admin routes - /api/v1/admin/api-usage/...
 app.use(`${API_PREFIX}/admin/api-usage`, require('./routes/apiusage'));
 
-// Tour routes - /api/v1/tours/...
-// app.use(`${API_PREFIX}/tours`, require('./routes/tours'));
-
 // 404 handler - catches all unmatched routes
 app.use((req, res) => {
   res.status(404).json({ 

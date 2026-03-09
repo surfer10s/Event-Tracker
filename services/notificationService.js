@@ -356,8 +356,5 @@ function escapeRegex(string) {
 
 module.exports = {
     checkEventsForUser,
-    checkEventsForAllUsers,
-    calculateDistance,
-    getCoordinates,
-    getVenueCoordinates
+    checkEventsForAllUsers
 };

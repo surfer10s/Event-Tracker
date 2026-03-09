@@ -3,6 +3,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireAdmin } = require('../middleware/adminAuth');
 const ticketmasterController = require('../controllers/ticketmasterController');
 
 // GET /api/v1/ticketmaster/search - Live search Ticketmaster API
@@ -22,6 +23,6 @@ router.get('/artist/:artistId/events', ticketmasterController.getArtistEvents);
 
 // POST /api/v1/ticketmaster/import - Import events to database
 // Body: { "keyword": "artist name", "city": "optional", "size": 20 }
-router.post('/import', ticketmasterController.importEvents);
+router.post('/import', requireAdmin, ticketmasterController.importEvents);
 
 module.exports = router;
