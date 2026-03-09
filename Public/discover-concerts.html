@@ -5,56 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discover Concerts - Event Tracker</title>
     <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar.js"></script>
 </head>
-<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen">
-    <header class="bg-white shadow-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-bold text-gray-900">Discover Concerts</h1>
-                <div class="flex items-center gap-3">
-                    <a href="Event-Tracker.html" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                        Home
-                    </a>
-                    <a href="favorites.html" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                        Favorites
-                    </a>
-                    <div class="relative" id="userMenuContainer" style="z-index: 9999;">
-                        <button id="userMenuButton" onclick="toggleUserMenu()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 font-semibold text-gray-700">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                            <span id="userMenuName">Account</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </button>
-                        
-                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-gray-200">
-                            <a href="account-details.html" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                                Account Details
-                            </a>
-                            <hr class="my-1">
-                            <button onclick="logout()" class="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                    <polyline points="16 17 21 12 16 7"></polyline>
-                                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                                </svg>
-                                Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+<body class="bg-slate-100 min-h-screen">
+    <div id="sidebar-container"></div>
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
         <!-- Info Banner -->
         <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6 mb-6">
             <div class="flex items-start gap-4">
@@ -197,9 +156,10 @@
         <!-- Loading State -->
         <div id="loadingState" class="hidden bg-white rounded-lg shadow p-12 text-center">
             <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mb-4"></div>
-            <p class="text-lg text-gray-600">Finding concerts for you...</p>
+            <p class="text-lg text-slate-600">Finding concerts for you...</p>
         </div>
-    </div>
+        </div>
+    </main>
 
     <script>
         const API_BASE_URL = '/api/v1';
@@ -212,15 +172,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            initSidebar('Discover Concerts');
             loadUser();
             loadFavorites();
             loadCategories();
-
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('#userMenuContainer')) {
-                    document.getElementById('userDropdown').classList.add('hidden');
-                }
-            });
         });
 
         async function loadUser() {
@@ -228,11 +183,11 @@
                 const response = await fetch(`${API_BASE_URL}/auth/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
-                    document.getElementById('userMenuName').textContent = data.user.firstName || data.user.username;
+                    updateSidebarUser(data.user);
                 }
             } catch (error) {
                 console.error('Load user error:', error);
@@ -455,7 +410,7 @@
 
             if (concertsWithUrls.length === 0) {
                 container.innerHTML = `
-                    <p class="text-center text-gray-600 py-8">No concerts found matching your criteria. Try different filters!</p>
+                    <p class="text-center text-slate-600 py-8">No concerts found matching your criteria. Try different filters!</p>
                 `;
                 return;
             }
@@ -479,15 +434,15 @@
                 const eventUrl = concert.url || concert.ticketUrl || concert.affiliateLinks?.ticketmaster?.url || concert._links?.self?.href;
                 
                 return `
-                    <div class="border rounded-lg p-4 hover:bg-gray-50">
+                    <div class="border rounded-lg p-4 hover:bg-slate-50">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
                                 <h3 class="font-bold text-lg mb-1">${concert.name}</h3>
                                 <p class="text-indigo-600 font-semibold mb-2">${artistName}</p>
-                                <p class="text-sm text-gray-600 mb-1">
+                                <p class="text-sm text-slate-600 mb-1">
                                     📅 ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                                 </p>
-                                <p class="text-sm text-gray-600">
+                                <p class="text-sm text-slate-600">
                                     📍 ${venueName}, ${city}${city && stateCode ? ', ' : ''}${stateCode}
                                 </p>
                             </div>
@@ -544,15 +499,6 @@
             }
         }
 
-        function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('hidden');
-        }
-
-        function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = 'auth.html';
-        }
     </script>
 </body>
 </html>

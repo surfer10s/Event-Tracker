@@ -355,7 +355,7 @@ async function loadNearbyVenues() {
                 if (v.location?.coordinates?.length === 2) {
                     const marker = L.marker([v.location.coordinates[1], v.location.coordinates[0]])
                         .addTo(nearbyMap)
-                        .bindPopup(`<b>${v.name}</b><br>${v.city}, ${v.state || ''}<br><a href="venue-profile.html?id=${v._id}" style="color:#3b82f6">View Profile</a>`);
+                        .bindPopup(`<b>${v.name}</b><br>${v.city}, ${v.state || ''}<br><a href="venue-profile.html?id=${v._id}" class="text-blue-600">View Profile</a>`);
                     nearbyMarkers.push(marker);
                 }
             });
@@ -628,17 +628,17 @@ function buildVenuePopup(venue, isFollowing) {
             <div class="venue-popup-name">${venue.name}</div>
             <div class="venue-popup-location">${location}</div>
             <div class="venue-popup-badges">
-                ${capacity ? `<span class="venue-popup-badge" style="background:#f1f5f9;color:#475569;">${capacity}</span>` : ''}
-                ${upcoming ? `<span class="venue-popup-badge" style="background:#eff6ff;color:#3b82f6;">${upcoming}</span>` : ''}
+                ${capacity ? `<span class="venue-popup-badge bg-slate-100 text-slate-600">${capacity}</span>` : ''}
+                ${upcoming ? `<span class="venue-popup-badge bg-blue-50 text-blue-600">${upcoming}</span>` : ''}
             </div>
             <div class="venue-popup-actions">
                 <a href="venue-profile.html?id=${venue._id}"
-                   style="flex:1;text-align:center;padding:0.375rem 0.75rem;background:#1e293b;color:white;font-size:0.8rem;border-radius:0.5rem;text-decoration:none;">
+                   class="flex-1 text-center px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg no-underline hover:bg-slate-700">
                     View Profile
                 </a>
                 ${token ? `
                     <button onclick="toggleExploreFollow('${venue._id}', this)"
-                        style="padding:0.375rem 0.75rem;font-size:0.8rem;border-radius:0.5rem;border:1px solid ${isFollowing ? '#bbf7d0' : '#e2e8f0'};background:${isFollowing ? '#f0fdf4' : 'white'};color:${isFollowing ? '#16a34a' : '#475569'};">
+                        class="px-3 py-1.5 text-xs rounded-lg border ${isFollowing ? 'border-green-200 bg-green-50 text-green-600' : 'border-slate-200 bg-white text-slate-600'}">
                         ${isFollowing ? 'Following' : 'Follow'}
                     </button>
                 ` : ''}
@@ -667,15 +667,11 @@ async function toggleExploreFollow(venueId, btn) {
             if (isCurrentlyFollowing) {
                 followedVenueIds.delete(venueId);
                 btn.textContent = 'Follow';
-                btn.style.borderColor = '#e2e8f0';
-                btn.style.background = 'white';
-                btn.style.color = '#475569';
+                btn.className = 'px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-600';
             } else {
                 followedVenueIds.add(venueId);
                 btn.textContent = 'Following';
-                btn.style.borderColor = '#bbf7d0';
-                btn.style.background = '#f0fdf4';
-                btn.style.color = '#16a34a';
+                btn.className = 'px-3 py-1.5 text-xs rounded-lg border border-green-200 bg-green-50 text-green-600';
             }
             updateMarkerFollowState(venueId, !isCurrentlyFollowing);
         } else {

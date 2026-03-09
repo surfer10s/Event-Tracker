@@ -20,16 +20,8 @@
         .scroll-container::-webkit-scrollbar {
             display: none;
         }
-        /* Mobile: stretch suggestions dropdown to full header width */
-        @media (max-width: 1023px) {
-            #artistSuggestions {
-                width: calc(100vw - 2rem) !important;
-            }
-        }
-        @media (min-width: 1024px) {
-            #artistSuggestions {
-                width: 100%;
-            }
+        #artistSuggestions {
+            width: 100%;
         }
     </style>
 </head>
@@ -39,19 +31,12 @@
 
     <!-- Main Content -->
     <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
-        <!-- Top Header with Search -->
-        <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
-            <div class="px-4 lg:px-6 py-4 flex items-center justify-between">
-                <!-- Hamburger Menu - visible when sidebar is collapsed -->
-                <button id="headerHamburger" onclick="toggleSidebar()" class="p-2 hover:bg-slate-100 rounded-lg mr-4 hidden">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-600">
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </button>
-                
-                <div class="flex-1 lg:max-w-xl relative">
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <!-- Search Bar -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+                <div class="relative">
                     <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8"></circle>
                         <path d="m21 21-4.35-4.35"></path>
@@ -62,61 +47,10 @@
                         placeholder="Search artists, events, venues..."
                         class="w-full pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg focus:ring-2 focus:ring-slate-400 focus:bg-white text-slate-700"
                     />
-                    <!-- Artist Suggestions Dropdown -->
                     <div id="artistSuggestions" class="absolute left-0 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-80 overflow-y-auto z-50" style="display: none;">
                     </div>
                 </div>
-                
-                <div class="flex items-center gap-2 sm:gap-4 ml-2 sm:ml-4">
-                    <button class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg relative">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                        </svg>
-                    </button>
-                    
-                    <!-- User Menu -->
-                    <div class="relative" id="userMenuContainer">
-                        <button id="userMenuButton" onclick="toggleUserMenu()" class="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg">
-                            <div class="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center text-white font-semibold text-sm" id="headerUserInitial">?</div>
-                            <span class="text-slate-700 font-medium hidden md:inline" id="headerUserName">Account</span>
-                            <svg id="userMenuChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </button>
-                        
-                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-slate-200">
-                            <a href="account-details.html" class="block px-4 py-2 text-slate-700 hover:bg-slate-100 flex items-center gap-2">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                                Account Details
-                            </a>
-                            <a href="concert-history.html" class="block px-4 py-2 text-slate-700 hover:bg-slate-100 flex items-center gap-2">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 18V5l12-2v13"></path>
-                                    <circle cx="6" cy="18" r="3"></circle>
-                                    <circle cx="18" cy="16" r="3"></circle>
-                                </svg>
-                                Concert History
-                            </a>
-                            <hr class="my-1">
-                            <button onclick="logout()" class="block w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 flex items-center gap-2">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                    <polyline points="16 17 21 12 16 7"></polyline>
-                                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                                </svg>
-                                Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
-        </header>
-
-        <div class="p-4 lg:p-6">
             <!-- Welcome + Stats Section -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <!-- Welcome Card -->
@@ -287,13 +221,8 @@
                     
                     // Update welcome message
                     document.getElementById('welcomeName').textContent = `, ${name}`;
-                    
-                    // Update header user info
-                    const initial = name.charAt(0).toUpperCase();
-                    document.getElementById('headerUserInitial').textContent = initial;
-                    document.getElementById('headerUserName').textContent = name;
-                    
-                    // Update sidebar user info using sidebar.js function
+
+                    // Update sidebar + header user info
                     updateSidebarUser(data.user);
                     
                     // Load favorites upcoming

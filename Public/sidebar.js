@@ -313,6 +313,105 @@ function generateSidebarStyles() {
                 border-color: #475569 !important;
             }
 
+            /* === Colored text: -600 → -400 === */
+            body.dark-mode .text-blue-600 { color: #60a5fa !important; }
+            body.dark-mode .text-amber-600 { color: #fbbf24 !important; }
+            body.dark-mode .text-indigo-600 { color: #818cf8 !important; }
+            body.dark-mode .text-emerald-600 { color: #34d399 !important; }
+            body.dark-mode .text-rose-600 { color: #fb7185 !important; }
+            body.dark-mode .text-purple-600 { color: #c084fc !important; }
+            body.dark-mode .text-pink-600 { color: #f472b6 !important; }
+            body.dark-mode .text-green-600 { color: #4ade80 !important; }
+            body.dark-mode .text-yellow-600 { color: #facc15 !important; }
+            body.dark-mode .text-red-600 { color: #f87171 !important; }
+            body.dark-mode .text-orange-600 { color: #fb923c !important; }
+            body.dark-mode .text-violet-500 { color: #a78bfa !important; }
+            body.dark-mode .text-rose-500 { color: #fb7185 !important; }
+            body.dark-mode .text-emerald-500 { color: #34d399 !important; }
+
+            /* === Colored text: -700 → -400 === */
+            body.dark-mode .text-amber-700 { color: #fbbf24 !important; }
+            body.dark-mode .text-blue-700 { color: #60a5fa !important; }
+            body.dark-mode .text-rose-700 { color: #fb7185 !important; }
+            body.dark-mode .text-emerald-700 { color: #34d399 !important; }
+            body.dark-mode .text-indigo-700 { color: #818cf8 !important; }
+            body.dark-mode .text-green-700 { color: #4ade80 !important; }
+
+            /* === Colored text: -800/-900 → light === */
+            body.dark-mode .text-indigo-800 { color: #a5b4fc !important; }
+            body.dark-mode .text-indigo-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-amber-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-blue-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-rose-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-emerald-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-purple-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-pink-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-green-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-yellow-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-red-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-orange-900 { color: #e2e8f0 !important; }
+            body.dark-mode .text-slate-900 { color: #f1f5f9 !important; }
+
+            /* === Colored -100 backgrounds → dark tinted === */
+            body.dark-mode .bg-amber-100 { background-color: rgba(245, 158, 11, 0.3) !important; }
+            body.dark-mode .bg-blue-100 { background-color: rgba(59, 130, 246, 0.3) !important; }
+            body.dark-mode .bg-rose-100 { background-color: rgba(244, 63, 94, 0.3) !important; }
+            body.dark-mode .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.3) !important; }
+            body.dark-mode .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.3) !important; }
+            body.dark-mode .bg-violet-100 { background-color: rgba(139, 92, 246, 0.3) !important; }
+            body.dark-mode .bg-green-100 { background-color: rgba(34, 197, 94, 0.3) !important; }
+
+            /* === Colored -50 backgrounds → dark tinted === */
+            body.dark-mode .bg-blue-50 { background-color: rgba(59, 130, 246, 0.15) !important; }
+            body.dark-mode .bg-rose-50 { background-color: rgba(244, 63, 94, 0.15) !important; }
+            body.dark-mode .bg-amber-50 { background-color: rgba(245, 158, 11, 0.15) !important; }
+            body.dark-mode .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.15) !important; }
+            body.dark-mode .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.15) !important; }
+            body.dark-mode .bg-purple-50 { background-color: rgba(168, 85, 247, 0.15) !important; }
+            body.dark-mode .bg-pink-50 { background-color: rgba(236, 72, 153, 0.15) !important; }
+            body.dark-mode .bg-green-50 { background-color: rgba(34, 197, 94, 0.15) !important; }
+            body.dark-mode .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.15) !important; }
+            body.dark-mode .bg-red-50 { background-color: rgba(239, 68, 68, 0.15) !important; }
+            body.dark-mode .bg-orange-50 { background-color: rgba(249, 115, 22, 0.15) !important; }
+            body.dark-mode .bg-violet-50 { background-color: rgba(139, 92, 246, 0.15) !important; }
+
+            /* === Hover variants for -50 backgrounds === */
+            body.dark-mode .hover\\:bg-rose-50:hover { background-color: rgba(244, 63, 94, 0.25) !important; }
+            body.dark-mode .hover\\:bg-blue-50:hover { background-color: rgba(59, 130, 246, 0.25) !important; }
+            body.dark-mode .hover\\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.25) !important; }
+
+            /* === Colored borders → rgba at 0.3 === */
+            body.dark-mode .border-blue-200 { border-color: rgba(59, 130, 246, 0.3) !important; }
+            body.dark-mode .border-purple-200 { border-color: rgba(168, 85, 247, 0.3) !important; }
+            body.dark-mode .border-pink-200 { border-color: rgba(236, 72, 153, 0.3) !important; }
+            body.dark-mode .border-green-200 { border-color: rgba(34, 197, 94, 0.3) !important; }
+            body.dark-mode .border-yellow-200 { border-color: rgba(234, 179, 8, 0.3) !important; }
+            body.dark-mode .border-red-200 { border-color: rgba(239, 68, 68, 0.3) !important; }
+            body.dark-mode .border-indigo-200 { border-color: rgba(99, 102, 241, 0.3) !important; }
+            body.dark-mode .border-orange-200 { border-color: rgba(249, 115, 22, 0.3) !important; }
+            body.dark-mode .border-emerald-300 { border-color: rgba(16, 185, 129, 0.4) !important; }
+
+            /* === Star ratings (concert-history) === */
+            body.dark-mode .star-rating label { color: #4b5563 !important; }
+
+            /* === Leaflet popups === */
+            body.dark-mode .leaflet-popup-content-wrapper {
+                background-color: #1e293b !important;
+                color: #e2e8f0 !important;
+            }
+            body.dark-mode .leaflet-popup-tip {
+                background-color: #1e293b !important;
+            }
+            body.dark-mode .leaflet-popup-content a {
+                color: #60a5fa !important;
+            }
+            body.dark-mode .leaflet-popup-content .venue-popup-name {
+                color: #f1f5f9 !important;
+            }
+            body.dark-mode .leaflet-popup-content .venue-popup-location {
+                color: #94a3b8 !important;
+            }
+
             /* Dark mode toggle styling */
             body.dark-mode #darkModeToggle {
                 background-color: #3b82f6 !important;

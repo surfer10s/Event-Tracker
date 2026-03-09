@@ -123,9 +123,7 @@ event-tracker-backend/
 │   ├── sidebar.js               # Shared sidebar component (user pages)
 │   ├── sidebar-admin.js         # Shared sidebar component (admin pages)
 │   ├── SeatGeek-test.html       # SeatGeek API testing
-│   ├── YouTubeTest.html         # YouTube integration testing
-│   ├── cache-admin.html         # Cache admin testing
-│   └── music-taste-admin.html   # Music taste admin testing
+│   └── YouTubeTest.html         # YouTube integration testing
 ├── scripts/
 │   └── make-admin.js            # CLI to promote users to admin
 ├── .env                         # Environment variables
@@ -517,7 +515,7 @@ node scripts/make-admin.js <email>
 
 - **User Pages**: auth, index, account-details, favorites, favorites-activity, favorites-activity-location, discover-artists, discover-concerts, artist-profile, venue-profile, venues, future-concerts, tour-map, event-details, concert-history, notifications, manage-categories
 - **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-music-taste, admin-song-cache
-- **Testing Pages**: youtubetest, seatgeek-test, cache-admin, music-taste-admin
+- **Testing Pages**: youtubetest, seatgeek-test
 
 ## Architecture Patterns
 
