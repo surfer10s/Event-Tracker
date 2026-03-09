@@ -57,7 +57,7 @@
             </div>
 
             <!-- Quota Gauges -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-white rounded-xl shadow-sm p-5" id="quota-ticketmaster">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-sm font-semibold text-slate-700">Ticketmaster Quota</p>
@@ -77,6 +77,16 @@
                         <div class="quota-fill quota-green" id="yt-quota-bar" style="width: 0%"></div>
                     </div>
                     <p class="text-xs text-slate-400 mt-1">Daily quota units (search=100, list=1)</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5" id="quota-setlistfm">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-sm font-semibold text-slate-700">Setlist.fm Usage</p>
+                        <p class="text-sm text-slate-500" id="sf-quota-text">- today</p>
+                    </div>
+                    <div class="quota-bar">
+                        <div class="quota-fill quota-green" id="sf-quota-bar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Daily API calls (undocumented rolling limit)</p>
                 </div>
             </div>
 
@@ -213,6 +223,10 @@
                 renderQuota('tm', data.quotas.ticketmaster, 5000);
                 renderQuota('yt', data.quotas.youtube, 10000);
 
+                // Setlist.fm usage (no known cap — show call count from service data)
+                const sfService = data.services.find(s => s.service === 'setlistfm');
+                renderSetlistfmUsage(sfService);
+
                 // Service table
                 renderServiceTable(data.services);
 
@@ -244,6 +258,21 @@
             const bar = document.getElementById(`${prefix}-quota-bar`);
             bar.style.width = pct + '%';
             bar.className = 'quota-fill ' + (pct >= 80 ? 'quota-red' : pct >= 60 ? 'quota-yellow' : 'quota-green');
+        }
+
+        function renderSetlistfmUsage(sfService) {
+            const calls = sfService?.totalCalls || 0;
+            const errors = sfService?.totalErrors || 0;
+            const label = currentRange === 'today' ? 'today' : `(${currentRange})`;
+
+            document.getElementById('sf-quota-text').textContent = `${calls.toLocaleString()} calls ${label}`;
+
+            // No hard cap known — use a soft visual scale (green < 50, yellow 50-100, red > 100 per day)
+            const softLimit = currentRange === 'today' ? 150 : (currentRange === '7d' ? 1050 : 4500);
+            const pct = Math.min((calls / softLimit) * 100, 100);
+            const bar = document.getElementById('sf-quota-bar');
+            bar.style.width = pct + '%';
+            bar.className = 'quota-fill ' + (errors > 0 ? 'quota-red' : pct >= 60 ? 'quota-yellow' : 'quota-green');
         }
 
         function renderServiceTable(services) {
