@@ -297,7 +297,22 @@ function generateSidebarStyles() {
             body.dark-mode .hover\\:bg-slate-50:hover {
                 background-color: #334155 !important;
             }
-            
+            body.dark-mode .bg-slate-200 {
+                background-color: #334155 !important;
+            }
+            body.dark-mode .bg-slate-300 {
+                background-color: #475569 !important;
+            }
+            body.dark-mode .hover\\:bg-slate-200:hover {
+                background-color: #475569 !important;
+            }
+            body.dark-mode .hover\\:bg-slate-300:hover {
+                background-color: #4b5563 !important;
+            }
+            body.dark-mode .border-slate-300 {
+                border-color: #475569 !important;
+            }
+
             /* Dark mode toggle styling */
             body.dark-mode #darkModeToggle {
                 background-color: #3b82f6 !important;
