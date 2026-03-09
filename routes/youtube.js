@@ -130,7 +130,7 @@ router.get('/auth/youtube/callback', async (req, res) => {
       connected: true,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
-      expiresAt: new Date(Date.now() + (tokens.expires_in * 1000)),
+      tokenExpiry: new Date(Date.now() + (tokens.expires_in * 1000)),
       channelId: channelInfo.channelId,
       channelTitle: channelInfo.channelTitle,
       connectedAt: new Date()
@@ -163,7 +163,7 @@ router.get('/api/youtube/status', authenticateUser, async (req, res) => {
   const isConnected = user.youtubeMusic?.connected === true || !!user.youtubeMusic?.accessToken;
   
   if (isConnected && user.youtubeMusic?.accessToken) {
-    const isExpired = user.youtubeMusic.expiresAt && new Date() >= user.youtubeMusic.expiresAt;
+    const isExpired = user.youtubeMusic.tokenExpiry && new Date() >= user.youtubeMusic.tokenExpiry;
     res.json({ 
       connected: true, 
       expired: isExpired,
@@ -184,7 +184,7 @@ router.post('/api/youtube/disconnect', authenticateUser, async (req, res) => {
     connected: false,
     accessToken: null,
     refreshToken: null,
-    expiresAt: null,
+    tokenExpiry: null,
     channelId: null,
     channelTitle: null,
     connectedAt: null
@@ -206,7 +206,7 @@ async function getValidAccessToken(user) {
   }
 
   // Check if token is expired (with 5 min buffer)
-  const expiresAt = user.youtubeMusic.expiresAt ? new Date(user.youtubeMusic.expiresAt) : new Date(0);
+  const expiresAt = user.youtubeMusic.tokenExpiry ? new Date(user.youtubeMusic.tokenExpiry) : new Date(0);
   if (Date.now() >= expiresAt.getTime() - 300000) {
     if (!user.youtubeMusic.refreshToken) {
       throw new Error('Token expired and no refresh token available. Please reconnect YouTube.');
@@ -233,7 +233,7 @@ async function getValidAccessToken(user) {
         user.youtubeMusic.connected = false;
         user.youtubeMusic.accessToken = undefined;
         user.youtubeMusic.refreshToken = undefined;
-        user.youtubeMusic.expiresAt = undefined;
+        user.youtubeMusic.tokenExpiry = undefined;
         await user.save();
         throw new Error('YouTube session expired. Please reconnect YouTube from Account Details. (Google OAuth apps in Testing mode expire refresh tokens after 7 days.)');
       }
@@ -242,7 +242,7 @@ async function getValidAccessToken(user) {
 
     // Update user's tokens
     user.youtubeMusic.accessToken = tokens.access_token;
-    user.youtubeMusic.expiresAt = new Date(Date.now() + (tokens.expires_in * 1000));
+    user.youtubeMusic.tokenExpiry = new Date(Date.now() + (tokens.expires_in * 1000));
     await user.save();
 
     console.log(`YouTube token refreshed for user ${user.username}`);
@@ -509,9 +509,13 @@ router.post('/api/youtube/playlists', authenticateUser, async (req, res) => {
     const playlist = await response.json();
 
     if (!response.ok || playlist.error) {
+      const errCode = playlist.error?.errors?.[0]?.reason || '';
       const msg = playlist.error?.message || playlist.error || `HTTP ${response.status}`;
-      console.error('[YouTube] Create playlist failed:', response.status, msg);
-      if (response.status === 401) {
+      console.error('[YouTube] Create playlist failed:', response.status, msg, errCode);
+      if (response.status === 401 || response.status === 403) {
+        if (errCode === 'youtubeSignupRequired' || errCode === 'channelNotFound') {
+          throw new Error('Your Google account does not have a YouTube channel. Please create a channel at youtube.com first, then try again.');
+        }
         throw new Error('Unauthorized — your YouTube session may have expired. Please reconnect YouTube from Account Details.');
       }
       throw new Error(msg);
@@ -856,9 +860,13 @@ router.post('/api/youtube/create-playlist-with-songs', authenticateUser, async (
     const playlist = await playlistResponse.json();
 
     if (!playlistResponse.ok || playlist.error) {
+      const errCode = playlist.error?.errors?.[0]?.reason || '';
       const msg = playlist.error?.message || playlist.error || `HTTP ${playlistResponse.status}`;
-      console.error('[YouTube] Create playlist with songs failed:', playlistResponse.status, msg);
-      if (playlistResponse.status === 401) {
+      console.error('[YouTube] Create playlist with songs failed:', playlistResponse.status, msg, errCode);
+      if (playlistResponse.status === 401 || playlistResponse.status === 403) {
+        if (errCode === 'youtubeSignupRequired' || errCode === 'channelNotFound') {
+          throw new Error('Your Google account does not have a YouTube channel. Please create a channel at youtube.com first, then try again.');
+        }
         throw new Error('Unauthorized — your YouTube session may have expired. Please reconnect YouTube from Account Details.');
       }
       throw new Error(msg);
