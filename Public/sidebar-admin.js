@@ -112,7 +112,7 @@ function generateAdminSidebarHTML() {
                 <span class="font-bold text-lg">Admin Portal</span>
             </div>
 
-            <nav class="flex-1 overflow-y-auto px-4 space-y-1 overscroll-contain">
+            <nav class="flex-1 min-h-0 overflow-y-auto px-4 space-y-1 overscroll-contain">
                 ${generateAdminNavItems()}
             </nav>
 
