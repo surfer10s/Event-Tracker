@@ -94,14 +94,19 @@ router.get('/music-taste-artists', protect, async (req, res) => {
 // ============================================
 
 const User = require('../models/user');
+const Category = require('../models/category');
+const ArtistCategory = require('../models/artistcategory');
+const ConcertHistory = require('../models/concerthistory');
+const Notification = require('../models/notification');
+const Venue = require('../models/venue');
 
 // GET /api/v1/users/admin/list - Get all users for admin
 router.get('/admin/list', requireAdmin, async (req, res) => {
     try {
         const users = await User.find({})
-            .select('username email firstName lastName city state isEmailVerified favoriteArtists createdAt')
+            .select('username email firstName lastName city state isEmailVerified isAdmin favoriteArtists loginCount lastLoginAt createdAt')
             .sort({ createdAt: -1 });
-        
+
         const formattedUsers = users.map(u => ({
             _id: u._id,
             username: u.username,
@@ -111,7 +116,10 @@ router.get('/admin/list', requireAdmin, async (req, res) => {
             city: u.city,
             state: u.state,
             isEmailVerified: u.isEmailVerified,
+            isAdmin: u.isAdmin || false,
             favoriteCount: u.favoriteArtists?.length || 0,
+            loginCount: u.loginCount || 0,
+            lastLoginAt: u.lastLoginAt,
             createdAt: u.createdAt
         }));
         
@@ -150,10 +158,80 @@ router.get('/admin/stats', requireAdmin, async (req, res) => {
 
 // GET /api/v1/users/check-admin - Check if current user is admin
 router.get('/check-admin', protect, async (req, res) => {
-    res.json({ 
-        success: true, 
-        isAdmin: req.user.isAdmin || false 
+    res.json({
+        success: true,
+        isAdmin: req.user.isAdmin || false
     });
+});
+
+// DELETE /api/v1/users/admin/:userId - Delete user and all associated data
+router.delete('/admin/:userId', requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        if (user.isAdmin) {
+            return res.status(403).json({ success: false, error: 'Cannot delete admin users' });
+        }
+
+        // Capture references before deletion
+        const favoriteArtistIds = user.favoriteArtists || [];
+        const favoriteVenueIds = user.favoriteVenues || [];
+
+        // Delete all associated data in parallel
+        const [categories, artistCategories, concertHistory, notifications, musicTaste] = await Promise.all([
+            Category.deleteMany({ userId }),
+            ArtistCategory.deleteMany({ userId }),
+            ConcertHistory.deleteMany({ userId }),
+            Notification.deleteMany({ userId }),
+            UserMusicTaste.deleteOne({ userId })
+        ]);
+
+        // Decrement follower counts on artists and venues
+        const decrements = [];
+        if (favoriteArtistIds.length > 0) {
+            decrements.push(
+                Artist.updateMany(
+                    { _id: { $in: favoriteArtistIds } },
+                    { $inc: { 'stats.followers': -1 } }
+                )
+            );
+        }
+        if (favoriteVenueIds.length > 0) {
+            decrements.push(
+                Venue.updateMany(
+                    { _id: { $in: favoriteVenueIds } },
+                    { $inc: { 'stats.followers': -1 } }
+                )
+            );
+        }
+        if (decrements.length > 0) {
+            await Promise.all(decrements);
+        }
+
+        // Delete the user
+        await User.findByIdAndDelete(userId);
+
+        res.json({
+            success: true,
+            deleted: {
+                categories: categories.deletedCount,
+                artistCategories: artistCategories.deletedCount,
+                concertHistory: concertHistory.deletedCount,
+                notifications: notifications.deletedCount,
+                musicTaste: musicTaste.deletedCount,
+                artistFollows: favoriteArtistIds.length,
+                venueFollows: favoriteVenueIds.length
+            }
+        });
+    } catch (err) {
+        console.error('Delete user error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 module.exports = router;

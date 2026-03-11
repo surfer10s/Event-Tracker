@@ -66,12 +66,15 @@
                                 <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">Location</th>
                                 <th class="text-center py-3 px-4 text-sm font-semibold text-slate-600">Favorites</th>
                                 <th class="text-center py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-slate-600">Logins</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">Last Login</th>
                                 <th class="text-left py-3 px-4 text-sm font-semibold text-slate-600">Joined</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-slate-600">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userTableBody">
                             <tr>
-                                <td colspan="6" class="py-8 text-center text-slate-500">Loading...</td>
+                                <td colspan="9" class="py-8 text-center text-slate-500">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -129,20 +132,25 @@
                     if (users.length > 0) {
                         tbody.innerHTML = users.map(u => {
                             const location = u.city && u.state ? `${u.city}, ${u.state}` : '<span class="text-slate-400">Not set</span>';
-                            const verified = u.isEmailVerified 
+                            const verified = u.isEmailVerified
                                 ? '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs">Verified</span>'
                                 : '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">Pending</span>';
                             const joined = new Date(u.createdAt).toLocaleDateString();
-                            
+                            const lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : '<span class="text-slate-400">Never</span>';
+                            const adminBadge = u.isAdmin ? '<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs ml-1">Admin</span>' : '';
+                            const deleteBtn = u.isAdmin
+                                ? ''
+                                : `<button onclick="deleteUser('${u._id}', '${(u.username || '').replace(/'/g, "\\'")}')" class="px-3 py-1 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 text-xs font-medium">Delete</button>`;
+
                             return `
-                                <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <tr class="border-b border-slate-100 hover:bg-slate-50" id="user-row-${u._id}">
                                     <td class="py-3 px-4">
                                         <div class="flex items-center gap-3">
                                             <div class="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                                                 ${(u.firstName || u.username || '?').charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <p class="font-medium text-slate-800">${u.firstName || ''} ${u.lastName || ''}</p>
+                                                <p class="font-medium text-slate-800">${u.firstName || ''} ${u.lastName || ''}${adminBadge}</p>
                                                 <p class="text-xs text-slate-500">@${u.username}</p>
                                             </div>
                                         </div>
@@ -153,19 +161,55 @@
                                         <span class="font-medium text-slate-800">${u.favoriteCount || 0}</span>
                                     </td>
                                     <td class="py-3 px-4 text-center">${verified}</td>
+                                    <td class="py-3 px-4 text-center text-sm text-slate-700">${u.loginCount || 0}</td>
+                                    <td class="py-3 px-4 text-sm text-slate-500">${lastLogin}</td>
                                     <td class="py-3 px-4 text-sm text-slate-500">${joined}</td>
+                                    <td class="py-3 px-4 text-center">${deleteBtn}</td>
                                 </tr>
                             `;
                         }).join('');
                     } else {
-                        tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">No users found</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-slate-500">No users found</td></tr>';
                     }
                 }
             } catch (err) {
                 console.error('Load users error:', err);
                 document.getElementById('userTableBody').innerHTML = `
-                    <tr><td colspan="6" class="py-8 text-center text-rose-600">${err.message}</td></tr>
+                    <tr><td colspan="9" class="py-8 text-center text-rose-600">${err.message}</td></tr>
                 `;
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Delete user @${username} and ALL their data?\n\nThis will remove their categories, concert history, notifications, music taste, and follower associations.\n\nThis cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/users/admin/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert(data.error || 'Failed to delete user');
+                    return;
+                }
+
+                // Remove row from table
+                const row = document.getElementById(`user-row-${userId}`);
+                if (row) row.remove();
+
+                // Update stat counters
+                const totalEl = document.getElementById('statTotalUsers');
+                totalEl.textContent = Math.max(0, parseInt(totalEl.textContent) - 1);
+
+                const d = data.deleted;
+                alert(`User @${username} deleted.\n\nRemoved: ${d.categories} categories, ${d.concertHistory} history entries, ${d.notifications} notifications, ${d.musicTaste} music taste, ${d.artistFollows} artist follows, ${d.venueFollows} venue follows.`);
+            } catch (err) {
+                console.error('Delete user error:', err);
+                alert('Error deleting user: ' + err.message);
             }
         }
     </script>

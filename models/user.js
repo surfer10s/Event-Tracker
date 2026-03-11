@@ -119,6 +119,10 @@ const userSchema = new mongoose.Schema({
         connectedAt: Date
     },
 
+    // Login tracking
+    loginCount: { type: Number, default: 0 },
+    lastLoginAt: { type: Date },
+
     // Admin role
     isAdmin: {
         type: Boolean,

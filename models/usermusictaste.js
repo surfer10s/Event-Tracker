@@ -22,7 +22,7 @@ const userMusicTasteSchema = new mongoose.Schema({
     syncedAt: Date,
     videosProcessed: Number,
     artistsFound: Number,
-    source: { type: String, enum: ['manual', 'background'] }
+    source: { type: String, enum: ['manual', 'background', 'auto_connect'] }
   }]
 }, { timestamps: true });
 

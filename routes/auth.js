@@ -130,6 +130,9 @@ router.get('/google/callback', async (req, res) => {
             });
         }
 
+        // Track login
+        await User.updateOne({ _id: user._id }, { $inc: { loginCount: 1 }, $set: { lastLoginAt: new Date() } });
+
         // Generate JWT
         const token = authController.generateToken(user._id);
 

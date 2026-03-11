@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const SongCache = require('../models/songcache');
 const UserMusicTaste = require('../models/usermusictaste');
+const { autoImportArtistsAsFavorites } = require('../controllers/userController');
 const apiTracker = require('../services/apiusagetracker');
 const spotifyFetch = apiTracker.trackedFetch('spotify');
 
@@ -140,7 +141,13 @@ router.get('/auth/spotify/callback', async (req, res) => {
     await user.save();
 
     console.log(`Spotify connected for user ${user.username}`);
-    res.redirect(`${frontendUrl}/account-details.html?spotify_connected=true`);
+
+    // Auto-sync music taste in background (don't block redirect)
+    performSpotifyMusicSync(user, 'auto_connect').catch(err => {
+      console.error(`Auto-sync Spotify music taste failed for ${user.username}:`, err.message);
+    });
+
+    res.redirect(`${frontendUrl}/account-details.html?spotify_connected=true&syncing=true`);
 
   } catch (err) {
     console.error('Spotify OAuth failed:', err);
@@ -276,15 +283,13 @@ async function spotifyGetAll(accessToken, url, limit = 50) {
 // Music Taste Sync
 // ============================================
 
-router.post('/api/spotify/sync-music-taste', authenticateUser, async (req, res) => {
-  try {
-    const user = req.user;
+// Core Spotify music taste sync logic (used by both manual trigger and auto-sync on connect)
+async function performSpotifyMusicSync(user, source = 'manual') {
     const accessToken = await getValidSpotifyToken(user);
-
     const artistMap = {}; // name -> { videoCount, sources }
 
     // 1. Followed artists
-    console.log('Fetching Spotify followed artists...');
+    console.log(`[${source}] Fetching Spotify followed artists for ${user.username}...`);
     try {
       const followed = await spotifyGetAll(accessToken, 'https://api.spotify.com/v1/me/following?type=artist');
       for (const artist of followed) {
@@ -372,18 +377,39 @@ router.post('/api/spotify/sync-music-taste', authenticateUser, async (req, res) 
         syncedAt: new Date(),
         videosProcessed: totalProcessed,
         artistsFound: artistsData.length,
-        source: 'manual'
+        source
       });
       await userTaste.save();
     }
 
-    console.log(`Spotify sync complete: ${artistsData.length} artists from ${totalProcessed} items`);
+    console.log(`[${source}] Spotify sync complete: ${artistsData.length} artists from ${totalProcessed} items`);
 
-    res.json({
+    // Auto-import followed artists as favorites
+    let autoImport = null;
+    try {
+      const followedNames = Object.values(artistMap)
+        .filter(a => a.sources.includes('spotify_follow'))
+        .map(a => a.name);
+
+      if (followedNames.length > 0) {
+        autoImport = await autoImportArtistsAsFavorites(user._id, followedNames);
+      }
+    } catch (importErr) {
+      console.error('Auto-import after Spotify sync failed:', importErr.message);
+    }
+
+    return {
       success: true,
       artistCount: artistsData.length,
-      totalProcessed
-    });
+      totalProcessed,
+      autoImport
+    };
+}
+
+router.post('/api/spotify/sync-music-taste', authenticateUser, async (req, res) => {
+  try {
+    const result = await performSpotifyMusicSync(req.user, 'manual');
+    res.json(result);
 
   } catch (error) {
     console.error('Spotify sync error:', error);

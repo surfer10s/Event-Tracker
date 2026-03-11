@@ -194,6 +194,9 @@ exports.login = async (req, res) => {
             });
         }
 
+        // Track login
+        await User.updateOne({ _id: user._id }, { $inc: { loginCount: 1 }, $set: { lastLoginAt: new Date() } });
+
         // Generate token
         const token = generateToken(user._id);
 

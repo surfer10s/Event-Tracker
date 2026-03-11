@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artist Import - Admin Portal</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container"></div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <!-- Header Container -->
+        <div id="header-container"></div>
+
+        <!-- Page Content -->
+        <div class="p-4 lg:p-6">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                <a href="admin-portal.html" class="hover:text-slate-700">Admin Portal</a>
+                <span>→</span>
+                <span class="text-slate-800 font-medium">Artist Import</span>
+            </div>
+
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">Artist Import</h1>
+            <p class="text-slate-600 mb-6">Batch import artists from a curated seed list via Ticketmaster search. Each artist uses 1 TM API call.</p>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" id="statsCards">
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <p class="text-sm text-slate-500 mb-1">Total in Seed List</p>
+                    <p class="text-3xl font-bold text-blue-600" id="statTotal">--</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <p class="text-sm text-slate-500 mb-1">Already Imported</p>
+                    <p class="text-3xl font-bold text-emerald-600" id="statImported">--</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <p class="text-sm text-slate-500 mb-1">Pending Import</p>
+                    <p class="text-3xl font-bold text-amber-600" id="statPending">--</p>
+                </div>
+            </div>
+
+            <!-- Run Import -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Run Import</h2>
+                <p class="text-sm text-slate-600 mb-4">
+                    Search Ticketmaster for pending seed list artists and create Artist docs in the database.
+                    Each artist uses 1 TM API call with 1s delay between calls.
+                </p>
+
+                <div class="flex flex-wrap items-center gap-4 mb-4">
+                    <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="checkbox" id="fetchEventsCheck" class="rounded border-slate-300">
+                        Also fetch events (extra TM calls)
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="checkbox" id="dryRunCheck" class="rounded border-slate-300">
+                        Dry run (preview only)
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <button onclick="runImport(50)" id="btn50" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                        Import 50 Artists
+                        <span class="block text-xs font-normal opacity-80">~50 seconds</span>
+                    </button>
+                    <button onclick="runImport(100)" id="btn100" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                        Import 100 Artists
+                        <span class="block text-xs font-normal opacity-80">~2 minutes</span>
+                    </button>
+                    <button onclick="runImport(9999)" id="btnAll" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+                        Import All Pending
+                        <span class="block text-xs font-normal opacity-80">Depends on pending count</span>
+                    </button>
+                </div>
+
+                <!-- Results Area (hidden until import runs) -->
+                <div id="importResults" class="hidden">
+                    <div class="border-t border-slate-200 pt-4">
+                        <h3 class="text-sm font-semibold text-slate-700 mb-3">Results</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center mb-4" id="resultStats"></div>
+                        <p class="text-xs text-slate-400 mb-3" id="resultDuration"></p>
+
+                        <!-- Per-artist status list -->
+                        <details class="bg-slate-50 rounded-lg">
+                            <summary class="px-4 py-3 text-sm font-medium text-slate-700 cursor-pointer hover:bg-slate-100 rounded-lg">
+                                Per-Artist Details
+                            </summary>
+                            <div class="px-4 pb-4 max-h-96 overflow-y-auto" id="resultArtistList"></div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add to Seed List -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Add to Seed List</h2>
+                <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                    <input type="text" id="addArtistName" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg" placeholder="Artist name">
+                    <input type="text" id="addArtistGenre" class="w-full sm:w-40 px-3 py-2 border border-slate-200 rounded-lg" placeholder="Genre (optional)">
+                    <button onclick="addToSeedList()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 whitespace-nowrap">Add</button>
+                </div>
+                <p id="addResult" class="text-sm"></p>
+            </div>
+
+            <!-- Seed List Browser -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">Seed List</h2>
+                    <div class="flex items-center gap-2">
+                        <select id="seedListFilter" onchange="filterSeedList()" class="text-sm px-3 py-1.5 border border-slate-200 rounded-lg">
+                            <option value="all">All</option>
+                            <option value="pending">Pending</option>
+                            <option value="imported">Imported</option>
+                        </select>
+                        <button onclick="loadSeedList()" class="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm">Refresh</button>
+                    </div>
+                </div>
+                <div id="seedListContainer" class="max-h-[600px] overflow-y-auto">
+                    <p class="text-sm text-slate-500">Loading seed list...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = '/api/v1';
+        const token = localStorage.getItem('token');
+        let seedListData = [];
+
+        if (!token) {
+            window.location.href = 'auth.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('Admin Portal');
+            loadUser();
+            loadStats();
+            loadSeedList();
+        });
+
+        async function loadUser() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) updateAdminSidebarUser(data.user);
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        // ============================================
+        // Stats
+        // ============================================
+
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-import/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statTotal').textContent = data.total;
+                    document.getElementById('statImported').textContent = data.imported;
+                    document.getElementById('statPending').textContent = data.pending;
+                }
+            } catch (err) {
+                console.error('Load stats error:', err);
+            }
+        }
+
+        // ============================================
+        // Run Import
+        // ============================================
+
+        async function runImport(limit) {
+            const fetchEvents = document.getElementById('fetchEventsCheck').checked;
+            const dryRun = document.getElementById('dryRunCheck').checked;
+            const resultsEl = document.getElementById('importResults');
+            const statsEl = document.getElementById('resultStats');
+            const durationEl = document.getElementById('resultDuration');
+            const listEl = document.getElementById('resultArtistList');
+
+            // Disable buttons
+            document.querySelectorAll('#btn50, #btn100, #btnAll').forEach(b => {
+                b.disabled = true;
+                b.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+
+            resultsEl.classList.remove('hidden');
+            statsEl.innerHTML = `<div class="col-span-full"><p class="text-sm text-blue-600">Importing up to ${limit} artists... This may take a few minutes.</p></div>`;
+            durationEl.textContent = '';
+            listEl.innerHTML = '';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-import/run`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ limit, fetchEvents, dryRun })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const prefix = data.dryRun ? '(DRY RUN) ' : '';
+                    statsEl.innerHTML = `
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <p class="text-2xl font-bold text-emerald-600">${data.created}</p>
+                            <p class="text-xs text-slate-500">${prefix}Created</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <p class="text-2xl font-bold text-slate-400">${data.alreadyExisted}</p>
+                            <p class="text-xs text-slate-500">Already Existed</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <p class="text-2xl font-bold text-amber-600">${data.notFound}</p>
+                            <p class="text-xs text-slate-500">Not Found on TM</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <p class="text-2xl font-bold text-blue-600">${data.tmSearches}</p>
+                            <p class="text-xs text-slate-500">TM Searches Used</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3">
+                            <p class="text-2xl font-bold text-rose-600">${data.errors || 0}</p>
+                            <p class="text-xs text-slate-500">Errors</p>
+                        </div>
+                    `;
+                    durationEl.textContent = `Completed in ${(data.duration / 1000).toFixed(1)}s${data.dryRun ? ' (dry run - nothing saved)' : ''}`;
+
+                    // Per-artist list
+                    if (data.artists && data.artists.length > 0) {
+                        listEl.innerHTML = data.artists.map(a => {
+                            const badge = statusBadge(a.status);
+                            const extra = a.note ? ` <span class="text-slate-400">(${a.note})</span>` : '';
+                            const events = a.eventsFetched !== undefined ? ` | ${a.eventsSaved || 0}/${a.eventsFetched} events saved` : '';
+                            return `<div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                                <span class="text-sm text-slate-700">${a.name}${extra}${events}</span>
+                                ${badge}
+                            </div>`;
+                        }).join('');
+                    }
+
+                    // Refresh stats and seed list
+                    loadStats();
+                    loadSeedList();
+                } else {
+                    statsEl.innerHTML = `<div class="col-span-full"><p class="text-sm text-rose-600">${data.error}</p></div>`;
+                }
+            } catch (err) {
+                statsEl.innerHTML = `<div class="col-span-full"><p class="text-sm text-rose-600">${err.message}</p></div>`;
+            }
+
+            // Re-enable buttons
+            document.querySelectorAll('#btn50, #btn100, #btnAll').forEach(b => {
+                b.disabled = false;
+                b.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
+        }
+
+        function statusBadge(status) {
+            const map = {
+                created: '<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Created</span>',
+                would_create: '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Would Create</span>',
+                already_existed: '<span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Already Existed</span>',
+                not_found: '<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Not Found</span>',
+                error: '<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Error</span>'
+            };
+            return map[status] || `<span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">${status}</span>`;
+        }
+
+        // ============================================
+        // Add to Seed List
+        // ============================================
+
+        async function addToSeedList() {
+            const name = document.getElementById('addArtistName').value.trim();
+            const genre = document.getElementById('addArtistGenre').value.trim();
+            const resultEl = document.getElementById('addResult');
+
+            if (!name) {
+                resultEl.textContent = 'Please enter an artist name';
+                resultEl.className = 'text-sm text-rose-600';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-import/add-to-seed`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, genre })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    resultEl.textContent = data.message;
+                    resultEl.className = 'text-sm text-emerald-600';
+                    document.getElementById('addArtistName').value = '';
+                    document.getElementById('addArtistGenre').value = '';
+                    loadStats();
+                    loadSeedList();
+                } else {
+                    resultEl.textContent = data.error;
+                    resultEl.className = 'text-sm text-rose-600';
+                }
+            } catch (err) {
+                resultEl.textContent = err.message;
+                resultEl.className = 'text-sm text-rose-600';
+            }
+        }
+
+        // ============================================
+        // Seed List Browser
+        // ============================================
+
+        async function loadSeedList() {
+            const container = document.getElementById('seedListContainer');
+            container.innerHTML = '<p class="text-sm text-slate-500">Loading...</p>';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-import/seed-list`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    seedListData = data.artists;
+                    renderSeedList(seedListData);
+                } else {
+                    container.innerHTML = `<p class="text-sm text-rose-600">${data.error}</p>`;
+                }
+            } catch (err) {
+                container.innerHTML = `<p class="text-sm text-rose-600">${err.message}</p>`;
+            }
+        }
+
+        function filterSeedList() {
+            const filter = document.getElementById('seedListFilter').value;
+            if (filter === 'all') {
+                renderSeedList(seedListData);
+            } else {
+                renderSeedList(seedListData.filter(a => a.status === filter));
+            }
+        }
+
+        function renderSeedList(artists) {
+            const container = document.getElementById('seedListContainer');
+
+            if (!artists || artists.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-500">No artists match the filter.</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="w-full text-sm">
+                    <thead class="sticky top-0 bg-white">
+                        <tr class="border-b border-slate-200 text-left">
+                            <th class="py-2 px-2 text-slate-600 font-medium">#</th>
+                            <th class="py-2 px-2 text-slate-600 font-medium">Name</th>
+                            <th class="py-2 px-2 text-slate-600 font-medium hidden sm:table-cell">Genre</th>
+                            <th class="py-2 px-2 text-slate-600 font-medium">Status</th>
+                            <th class="py-2 px-2 text-slate-600 font-medium"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${artists.map(a => `
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="py-2 px-2 text-slate-400">${a.index + 1}</td>
+                                <td class="py-2 px-2 text-slate-800 font-medium">${a.name}</td>
+                                <td class="py-2 px-2 text-slate-500 hidden sm:table-cell">${a.genre || '-'}</td>
+                                <td class="py-2 px-2">${seedStatusBadge(a.status)}</td>
+                                <td class="py-2 px-2">
+                                    <button onclick="removeFromSeed(${a.index}, '${a.name.replace(/'/g, "\\'")}')" class="text-xs text-slate-400 hover:text-rose-600" title="Remove">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function seedStatusBadge(status) {
+            if (status === 'imported') {
+                return '<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Imported</span>';
+            }
+            return '<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pending</span>';
+        }
+
+        async function removeFromSeed(index, name) {
+            if (!confirm(`Remove "${name}" from seed list?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/artist-import/seed-list/${index}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    loadStats();
+                    loadSeedList();
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+    </script>
+</body>
+</html>

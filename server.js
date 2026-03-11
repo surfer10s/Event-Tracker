@@ -121,6 +121,9 @@ app.use(spotifyRoutes);
 // Artist routes - /api/v1/artists/...
 app.use(`${API_PREFIX}/artists`, require('./routes/artists'));
 
+// Artist Import admin routes - /api/v1/artist-import/...
+app.use(`${API_PREFIX}/artist-import`, require('./routes/artistimport'));
+
 // API Usage admin routes - /api/v1/admin/api-usage/...
 app.use(`${API_PREFIX}/admin/api-usage`, require('./routes/apiusage'));
 

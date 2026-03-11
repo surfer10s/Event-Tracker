@@ -8,6 +8,7 @@ const ADMIN_SIDEBAR_CONFIG = {
         { href: 'admin-portal.html', icon: 'dashboard', label: 'Dashboard' },
         { href: 'admin-song-cache.html', icon: 'music', label: 'Song Cache' },
         { href: 'admin-artist-cache.html', icon: 'users', label: 'Artist Cache' },
+        { href: 'admin-artist-import.html', icon: 'download', label: 'Artist Import' },
         { href: 'admin-sync.html', icon: 'sync', label: 'Background Sync' },
         { href: 'admin-notifications.html', icon: 'bell', label: 'Notifications' },
         { href: 'admin-music-taste.html', icon: 'heart', label: 'Music Taste' },
@@ -53,6 +54,11 @@ const ADMIN_SIDEBAR_ICONS = {
     </svg>`,
     activity: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+    </svg>`,
+    download: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
     </svg>`,
     home: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>

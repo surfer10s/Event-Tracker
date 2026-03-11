@@ -5,6 +5,7 @@ const User = require('../models/user');
 const SongCache = require('../models/songcache');
 const UserMusicTaste = require('../models/usermusictaste');
 const { requireAdmin } = require('../middleware/adminAuth');
+const { autoImportArtistsAsFavorites } = require('../controllers/userController');
 const apiTracker = require('../services/apiusagetracker');
 const ytFetch = apiTracker.trackedFetch('youtube');
 const googleAuthFetch = apiTracker.trackedFetch('google_auth');
@@ -142,8 +143,13 @@ router.get('/auth/youtube/callback', async (req, res) => {
     await user.save();
 
     console.log(`YouTube connected for user ${user.username}`);
-    console.log('Saved youtubeMusic:', JSON.stringify(user.youtubeMusic, null, 2));
-    res.redirect(`${frontendUrl}/account-details.html?youtube_connected=true`);
+
+    // Auto-sync music taste in background (don't block redirect)
+    performYouTubeMusicSync(user, 'auto_connect').catch(err => {
+      console.error(`Auto-sync YouTube music taste failed for ${user.username}:`, err.message);
+    });
+
+    res.redirect(`${frontendUrl}/account-details.html?youtube_connected=true&syncing=true`);
 
   } catch (err) {
     console.error('YouTube OAuth failed:', err);
@@ -1305,22 +1311,17 @@ function extractArtistFromVideo(video) {
   return extractArtistAndTitleFromVideo(video).artist;
 }
 
-// Sync user's music taste from YouTube (manual trigger)
-router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) => {
-  try {
-    if (!req.user.youtubeMusic?.accessToken) {
-      return res.status(400).json({ error: 'YouTube Music not connected' });
-    }
-    
-    const accessToken = await getValidAccessToken(req.user);
+// Core YouTube music taste sync logic (used by both manual trigger and auto-sync on connect)
+async function performYouTubeMusicSync(user, source = 'manual') {
+    const accessToken = await getValidAccessToken(user);
     const artistCounts = {}; // { artistName: { count, sources: Set } }
     const videosToCache = []; // Collect videos for caching
     let totalVideos = 0;
     let quotaUsed = 0;
-    
+
     // 1. Fetch Liked Music playlist (special playlist ID: LL)
-    console.log(`Syncing music taste for user ${req.user.username}...`);
-    
+    console.log(`[${source}] Syncing YouTube music taste for user ${user.username}...`);
+
     try {
       let nextPageToken = null;
       do {
@@ -1329,18 +1330,18 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
         likedUrl.searchParams.set('playlistId', 'LL');
         likedUrl.searchParams.set('maxResults', '50');
         if (nextPageToken) likedUrl.searchParams.set('pageToken', nextPageToken);
-        
+
         const likedRes = await ytFetch(likedUrl.toString(), {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const likedData = await likedRes.json();
         quotaUsed += 1;
-        
+
         if (likedData.error) {
           console.log('Could not fetch liked videos:', likedData.error.message);
           break;
         }
-        
+
         for (const item of likedData.items || []) {
           const extracted = extractArtistAndTitleFromVideo(item);
           if (extracted.artist) {
@@ -1350,54 +1351,54 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
             artistCounts[extracted.artist].count++;
             artistCounts[extracted.artist].sources.add('liked');
             totalVideos++;
-            
+
             // Collect for caching if we have all required fields
             if (extracted.songTitle && extracted.videoId) {
               videosToCache.push(extracted);
             }
           }
         }
-        
+
         nextPageToken = likedData.nextPageToken;
       } while (nextPageToken);
-      
+
       console.log(`Processed liked videos, found ${Object.keys(artistCounts).length} artists so far`);
     } catch (err) {
       console.log('Error fetching liked videos:', err.message);
     }
-    
+
     // 2. Fetch user's playlists
     try {
       let nextPageToken = null;
       const playlistIds = [];
-      
+
       do {
         const playlistsUrl = new URL('https://www.googleapis.com/youtube/v3/playlists');
         playlistsUrl.searchParams.set('part', 'snippet');
         playlistsUrl.searchParams.set('mine', 'true');
         playlistsUrl.searchParams.set('maxResults', '50');
         if (nextPageToken) playlistsUrl.searchParams.set('pageToken', nextPageToken);
-        
+
         const playlistsRes = await ytFetch(playlistsUrl.toString(), {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const playlistsData = await playlistsRes.json();
         quotaUsed += 1;
-        
+
         if (playlistsData.error) {
           console.log('Could not fetch playlists:', playlistsData.error.message);
           break;
         }
-        
+
         for (const playlist of playlistsData.items || []) {
           playlistIds.push(playlist.id);
         }
-        
+
         nextPageToken = playlistsData.nextPageToken;
       } while (nextPageToken);
-      
+
       console.log(`Found ${playlistIds.length} user playlists`);
-      
+
       // 3. Fetch items from each playlist
       for (const playlistId of playlistIds) {
         let nextPageToken = null;
@@ -1407,18 +1408,18 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
           itemsUrl.searchParams.set('playlistId', playlistId);
           itemsUrl.searchParams.set('maxResults', '50');
           if (nextPageToken) itemsUrl.searchParams.set('pageToken', nextPageToken);
-          
+
           const itemsRes = await ytFetch(itemsUrl.toString(), {
             headers: { 'Authorization': `Bearer ${accessToken}` }
           });
           const itemsData = await itemsRes.json();
           quotaUsed += 1;
-          
+
           if (itemsData.error) {
             console.log(`Could not fetch playlist ${playlistId}:`, itemsData.error.message);
             break;
           }
-          
+
           for (const item of itemsData.items || []) {
             const extracted = extractArtistAndTitleFromVideo(item);
             if (extracted.artist) {
@@ -1428,7 +1429,7 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
               artistCounts[extracted.artist].count++;
               artistCounts[extracted.artist].sources.add('playlist');
               totalVideos++;
-              
+
               // Collect for caching if we have all required fields
               if (extracted.songTitle && extracted.videoId) {
                 videosToCache.push(extracted);
@@ -1446,7 +1447,7 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
     // 4. Cache videos to SongCache (no extra quota!)
     let cachedCount = 0;
     let skippedCount = 0;
-    
+
     for (const video of videosToCache) {
       try {
         // Check if already cached
@@ -1467,22 +1468,22 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
         console.log(`Failed to cache ${video.artist} - ${video.songTitle}: ${err.message}`);
       }
     }
-    
+
     console.log(`Cached ${cachedCount} new songs, skipped ${skippedCount} existing`);
-    
+
     // 5. Convert to array and save
     const artistsArray = Object.entries(artistCounts).map(([name, data]) => ({
       name,
       videoCount: data.count,
       sources: Array.from(data.sources)
     }));
-    
+
     // Save to database
-    let userTaste = await UserMusicTaste.findOne({ userId: req.user._id });
+    let userTaste = await UserMusicTaste.findOne({ userId: user._id });
     if (!userTaste) {
-      userTaste = new UserMusicTaste({ userId: req.user._id, artists: [] });
+      userTaste = new UserMusicTaste({ userId: user._id, artists: [] });
     }
-    
+
     // Clear and rebuild (full sync)
     userTaste.artists = artistsArray.map(a => ({
       name: a.name,
@@ -1497,25 +1498,51 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
       syncedAt: new Date(),
       videosProcessed: totalVideos,
       artistsFound: artistsArray.length,
-      source: 'manual'
+      source
     });
-    
+
     await userTaste.save();
-    
-    console.log(`Music taste sync complete: ${artistsArray.length} artists from ${totalVideos} videos, cached ${cachedCount} songs (${quotaUsed} quota used)`);
-    
-    res.json({
+
+    console.log(`[${source}] YouTube music taste sync complete: ${artistsArray.length} artists from ${totalVideos} videos, cached ${cachedCount} songs (${quotaUsed} quota used)`);
+
+    // Auto-import top artists as favorites (4+ video appearances)
+    let autoImport = null;
+    try {
+      const topNames = Object.entries(artistCounts)
+        .filter(([_, data]) => data.count >= 4)
+        .map(([name]) => name);
+
+      if (topNames.length > 0) {
+        autoImport = await autoImportArtistsAsFavorites(user._id, topNames);
+      }
+    } catch (importErr) {
+      console.error('Auto-import after YouTube sync failed:', importErr.message);
+    }
+
+    return {
       success: true,
       artistsFound: artistsArray.length,
       totalVideosProcessed: totalVideos,
       songsCached: cachedCount,
       songsSkipped: skippedCount,
       quotaUsed,
+      autoImport,
       topArtists: artistsArray
         .sort((a, b) => b.videoCount - a.videoCount)
         .slice(0, 20)
-    });
-    
+    };
+}
+
+// Sync user's music taste from YouTube (manual trigger)
+router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) => {
+  try {
+    if (!req.user.youtubeMusic?.accessToken) {
+      return res.status(400).json({ error: 'YouTube Music not connected' });
+    }
+
+    const result = await performYouTubeMusicSync(req.user, 'manual');
+    res.json(result);
+
   } catch (err) {
     console.error('Music taste sync failed:', err);
     res.status(500).json({ error: err.message });
