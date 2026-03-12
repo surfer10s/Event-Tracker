@@ -7,6 +7,7 @@ const UserMusicTaste = require('../models/usermusictaste');
 const { requireAdmin } = require('../middleware/adminAuth');
 const { autoImportArtistsAsFavorites } = require('../controllers/userController');
 const apiTracker = require('../services/apiusagetracker');
+const activityTracker = require('../services/activitytracker');
 const ytFetch = apiTracker.trackedFetch('youtube');
 const googleAuthFetch = apiTracker.trackedFetch('google_auth');
 
@@ -143,6 +144,7 @@ router.get('/auth/youtube/callback', async (req, res) => {
     await user.save();
 
     console.log(`YouTube connected for user ${user.username}`);
+    activityTracker.track('oauth.youtube_connect', { userId: user._id });
 
     // Auto-sync music taste in background (don't block redirect)
     performYouTubeMusicSync(user, 'auto_connect').catch(err => {
@@ -197,7 +199,8 @@ router.post('/api/youtube/disconnect', authenticateUser, async (req, res) => {
   };
   
   await user.save();
-  
+
+  activityTracker.track('oauth.youtube_disconnect', { userId: user._id });
   res.json({ success: true, message: 'YouTube disconnected' });
 });
 
@@ -1541,6 +1544,7 @@ router.post('/api/youtube/sync-music-taste', authenticateUser, async (req, res) 
     }
 
     const result = await performYouTubeMusicSync(req.user, 'manual');
+    activityTracker.track('sync.youtube_music_taste', { userId: req.user._id, metadata: { artistCount: result.totalArtists || 0 } });
     res.json(result);
 
   } catch (err) {

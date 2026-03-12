@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Log - Event Tracker Admin</title>
+    <link href="/css/output.css" rel="stylesheet">
+    <script src="sidebar-admin.js"></script>
+    <style>
+        .trend-bar { display: inline-block; min-width: 4px; border-radius: 2px; vertical-align: bottom; }
+        .trend-bar-requests { background: #6366f1; }
+        .trend-bar-errors { background: #ef4444; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div id="sidebar-container"></div>
+
+    <main id="mainContent" class="main-content lg:ml-64 min-h-screen">
+        <div id="header-container"></div>
+
+        <div class="p-4 lg:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 mb-1">Activity Log</h1>
+                    <p class="text-slate-600 text-sm">Monitor user actions, logins, and request performance</p>
+                </div>
+                <div class="mt-3 sm:mt-0 flex gap-2">
+                    <button onclick="loadAll('today')" id="btn-today" class="range-btn px-4 py-2 text-sm font-medium rounded-lg border transition-colors">Today</button>
+                    <button onclick="loadAll('7d')" id="btn-7d" class="range-btn px-4 py-2 text-sm font-medium rounded-lg border transition-colors">7 Days</button>
+                    <button onclick="loadAll('30d')" id="btn-30d" class="range-btn px-4 py-2 text-sm font-medium rounded-lg border transition-colors">30 Days</button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Total Actions</p>
+                    <p class="text-2xl font-bold text-slate-800" id="totalActions">-</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Unique Users</p>
+                    <p class="text-2xl font-bold text-indigo-600" id="uniqueUsers">-</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Logins Today</p>
+                    <p class="text-2xl font-bold text-slate-800" id="loginsToday">-</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-5">
+                    <p class="text-sm text-slate-500 mb-1">Request Error Rate</p>
+                    <p class="text-2xl font-bold text-slate-800" id="requestErrorRate">-</p>
+                </div>
+            </div>
+
+            <!-- Activity Breakdown -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="px-5 py-4 border-b border-slate-100">
+                    <h2 class="text-sm font-semibold text-slate-700">Activity Breakdown</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-slate-500 border-b border-slate-100">
+                                <th class="px-5 py-3 font-medium">Action</th>
+                                <th class="px-5 py-3 font-medium text-right">Count</th>
+                                <th class="px-5 py-3 font-medium text-right">% of Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="breakdownTable">
+                            <tr><td colspan="3" class="px-5 py-8 text-center text-slate-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Activity Feed -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-slate-700">Recent Activity</h2>
+                    <select id="actionFilter" onchange="loadEvents()" class="text-sm border border-slate-300 rounded-lg px-3 py-1.5">
+                        <option value="">All Actions</option>
+                        <option value="user.login">Login</option>
+                        <option value="user.login_failed">Login Failed</option>
+                        <option value="user.register">Register</option>
+                        <option value="user.login_google">Google Login</option>
+                        <option value="artist.favorite">Favorite</option>
+                        <option value="artist.unfavorite">Unfavorite</option>
+                        <option value="concert_history.add">Concert Add</option>
+                        <option value="profile.update">Profile Update</option>
+                        <option value="password.change">Password Change</option>
+                        <option value="password.reset">Password Reset</option>
+                        <option value="oauth.youtube_connect">YouTube Connect</option>
+                        <option value="oauth.spotify_connect">Spotify Connect</option>
+                        <option value="sync.youtube_music_taste">YouTube Sync</option>
+                        <option value="sync.spotify_music_taste">Spotify Sync</option>
+                    </select>
+                </div>
+                <div class="max-h-96 overflow-y-auto" id="activityFeed">
+                    <div class="px-5 py-8 text-center text-slate-400">Loading...</div>
+                </div>
+                <div class="px-5 py-3 border-t border-slate-100 text-center" id="loadMoreContainer" style="display:none;">
+                    <button onclick="loadMoreEvents()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Load More</button>
+                </div>
+            </div>
+
+            <!-- Request Performance Table -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="px-5 py-4 border-b border-slate-100">
+                    <h2 class="text-sm font-semibold text-slate-700">Request Performance</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-slate-500 border-b border-slate-100">
+                                <th class="px-5 py-3 font-medium">Endpoint</th>
+                                <th class="px-5 py-3 font-medium text-right">Requests</th>
+                                <th class="px-5 py-3 font-medium text-right">Avg Latency</th>
+                                <th class="px-5 py-3 font-medium text-right">P95</th>
+                                <th class="px-5 py-3 font-medium text-right">Max</th>
+                                <th class="px-5 py-3 font-medium text-right">Error Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestTable">
+                            <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Daily Request Trend -->
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6" id="trend-container" style="display:none;">
+                <h2 class="text-sm font-semibold text-slate-700 mb-3">Daily Request Trend</h2>
+                <div class="flex items-end gap-1 h-24" id="trend-chart"></div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-indigo-500 inline-block"></span> Requests</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block"></span> Errors</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = '/api/v1';
+        const token = localStorage.getItem('token');
+        let currentRange = 'today';
+        let eventsOffset = 0;
+        const EVENTS_LIMIT = 50;
+
+        if (!token) window.location.href = 'auth.html';
+
+        const ACTION_LABELS = {
+            'user.login': 'Login',
+            'user.login_failed': 'Login Failed',
+            'user.register': 'Register',
+            'user.login_google': 'Google Login',
+            'artist.favorite': 'Favorite Artist',
+            'artist.unfavorite': 'Unfavorite Artist',
+            'concert_history.add': 'Add Concert',
+            'concert_history.update': 'Update Concert',
+            'concert_history.delete': 'Delete Concert',
+            'profile.update': 'Profile Update',
+            'password.change': 'Password Change',
+            'password.reset': 'Password Reset',
+            'oauth.youtube_connect': 'YouTube Connect',
+            'oauth.youtube_disconnect': 'YouTube Disconnect',
+            'oauth.spotify_connect': 'Spotify Connect',
+            'oauth.spotify_disconnect': 'Spotify Disconnect',
+            'sync.youtube_music_taste': 'YouTube Sync',
+            'sync.spotify_music_taste': 'Spotify Sync'
+        };
+
+        const ACTION_COLORS = {
+            'user.login': 'bg-emerald-100 text-emerald-700',
+            'user.login_failed': 'bg-rose-100 text-rose-700',
+            'user.register': 'bg-blue-100 text-blue-700',
+            'user.login_google': 'bg-emerald-100 text-emerald-700',
+            'artist.favorite': 'bg-purple-100 text-purple-700',
+            'artist.unfavorite': 'bg-slate-100 text-slate-600',
+            'concert_history.add': 'bg-amber-100 text-amber-700',
+            'concert_history.update': 'bg-amber-100 text-amber-700',
+            'concert_history.delete': 'bg-rose-100 text-rose-700',
+            'profile.update': 'bg-sky-100 text-sky-700',
+            'password.change': 'bg-orange-100 text-orange-700',
+            'password.reset': 'bg-orange-100 text-orange-700',
+            'oauth.youtube_connect': 'bg-red-100 text-red-700',
+            'oauth.youtube_disconnect': 'bg-slate-100 text-slate-600',
+            'oauth.spotify_connect': 'bg-green-100 text-green-700',
+            'oauth.spotify_disconnect': 'bg-slate-100 text-slate-600',
+            'sync.youtube_music_taste': 'bg-red-100 text-red-700',
+            'sync.spotify_music_taste': 'bg-green-100 text-green-700'
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAdminSidebar('Activity Log');
+            loadUser();
+            loadAll('today');
+        });
+
+        async function loadUser() {
+            try {
+                const res = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) updateAdminSidebarUser(data.user);
+            } catch (err) {
+                console.error('Load user error:', err);
+            }
+        }
+
+        function setActiveRange(range) {
+            currentRange = range;
+            document.querySelectorAll('.range-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-300', 'hover:bg-slate-50');
+            });
+            const active = document.getElementById(`btn-${range}`);
+            if (active) {
+                active.classList.remove('bg-white', 'text-slate-600', 'border-slate-300', 'hover:bg-slate-50');
+                active.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+            }
+        }
+
+        async function loadAll(range) {
+            setActiveRange(range);
+            eventsOffset = 0;
+            document.getElementById('actionFilter').value = '';
+            await Promise.all([loadSummary(), loadEvents(), loadRequests()]);
+        }
+
+        // ============ Summary ============
+
+        async function loadSummary() {
+            try {
+                const res = await fetch(`${API_BASE}/admin/activity/summary?range=${currentRange}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                document.getElementById('totalActions').textContent = data.activity.totalActions.toLocaleString();
+                document.getElementById('uniqueUsers').textContent = data.activity.uniqueUsers.toLocaleString();
+                document.getElementById('loginsToday').textContent = data.activity.loginsToday.toLocaleString();
+                document.getElementById('requestErrorRate').textContent = data.requests.errorRate + '%';
+
+                renderBreakdown(data.activity.breakdown, data.activity.totalActions);
+            } catch (err) {
+                console.error('Load summary error:', err);
+            }
+        }
+
+        function renderBreakdown(breakdown, total) {
+            const entries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+
+            if (entries.length === 0) {
+                document.getElementById('breakdownTable').innerHTML =
+                    '<tr><td colspan="3" class="px-5 py-8 text-center text-slate-400">No activity recorded yet</td></tr>';
+                return;
+            }
+
+            document.getElementById('breakdownTable').innerHTML = entries.map(([action, count]) => {
+                const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                const colorClass = ACTION_COLORS[action] || 'bg-slate-100 text-slate-600';
+                return `
+                    <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="px-5 py-3">
+                            <span class="inline-block px-2.5 py-1 text-xs font-medium rounded-full ${colorClass}">${ACTION_LABELS[action] || action}</span>
+                        </td>
+                        <td class="px-5 py-3 text-right font-medium text-slate-700">${count.toLocaleString()}</td>
+                        <td class="px-5 py-3 text-right text-slate-500">${pct}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ============ Events ============
+
+        async function loadEvents(append = false) {
+            if (!append) eventsOffset = 0;
+
+            const action = document.getElementById('actionFilter').value;
+            const params = new URLSearchParams({ range: currentRange, limit: EVENTS_LIMIT, offset: eventsOffset });
+            if (action) params.append('action', action);
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/activity/events?${params}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                if (!append) {
+                    document.getElementById('activityFeed').innerHTML = '';
+                }
+
+                if (data.events.length === 0 && !append) {
+                    document.getElementById('activityFeed').innerHTML =
+                        '<div class="px-5 py-8 text-center text-slate-400">No activity events found</div>';
+                    document.getElementById('loadMoreContainer').style.display = 'none';
+                    return;
+                }
+
+                const html = data.events.map(evt => {
+                    const time = new Date(evt.timestamp).toLocaleString();
+                    const user = evt.userId ? (evt.userId.username || evt.userId.email) : 'Anonymous';
+                    const colorClass = ACTION_COLORS[evt.action] || 'bg-slate-100 text-slate-600';
+                    const meta = formatMetadata(evt.action, evt.metadata);
+
+                    return `
+                        <div class="flex items-start gap-3 px-5 py-3 border-b border-slate-50 hover:bg-slate-50">
+                            <div class="shrink-0 mt-0.5">
+                                <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full ${colorClass}">${ACTION_LABELS[evt.action] || evt.action}</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-slate-700"><span class="font-medium">${escapeHtml(user)}</span>${meta ? ' &mdash; ' + meta : ''}</p>
+                                <p class="text-xs text-slate-400 mt-0.5">${time}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                if (append) {
+                    document.getElementById('activityFeed').insertAdjacentHTML('beforeend', html);
+                } else {
+                    document.getElementById('activityFeed').innerHTML = html;
+                }
+
+                // Show/hide load more
+                const hasMore = (eventsOffset + data.events.length) < data.total;
+                document.getElementById('loadMoreContainer').style.display = hasMore ? 'block' : 'none';
+
+            } catch (err) {
+                console.error('Load events error:', err);
+                if (!append) {
+                    document.getElementById('activityFeed').innerHTML =
+                        `<div class="px-5 py-8 text-center text-rose-500">Error: ${err.message}</div>`;
+                }
+            }
+        }
+
+        function loadMoreEvents() {
+            eventsOffset += EVENTS_LIMIT;
+            loadEvents(true);
+        }
+
+        function formatMetadata(action, meta) {
+            if (!meta) return '';
+            if (action === 'artist.favorite' || action === 'artist.unfavorite') return escapeHtml(meta.artistName || '');
+            if (action === 'concert_history.add') return escapeHtml([meta.artistName, meta.venueName].filter(Boolean).join(' @ '));
+            if (action === 'profile.update' && meta.fields) return 'fields: ' + meta.fields.join(', ');
+            if (action === 'user.login_failed') return meta.reason || '';
+            if (action === 'user.register' && meta.method) return 'via ' + meta.method;
+            if (action.startsWith('sync.') && meta.artistCount != null) return meta.artistCount + ' artists';
+            return '';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ============ Requests ============
+
+        async function loadRequests() {
+            try {
+                const res = await fetch(`${API_BASE}/admin/activity/requests?range=${currentRange}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                renderRequestTable(data.endpoints);
+
+                // Trend chart (7d/30d only)
+                if (currentRange !== 'today' && data.daily && data.daily.length > 1) {
+                    document.getElementById('trend-container').style.display = 'block';
+                    renderTrend(data.daily);
+                } else {
+                    document.getElementById('trend-container').style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Load requests error:', err);
+                document.getElementById('requestTable').innerHTML =
+                    `<tr><td colspan="6" class="px-5 py-8 text-center text-rose-500">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderRequestTable(endpoints) {
+            if (!endpoints || endpoints.length === 0) {
+                document.getElementById('requestTable').innerHTML =
+                    '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No request data yet. Wait 30 seconds for data to appear.</td></tr>';
+                return;
+            }
+
+            document.getElementById('requestTable').innerHTML = endpoints.map(ep => {
+                const errorClass = ep.errorRate > 10 ? 'text-rose-600 font-semibold' : ep.errorRate > 0 ? 'text-amber-600' : 'text-slate-500';
+                return `
+                    <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="px-5 py-3 font-mono text-xs text-slate-700">${escapeHtml(ep.endpoint)}</td>
+                        <td class="px-5 py-3 text-right text-slate-700">${ep.totalRequests.toLocaleString()}</td>
+                        <td class="px-5 py-3 text-right text-slate-600">${ep.avgLatencyMs}ms</td>
+                        <td class="px-5 py-3 text-right text-slate-600">${ep.approxP95Ms}ms</td>
+                        <td class="px-5 py-3 text-right text-slate-600">${ep.maxLatencyMs.toLocaleString()}ms</td>
+                        <td class="px-5 py-3 text-right ${errorClass}">${ep.errorRate}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderTrend(daily) {
+            const chart = document.getElementById('trend-chart');
+            if (!daily || daily.length === 0) {
+                chart.innerHTML = '<span class="text-slate-400 text-xs">No data</span>';
+                return;
+            }
+
+            const maxReqs = Math.max(...daily.map(d => d.requests), 1);
+
+            chart.innerHTML = daily.map(d => {
+                const reqH = Math.max((d.requests / maxReqs) * 80, 2);
+                const errH = d.errors > 0 ? Math.max((d.errors / maxReqs) * 80, 2) : 0;
+                const dateLabel = d.date.slice(5);
+
+                return `
+                    <div class="flex flex-col items-center flex-1" title="${d.date}: ${d.requests} requests, ${d.errors} errors">
+                        <div class="flex items-end gap-px" style="height:80px;">
+                            <span class="trend-bar trend-bar-requests" style="height:${reqH}px; width:8px;"></span>
+                            ${errH > 0 ? `<span class="trend-bar trend-bar-errors" style="height:${errH}px; width:8px;"></span>` : ''}
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1">${dateLabel}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

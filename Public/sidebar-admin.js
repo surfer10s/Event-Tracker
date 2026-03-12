@@ -13,7 +13,8 @@ const ADMIN_SIDEBAR_CONFIG = {
         { href: 'admin-notifications.html', icon: 'bell', label: 'Notifications' },
         { href: 'admin-music-taste.html', icon: 'heart', label: 'Music Taste' },
         { href: 'admin-users.html', icon: 'user', label: 'Users' },
-        { href: 'admin-api-usage.html', icon: 'activity', label: 'API Usage' }
+        { href: 'admin-api-usage.html', icon: 'activity', label: 'API Usage' },
+        { href: 'admin-activity-log.html', icon: 'clipboard', label: 'Activity Log' }
     ],
     mainAppLink: { href: 'index.html', icon: 'home', label: 'Back to Event Tracker' }
 };
@@ -54,6 +55,10 @@ const ADMIN_SIDEBAR_ICONS = {
     </svg>`,
     activity: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+    </svg>`,
+    clipboard: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
     </svg>`,
     download: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>

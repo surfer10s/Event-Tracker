@@ -3,6 +3,7 @@ const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const activityTracker = require('../services/activitytracker');
 
 // Configure email transporter (update with your email service)
 const transporter = nodemailer.createTransport({
@@ -105,9 +106,11 @@ exports.register = async (req, res) => {
             emailVerificationExpires
         });
 
+        activityTracker.track('user.register', { userId: user._id, metadata: { email, username }, ip: req.ip, userAgent: req.headers['user-agent'] });
+
         // Send verification email
         const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/auth.html?verify=${emailVerificationToken}`;
-        
+
         const emailHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2 style="color: #334155;">Welcome to Event Tracker!</h2>
@@ -161,6 +164,7 @@ exports.login = async (req, res) => {
         const user = await User.findOne({ email }).select('+password');
 
         if (!user) {
+            activityTracker.track('user.login_failed', { metadata: { reason: 'user_not_found', email }, ip: req.ip, userAgent: req.headers['user-agent'] });
             return res.status(401).json({
                 success: false,
                 message: 'Invalid credentials'
@@ -169,6 +173,7 @@ exports.login = async (req, res) => {
 
         // If user has no password (Google-only account), suggest Google sign-in
         if (!user.password) {
+            activityTracker.track('user.login_failed', { metadata: { reason: 'google_only', email }, ip: req.ip, userAgent: req.headers['user-agent'] });
             return res.status(401).json({
                 success: false,
                 message: 'This account uses Google sign-in. Please use the "Sign in with Google" button.'
@@ -179,6 +184,7 @@ exports.login = async (req, res) => {
         const isMatch = await user.matchPassword(password);
 
         if (!isMatch) {
+            activityTracker.track('user.login_failed', { metadata: { reason: 'wrong_password', email }, ip: req.ip, userAgent: req.headers['user-agent'] });
             return res.status(401).json({
                 success: false,
                 message: 'Invalid credentials'
@@ -196,6 +202,7 @@ exports.login = async (req, res) => {
 
         // Track login
         await User.updateOne({ _id: user._id }, { $inc: { loginCount: 1 }, $set: { lastLoginAt: new Date() } });
+        activityTracker.track('user.login', { userId: user._id, ip: req.ip, userAgent: req.headers['user-agent'] });
 
         // Generate token
         const token = generateToken(user._id);
@@ -436,6 +443,8 @@ exports.resetPassword = async (req, res) => {
         user.passwordResetCode = undefined;
         user.passwordResetExpires = undefined;
         await user.save();
+
+        activityTracker.track('password.reset', { userId: user._id, ip: req.ip, userAgent: req.headers['user-agent'] });
 
         // Send confirmation email
         const emailHtml = `

@@ -1,4 +1,5 @@
 const ConcertHistory = require('../models/concerthistory');
+const activityTracker = require('../services/activitytracker');
 
 // @desc    Add concert to history
 // @route   POST /api/v1/users/concert-history
@@ -59,6 +60,8 @@ exports.addConcertToHistory = async (req, res) => {
             notes,
             setlistUrl
         });
+
+        activityTracker.track('concert_history.add', { userId: req.user._id, metadata: { artistName, venueName } });
 
         res.status(201).json({
             success: true,
@@ -135,6 +138,8 @@ exports.updateConcertHistory = async (req, res) => {
             });
         }
 
+        activityTracker.track('concert_history.update', { userId: req.user._id, metadata: { concertId: req.params.id } });
+
         res.json({
             success: true,
             concert
@@ -164,6 +169,8 @@ exports.deleteConcertFromHistory = async (req, res) => {
                 message: 'Concert not found in your history'
             });
         }
+
+        activityTracker.track('concert_history.delete', { userId: req.user._id, metadata: { artistName: concert.artistName } });
 
         res.json({
             success: true,

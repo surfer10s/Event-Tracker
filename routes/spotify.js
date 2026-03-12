@@ -6,6 +6,7 @@ const SongCache = require('../models/songcache');
 const UserMusicTaste = require('../models/usermusictaste');
 const { autoImportArtistsAsFavorites } = require('../controllers/userController');
 const apiTracker = require('../services/apiusagetracker');
+const activityTracker = require('../services/activitytracker');
 const spotifyFetch = apiTracker.trackedFetch('spotify');
 
 // ============================================
@@ -141,6 +142,7 @@ router.get('/auth/spotify/callback', async (req, res) => {
     await user.save();
 
     console.log(`Spotify connected for user ${user.username}`);
+    activityTracker.track('oauth.spotify_connect', { userId: user._id });
 
     // Auto-sync music taste in background (don't block redirect)
     performSpotifyMusicSync(user, 'auto_connect').catch(err => {
@@ -191,6 +193,7 @@ router.post('/api/spotify/disconnect', authenticateUser, async (req, res) => {
   user.markModified('spotifyMusic');
   await user.save();
 
+  activityTracker.track('oauth.spotify_disconnect', { userId: user._id });
   res.json({ success: true, message: 'Spotify disconnected' });
 });
 
@@ -409,6 +412,7 @@ async function performSpotifyMusicSync(user, source = 'manual') {
 router.post('/api/spotify/sync-music-taste', authenticateUser, async (req, res) => {
   try {
     const result = await performSpotifyMusicSync(req.user, 'manual');
+    activityTracker.track('sync.spotify_music_taste', { userId: req.user._id, metadata: { artistCount: result.totalArtists || 0 } });
     res.json(result);
 
   } catch (error) {

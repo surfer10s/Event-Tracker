@@ -5,6 +5,7 @@ const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const apiTracker = require('../services/apiusagetracker');
 const googleAuthFetch = apiTracker.trackedFetch('google_auth');
+const activityTracker = require('../services/activitytracker');
 const User = require('../models/user');
 
 // POST /api/v1/auth/register - Register new user (sends verification email)
@@ -104,6 +105,7 @@ router.get('/google/callback', async (req, res) => {
             ]
         });
 
+        let isNewUser = false;
         if (user) {
             // Existing user — link Google ID if not already linked
             if (!user.googleId) {
@@ -118,6 +120,7 @@ router.get('/google/callback', async (req, res) => {
             await user.save();
         } else {
             // New user — auto-create account
+            isNewUser = true;
             const username = await authController.generateUniqueUsername(profile.email);
             user = await User.create({
                 username,
@@ -128,10 +131,12 @@ router.get('/google/callback', async (req, res) => {
                 googleId: profile.id,
                 isEmailVerified: true
             });
+            activityTracker.track('user.register', { userId: user._id, metadata: { method: 'google', email: profile.email }, ip: req.ip, userAgent: req.headers['user-agent'] });
         }
 
         // Track login
         await User.updateOne({ _id: user._id }, { $inc: { loginCount: 1 }, $set: { lastLoginAt: new Date() } });
+        activityTracker.track('user.login_google', { userId: user._id, metadata: { email: profile.email }, ip: req.ip, userAgent: req.headers['user-agent'] });
 
         // Generate JWT
         const token = authController.generateToken(user._id);

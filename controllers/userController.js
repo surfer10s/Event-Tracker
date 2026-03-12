@@ -3,6 +3,7 @@ const User = require('../models/user');
 const Artist = require('../models/artist');
 const ticketmasterService = require('../services/ticketmasterService');
 const { geocodeAddress } = require('../services/geocodingService');
+const activityTracker = require('../services/activitytracker');
 
 // Add artist to favorites by Ticketmaster ID
 // This will create the artist in database if it doesn't exist
@@ -55,6 +56,8 @@ exports.addFavoriteArtistByTicketmasterId = async (req, res) => {
       favoriteArtists: artist._id
     });
     await artist.save();
+
+    activityTracker.track('artist.favorite', { userId: req.user.id, metadata: { artistName: artist.name } });
 
     res.json({
       success: true,
@@ -110,6 +113,8 @@ exports.addFavoriteArtist = async (req, res) => {
     });
     await artist.save();
 
+    activityTracker.track('artist.favorite', { userId: req.user.id, metadata: { artistName: artist.name } });
+
     res.json({
       success: true,
       message: 'Artist added to favorites',
@@ -146,6 +151,8 @@ exports.removeFavoriteArtist = async (req, res) => {
       });
       await artist.save();
     }
+
+    activityTracker.track('artist.unfavorite', { userId: req.user.id, metadata: { artistName: artist?.name } });
 
     res.json({
       success: true,
@@ -289,6 +296,8 @@ exports.updateProfile = async (req, res) => {
 
     await user.save();
 
+    activityTracker.track('profile.update', { userId: req.user.id, metadata: { fields: Object.keys(req.body) } });
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -370,6 +379,8 @@ exports.updatePassword = async (req, res) => {
     // Update password
     user.password = newPassword;
     await user.save();
+
+    activityTracker.track('password.change', { userId: req.user.id });
 
     res.json({
       success: true,

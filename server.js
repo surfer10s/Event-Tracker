@@ -10,9 +10,13 @@ const path = require('path');
 const cron = require('node-cron');
 const connectDB = require('./config/database');
 const apiUsageTracker = require('./services/apiusagetracker');
+const activityTracker = require('./services/activitytracker');
 
 // Initialize Express app
 const app = express();
+
+// Trust proxy so req.ip returns real client IP behind Nginx
+app.set('trust proxy', true);
 
 // Connect to MongoDB
 connectDB();
@@ -48,6 +52,9 @@ app.use((req, res, next) => {
   console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
   next();
 });
+
+// Request performance tracking middleware
+app.use(activityTracker.requestPerformanceMiddleware);
 
 // Serve static frontend files from 'Public' folder
 // This serves your HTML, CSS, JS files at the root URL
@@ -127,6 +134,9 @@ app.use(`${API_PREFIX}/artist-import`, require('./routes/artistimport'));
 // API Usage admin routes - /api/v1/admin/api-usage/...
 app.use(`${API_PREFIX}/admin/api-usage`, require('./routes/apiusage'));
 
+// Activity Log admin routes - /api/v1/admin/activity/...
+app.use(`${API_PREFIX}/admin/activity`, require('./routes/activitylog'));
+
 // 404 handler - catches all unmatched routes
 app.use((req, res) => {
   res.status(404).json({ 
@@ -153,6 +163,9 @@ const PORT = process.env.PORT || 5000;
 
 // Start API usage tracker
 apiUsageTracker.start();
+
+// Start activity tracker
+activityTracker.start();
 
 app.listen(PORT, () => {
   console.log(`
