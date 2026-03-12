@@ -386,6 +386,95 @@ exports.updatePassword = async (req, res) => {
   }
 };
 
+// Auto-import artist names as favorites (used by Spotify/YouTube sync)
+// Searches DB first, then Ticketmaster for unknown artists (capped at 50 TM searches)
+exports.autoImportArtistsAsFavorites = async function autoImportArtistsAsFavorites(userId, artistNames) {
+  const result = { imported: 0, alreadyFavorited: 0, notFound: 0, tmSearches: 0 };
+  const TM_SEARCH_CAP = 50;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return result;
+
+    const existingFavIds = new Set(user.favoriteArtists.map(id => id.toString()));
+    const newlyFavoritedArtists = []; // track for follower count updates
+
+    for (const name of artistNames) {
+      try {
+        // Step A: case-insensitive DB lookup
+        let artist = await Artist.findOne({ name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+
+        // Step B: TM search if not found and budget remains
+        if (!artist && result.tmSearches < TM_SEARCH_CAP) {
+          result.tmSearches++;
+          const tmResult = await ticketmasterService.searchArtists(name);
+          if (tmResult.success && tmResult.artists.length > 0) {
+            // Only accept exact case-insensitive name match
+            const match = tmResult.artists.find(a => a.name.toLowerCase() === name.toLowerCase());
+            if (match) {
+              // Check if artist already exists by TM ID
+              artist = await Artist.findOne({ 'externalIds.ticketmaster': match.externalId });
+              if (!artist) {
+                artist = await Artist.create({
+                  name: match.name,
+                  externalIds: { ticketmaster: match.externalId },
+                  genre: match.genre ? [match.genre] : [],
+                  images: {
+                    large: match.images?.[0]?.url,
+                    medium: match.images?.[1]?.url,
+                    thumbnail: match.images?.[2]?.url
+                  },
+                  tourStatus: 'unknown',
+                  lastUpdated: new Date()
+                });
+                fetchArtistEventsInBackground(match.externalId);
+              }
+            }
+          }
+        }
+
+        // Step C: Add to favorites if found and not already favorited
+        if (artist) {
+          if (existingFavIds.has(artist._id.toString())) {
+            result.alreadyFavorited++;
+          } else {
+            user.favoriteArtists.push(artist._id);
+            existingFavIds.add(artist._id.toString());
+            newlyFavoritedArtists.push(artist._id);
+            result.imported++;
+          }
+        } else {
+          result.notFound++;
+        }
+      } catch (artistErr) {
+        console.error(`Auto-import error for "${name}":`, artistErr.message);
+        result.notFound++;
+      }
+    }
+
+    // Bulk save user once
+    if (newlyFavoritedArtists.length > 0) {
+      await user.save();
+
+      // Update follower counts for newly favorited artists
+      for (const artistId of newlyFavoritedArtists) {
+        try {
+          const count = await User.countDocuments({ favoriteArtists: artistId });
+          await Artist.findByIdAndUpdate(artistId, { 'stats.followers': count });
+        } catch (err) {
+          console.error(`Failed to update follower count for ${artistId}:`, err.message);
+        }
+      }
+    }
+
+    console.log(`Auto-import complete: ${result.imported} imported, ${result.alreadyFavorited} already favorited, ${result.notFound} not found, ${result.tmSearches} TM searches`);
+  } catch (error) {
+    console.error('Auto-import artists failed:', error.message);
+  }
+
+  return result;
+};
+
 // Helper function to fetch artist events in background
 async function fetchArtistEventsInBackground(ticketmasterId) {
   try {
