@@ -149,12 +149,13 @@ venueSchema.pre('save', function (next) {
 venueSchema.statics.findOrCreateFromEventVenue = async function (venueData) {
     const key = `${(venueData.name || '').toLowerCase()}|${(venueData.city || '').toLowerCase()}|${(venueData.state || '').toUpperCase()}`;
 
-    // Build location if coordinates exist
+    // Build location if coordinates exist and are valid numbers
     let location;
-    if (venueData.location?.coordinates?.length === 2) {
+    const coords = venueData.location?.coordinates;
+    if (coords?.length === 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number' && isFinite(coords[0]) && isFinite(coords[1])) {
         location = {
             type: 'Point',
-            coordinates: venueData.location.coordinates
+            coordinates: coords
         };
     }
 

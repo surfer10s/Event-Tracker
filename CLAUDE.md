@@ -82,6 +82,7 @@ event-tracker-backend/
 │   ├── venues.js                # /api/v1/venues/*
 │   ├── seatgeek.js              # /api/v1/seatgeek/*
 │   ├── artistCache.js           # /api/v1/artist-cache/*
+│   ├── artistimport.js          # /api/v1/artist-import/* (admin batch import)
 │   ├── test.js                  # /api/v1/test/*
 │   ├── youtube.js               # /auth/youtube/*, /api/youtube/*
 │   └── spotify.js               # /auth/spotify/*, /api/spotify/*
@@ -96,9 +97,9 @@ event-tracker-backend/
 ├── middleware/
 │   ├── auth.js                  # JWT verification
 │   └── adminAuth.js             # Admin-only protection
-├── Public/                      # Frontend HTML pages (26 pages)
-│   ├── index.html               # Dashboard
-│   ├── auth.html                # Login/register
+├── Public/                      # Frontend HTML pages (27 pages)
+│   ├── index.html               # Dashboard (search bar: artists + venues)
+│   ├── auth.html                # Login/register (confirm password, show/hide toggle)
 │   ├── account-details.html     # Profile management
 │   ├── favorites.html           # Favorite artists
 │   ├── Favorites-Activity.html  # Favorites activity feed (grouped by artist)
@@ -118,6 +119,7 @@ event-tracker-backend/
 │   ├── admin-sync.html          # Admin sync management
 │   ├── admin-notifications.html # Admin notification management
 │   ├── admin-artist-cache.html  # Admin artist cache
+│   ├── admin-artist-import.html # Admin batch artist import from seed list
 │   ├── admin-music-taste.html   # Admin music taste
 │   ├── admin-song-cache.html    # Admin song cache
 │   ├── sidebar.js               # Shared sidebar component (user pages)
@@ -125,7 +127,9 @@ event-tracker-backend/
 │   ├── SeatGeek-test.html       # SeatGeek API testing
 │   └── YouTubeTest.html         # YouTube integration testing
 ├── scripts/
-│   └── make-admin.js            # CLI to promote users to admin
+│   ├── make-admin.js            # CLI to promote users to admin
+│   ├── artist-seed-list.json    # ~250 actively touring artists for batch import
+│   └── artist-import-readme.txt # Batch import walkthrough and reference
 ├── .env                         # Environment variables
 ├── package.json
 └── server.js                    # Main entry point
@@ -134,14 +138,15 @@ event-tracker-backend/
 ## Key Features
 
 ### User Management
-- Email-based registration with verification
+- Email-based registration with verification (confirm password + show/hide toggle)
 - Password reset via email code
 - Profile customization (address, concert preferences)
+- Login tracking (count + last login timestamp)
 - Seat preference selection
 - Budget and view quality preferences
 
 ### Artist & Event Discovery
-- Real-time search from Ticketmaster API
+- Real-time search from Ticketmaster API (dashboard search bar: artists + venues)
 - Advanced filtering (location, date, price, status)
 - Geographic proximity search ("events near me")
 - Embedded Leaflet tour map with animated playback on artist profile
@@ -179,7 +184,7 @@ event-tracker-backend/
 - Daily email digests
 
 ### YouTube Music Integration
-- OAuth 2.0 connection
+- OAuth 2.0 connection with **auto-sync on connect** (fire-and-forget in callback)
 - Playlist and liked video extraction
 - Music taste analytics (top artists)
 - Automatic song caching (artist+title → videoId)
@@ -188,7 +193,8 @@ event-tracker-backend/
 - Cached search results with lazy invalidation for unavailable videos
 
 ### Spotify Integration
-- OAuth 2.0 connection (scopes: user-library-read, playlist-modify-public/private, playlist-read-private, user-read-private, user-follow-read)
+- OAuth 2.0 connection with **auto-sync on connect** (fire-and-forget in callback)
+- Scopes: user-library-read, playlist-modify-public/private, playlist-read-private, user-read-private, user-follow-read
 - Music taste sync: followed artists, saved tracks, playlist tracks
 - Track search with SongCache (artist+title → trackId/trackUri)
 - Playlist creation from past concert setlists (via artist-profile page)
@@ -201,6 +207,13 @@ event-tracker-backend/
 - Real-time progress via Server-Sent Events (SSE)
 - Automatic notification generation
 - Cleanup of old/past events
+
+### Batch Artist Import (Admin)
+- Curated seed list of ~250 actively touring artists (`scripts/artist-seed-list.json`)
+- Admin page to run batch imports with configurable limit, dry run, and optional event fetch
+- TM API search with exact name matching, 1s rate limiting between calls
+- Dedup by name (case-insensitive) and TM external ID
+- Reuses `autoImportArtistsAsFavorites()` pattern from `userController.js`
 
 ### Affiliate System
 - Ticketmaster, SeatGeek, StubHub links
@@ -218,6 +231,7 @@ event-tracker-backend/
 - Spotify OAuth tokens (spotifyMusic subdocument)
 - Favorite artists array
 - Admin flag
+- Login tracking: `loginCount`, `lastLoginAt`
 
 ### Event
 - Concert information
@@ -264,7 +278,7 @@ event-tracker-backend/
 ### UserMusicTaste
 - YouTube and Spotify extracted artists
 - Video/track counts and sources (liked, playlist, spotify_follow, spotify_saved, spotify_playlist)
-- Sync history
+- Sync history with source: `manual`, `background`, `auto_connect`
 
 ### Venue
 - Name, address, city, state, country, zipCode
@@ -329,6 +343,13 @@ event-tracker-backend/
 - `POST /api/v1/sync/full` - Run full sync
 - `POST /api/v1/sync/my-artists` - Sync user's favorites
 - `POST /api/v1/sync/full-pipeline` - Sync + notifications + digests
+
+### Artist Import (Admin)
+- `GET /api/v1/artist-import/stats` - Seed list count, imported, pending
+- `GET /api/v1/artist-import/seed-list` - Full seed list with import status
+- `POST /api/v1/artist-import/run` - Batch import `{ limit, fetchEvents, dryRun }`
+- `POST /api/v1/artist-import/add-to-seed` - Add artist to seed list
+- `DELETE /api/v1/artist-import/seed-list/:index` - Remove from seed list
 
 ### YouTube
 - `GET /auth/youtube` - Start OAuth flow
@@ -514,7 +535,7 @@ node scripts/make-admin.js <email>
 ## Frontend Pages Summary
 
 - **User Pages**: auth, index, account-details, favorites, favorites-activity, favorites-activity-location, discover-artists, discover-concerts, artist-profile, venue-profile, venues, future-concerts, tour-map, event-details, concert-history, notifications, manage-categories
-- **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-music-taste, admin-song-cache
+- **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-artist-import, admin-music-taste, admin-song-cache
 - **Testing Pages**: youtubetest, seatgeek-test
 
 ## Architecture Patterns
@@ -610,6 +631,6 @@ nginx -t && systemctl restart nginx  # Test & restart Nginx
 
 ---
 
-**Last Updated**: 2026-03-07
-**Version**: 1.4.0
+**Last Updated**: 2026-03-12
+**Version**: 1.5.0
 **Author**: Billy Wagner
