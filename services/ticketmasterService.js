@@ -287,24 +287,35 @@ class TicketmasterService {
       });
 
       // Find or create the artist (atomic upsert to avoid race condition duplicates)
-      let artist = await Artist.findOneAndUpdate(
-        { 'externalIds.ticketmaster': formattedEvent.artistInfo.externalId },
-        {
-          $setOnInsert: {
-            name: formattedEvent.artistInfo.name,
-            externalIds: {
-              ticketmaster: formattedEvent.artistInfo.externalId
-            },
-            genre: formattedEvent.artistInfo.genre ? [formattedEvent.artistInfo.genre] : [],
-            images: {
-              large: formattedEvent.artistInfo.images?.[0]?.url
-            },
-            tourStatus: 'active',
-            lastUpdated: new Date()
-          }
-        },
-        { upsert: true, new: true }
-      );
+      let artist;
+      try {
+        artist = await Artist.findOneAndUpdate(
+          { 'externalIds.ticketmaster': formattedEvent.artistInfo.externalId },
+          {
+            $setOnInsert: {
+              name: formattedEvent.artistInfo.name,
+              externalIds: {
+                ticketmaster: formattedEvent.artistInfo.externalId
+              },
+              genre: formattedEvent.artistInfo.genre ? [formattedEvent.artistInfo.genre] : [],
+              images: {
+                large: formattedEvent.artistInfo.images?.[0]?.url
+              },
+              tourStatus: 'active',
+              lastUpdated: new Date()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      } catch (artistErr) {
+        // Duplicate name key — artist exists with a different TM ID. Fall back to name lookup.
+        if (artistErr.code === 11000) {
+          artist = await Artist.findOne({ name: formattedEvent.artistInfo.name });
+          if (!artist) throw artistErr; // Shouldn't happen, but safety net
+        } else {
+          throw artistErr;
+        }
+      }
 
       // Update artist stats
       artist.stats.upcomingEvents = await Event.countDocuments({

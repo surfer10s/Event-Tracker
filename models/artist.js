@@ -9,8 +9,7 @@ const artistSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Artist name is required'],
     trim: true,
-    unique: true,
-    index: true
+    unique: true
   },
   
   // External IDs from different platforms
@@ -105,8 +104,7 @@ const artistSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for performance
-artistSchema.index({ name: 1 });
+// Indexes for performance (name index already created by unique: true on field)
 artistSchema.index({ 'externalIds.ticketmaster': 1 });
 artistSchema.index({ 'externalIds.setlistfm': 1 });
 artistSchema.index({ tourStatus: 1 });

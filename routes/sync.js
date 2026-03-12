@@ -28,6 +28,7 @@ router.get('/progress', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering for SSE
     res.flushHeaders();
 
     // Send current progress immediately
