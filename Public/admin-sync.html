@@ -125,7 +125,21 @@
             initAdminSidebar('Admin Portal');
             loadUser();
             loadSyncStats();
+            checkIfSyncRunning();
         });
+
+        // Auto-reconnect to SSE if a sync is already in progress
+        function checkIfSyncRunning() {
+            const probe = new EventSource(`${API_BASE_URL}/sync/progress?token=${token}`);
+            probe.onmessage = (event) => {
+                const progress = JSON.parse(event.data);
+                probe.close();
+                if (progress.isRunning) {
+                    startProgressTracking();
+                }
+            };
+            probe.onerror = () => { probe.close(); };
+        }
 
         // ============================================
         // SSE Progress Tracking
