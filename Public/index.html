@@ -371,45 +371,48 @@
 
         async function fetchArtistSuggestions(query) {
             if (cachedArtistResults[query]) {
-                displayArtistSuggestions(cachedArtistResults[query]);
+                displaySearchResults(cachedArtistResults[query]);
                 return;
             }
 
             try {
-                // Search both database and Ticketmaster in parallel
-                const [dbResponse, tmResponse] = await Promise.all([
+                // Search artists (DB + Ticketmaster) and venues in parallel
+                const [dbResponse, tmResponse, venueResponse] = await Promise.all([
                     fetch(`${API_BASE_URL}/artists/search?q=${encodeURIComponent(query)}&limit=10`).catch(() => null),
-                    fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(query)}`).catch(() => null)
+                    fetch(`${API_BASE_URL}/ticketmaster/artists?keyword=${encodeURIComponent(query)}`).catch(() => null),
+                    fetch(`${API_BASE_URL}/venues?q=${encodeURIComponent(query)}&limit=5`).catch(() => null)
                 ]);
-                
+
                 const dbData = dbResponse ? await dbResponse.json().catch(() => ({})) : {};
                 const tmData = tmResponse ? await tmResponse.json().catch(() => ({})) : {};
-                
-                // Normalize database results
+                const venueData = venueResponse ? await venueResponse.json().catch(() => ({})) : {};
+
+                // Normalize database artists
                 const dbArtists = (dbData.success && dbData.artists) ? dbData.artists.map(a => ({
                     ...a,
                     _id: a._id,
                     name: a.name,
                     genre: a.genre?.[0] || a.genres?.[0],
                     images: a.images || {},
-                    source: 'database'
+                    source: 'database',
+                    type: 'artist'
                 })) : [];
-                
-                // Normalize Ticketmaster results
+
+                // Normalize Ticketmaster artists
                 const tmArtists = (tmData.success && tmData.artists) ? tmData.artists.map(a => ({
                     ...a,
                     externalId: a.externalId,
                     name: a.name,
                     genre: a.genre,
                     images: a.images ? { small: a.images.find(img => img.width < 500)?.url, large: a.images.find(img => img.width >= 500)?.url } : {},
-                    source: 'ticketmaster'
+                    source: 'ticketmaster',
+                    type: 'artist'
                 })) : [];
-                
-                // Merge and dedupe - prioritize database results (they have MongoDB IDs)
+
+                // Merge and dedupe artists
                 const seenNames = new Set();
                 const mergedArtists = [];
-                
-                // Add database artists first (higher priority)
+
                 for (const artist of dbArtists) {
                     const nameLower = artist.name.toLowerCase();
                     if (!seenNames.has(nameLower)) {
@@ -417,8 +420,7 @@
                         mergedArtists.push(artist);
                     }
                 }
-                
-                // Add Ticketmaster artists that aren't already in results
+
                 for (const artist of tmArtists) {
                     const nameLower = artist.name.toLowerCase();
                     if (!seenNames.has(nameLower)) {
@@ -426,56 +428,109 @@
                         mergedArtists.push(artist);
                     }
                 }
-                
-                // Limit to 10 results
-                const finalResults = mergedArtists.slice(0, 10);
-                
+
+                // Normalize venues
+                const venues = (venueData.success && venueData.venues) ? venueData.venues.map(v => ({
+                    _id: v._id,
+                    name: v.name,
+                    city: v.city,
+                    state: v.state,
+                    images: v.images || {},
+                    type: 'venue'
+                })) : [];
+
+                // Combine: up to 8 artists + up to 5 venues, max 10 total
+                const artists = mergedArtists.slice(0, venues.length > 0 ? 8 : 10);
+                const finalResults = [...artists, ...venues].slice(0, 10);
+
                 cachedArtistResults[query] = finalResults;
-                displayArtistSuggestions(finalResults);
+                displaySearchResults(finalResults);
             } catch (error) {
-                console.error('Artist search error:', error);
+                console.error('Search error:', error);
             }
         }
 
-        function displayArtistSuggestions(artists) {
+        function displaySearchResults(results) {
             const container = document.getElementById('artistSuggestions');
-            
-            if (!artists || artists.length === 0) {
+
+            if (!results || results.length === 0) {
                 container.style.display = 'none';
                 return;
             }
 
-            container.innerHTML = artists.map(artist => {
-                const artistId = artist._id || artist.id || artist.externalId || artist.externalIds?.ticketmaster;
-                const artistImage = artist.images?.small || artist.images?.large || (Array.isArray(artist.images) ? artist.images.find(img => img.width < 500)?.url : null);
-                const genres = artist.genres || (artist.genre ? [artist.genre] : []);
-                const isFromDatabase = artist.source === 'database' || artist._id;
-                
-                return `
-                <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b last:border-b-0" onclick="selectArtist('${artistId}', '${artist.name.replace(/'/g, "\\'")}')">
-                    ${artistImage ? 
-                        `<img src="${artistImage}" class="w-10 h-10 rounded-full object-cover">` :
-                        `<div class="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
-                            <svg class="text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 18V5l12-2v13"></path>
-                                <circle cx="6" cy="18" r="3"></circle>
-                                <circle cx="18" cy="16" r="3"></circle>
-                            </svg>
-                        </div>`
-                    }
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2">
-                            <p class="font-medium text-slate-800">${artist.name}</p>
-                            ${isFromDatabase ? 
-                                `<span class="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Tracked</span>` : 
-                                `<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Live</span>`
-                            }
+            const artists = results.filter(r => r.type === 'artist');
+            const venues = results.filter(r => r.type === 'venue');
+
+            let html = '';
+
+            // Artist results
+            if (artists.length > 0) {
+                html += artists.map(artist => {
+                    const artistId = artist._id || artist.id || artist.externalId || artist.externalIds?.ticketmaster;
+                    const artistImage = artist.images?.small || artist.images?.large || (Array.isArray(artist.images) ? artist.images.find(img => img.width < 500)?.url : null);
+                    const genres = artist.genres || (artist.genre ? [artist.genre] : []);
+                    const isFromDatabase = artist.source === 'database' || artist._id;
+
+                    return `
+                    <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b last:border-b-0" onclick="selectArtist('${artistId}', '${artist.name.replace(/'/g, "\\'")}')">
+                        ${artistImage ?
+                            `<img src="${artistImage}" class="w-10 h-10 rounded-full object-cover">` :
+                            `<div class="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
+                                <svg class="text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                            </div>`
+                        }
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <p class="font-medium text-slate-800">${artist.name}</p>
+                                ${isFromDatabase ?
+                                    `<span class="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Tracked</span>` :
+                                    `<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Live</span>`
+                                }
+                            </div>
+                            <p class="text-xs text-slate-500">${genres.slice(0, 2).join(', ') || 'Artist'}</p>
                         </div>
-                        <p class="text-xs text-slate-500">${genres.slice(0, 2).join(', ') || 'Artist'}</p>
                     </div>
-                </div>
-            `}).join('');
-            
+                `}).join('');
+            }
+
+            // Venue results with section header
+            if (venues.length > 0) {
+                if (artists.length > 0) {
+                    html += `<div class="px-4 py-1.5 bg-slate-50 border-b border-t border-slate-200">
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Venues</p>
+                    </div>`;
+                }
+                html += venues.map(venue => {
+                    const venueImage = venue.images?.thumbnail || venue.images?.medium;
+                    const location = [venue.city, venue.state].filter(Boolean).join(', ');
+
+                    return `
+                    <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b last:border-b-0" onclick="selectVenue('${venue._id}')">
+                        ${venueImage ?
+                            `<img src="${venueImage}" class="w-10 h-10 rounded-lg object-cover">` :
+                            `<div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg class="text-purple-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                            </div>`
+                        }
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <p class="font-medium text-slate-800">${venue.name}</p>
+                                <span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Venue</span>
+                            </div>
+                            <p class="text-xs text-slate-500">${location || 'Venue'}</p>
+                        </div>
+                    </div>
+                `}).join('');
+            }
+
+            container.innerHTML = html;
             container.style.display = 'block';
         }
 
@@ -483,11 +538,7 @@
             document.getElementById('searchInput').value = artistName;
             document.getElementById('artistSuggestions').style.display = 'none';
             selectedArtistId = artistId;
-            
-            // Redirect to artist profile page
-            // If artistId looks like a Ticketmaster ID (starts with K), use ticketmasterId param
-            // If it's a MongoDB ObjectId (24 hex chars), use id param
-            // If undefined/null, just use name
+
             if (!artistId || artistId === 'undefined' || artistId === 'null') {
                 window.location.href = `artist-profile.html?name=${encodeURIComponent(artistName)}`;
             } else if (/^[0-9a-fA-F]{24}$/.test(artistId)) {
@@ -495,6 +546,12 @@
             } else {
                 window.location.href = `artist-profile.html?ticketmasterId=${artistId}&name=${encodeURIComponent(artistName)}`;
             }
+        }
+
+        function selectVenue(venueId) {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('artistSuggestions').style.display = 'none';
+            window.location.href = `venue-profile.html?id=${venueId}`;
         }
 
         async function fetchDatabaseEvents(page = 1) {
