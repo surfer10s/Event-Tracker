@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidebar Subcategory Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .sidebar { transition: transform 0.3s ease; }
+        .sub-items { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .sub-items.open { max-height: 500px; }
+        .expand-icon { transition: transform 0.2s ease; }
+        .expand-icon.rotated { transform: rotate(90deg); }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <div class="flex min-h-screen">
+
+        <!-- USER SIDEBAR -->
+        <aside class="w-64 bg-slate-800 text-white flex flex-col min-h-screen shrink-0">
+            <div class="flex items-center gap-3 px-6 pt-4 pb-4">
+                <svg class="text-slate-400" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="font-bold text-lg">Event Tracker</span>
+            </div>
+
+            <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+                <!-- Home (no subcategories) -->
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    Home
+                </a>
+
+                <!-- Notifications (no subcategories) -->
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    Notifications
+                </a>
+
+                <!-- Favorites - WITH SUBCATEGORIES -->
+                <div>
+                    <button onclick="toggleSub(this)" class="w-full flex items-center gap-3 px-4 py-3 bg-slate-700 text-white rounded-lg transition-colors">
+                        <svg class="expand-icon rotated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                        Favorites
+                    </button>
+                    <div class="sub-items open">
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Favorites Activity
+                        </a>
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Activity by Location
+                        </a>
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Manage Categories
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Discover - WITH SUBCATEGORIES -->
+                <div>
+                    <button onclick="toggleSub(this)" class="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                        <svg class="expand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        Discover
+                    </button>
+                    <div class="sub-items">
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Discover Artists
+                        </a>
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Discover Concerts
+                        </a>
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Future Concerts
+                        </a>
+                    </div>
+                </div>
+
+                <!-- History - WITH SUBCATEGORIES -->
+                <div>
+                    <button onclick="toggleSub(this)" class="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                        <svg class="expand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        History
+                    </button>
+                    <div class="sub-items">
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Concert History
+                        </a>
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Tour Maps
+                        </a>
+                        <a href="#" class="flex items-center gap-3 pl-14 pr-4 py-2.5 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors text-sm">
+                            Venues
+                        </a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- User info -->
+            <div class="px-4 pb-4 pt-2">
+                <div class="bg-slate-700 rounded-lg p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center font-semibold text-slate-300">B</div>
+                        <div>
+                            <p class="font-semibold text-sm">Billy</p>
+                            <p class="text-xs text-slate-400">Pittsburgh, PA</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1">
+            <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+                <div class="px-6 py-4">
+                    <h1 class="text-2xl font-bold text-slate-800">Sidebar Subcategory Mockup</h1>
+                </div>
+            </header>
+
+            <div class="p-6 max-w-4xl">
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <h2 class="text-lg font-bold text-slate-800 mb-3">How it works</h2>
+                    <ul class="space-y-2 text-slate-600 text-sm">
+                        <li><strong>+ icon (chevron right)</strong> to the left of parent categories indicates expandable items</li>
+                        <li>Click the parent to <strong>expand/collapse</strong> subcategories</li>
+                        <li>Subcategories are <strong>indented</strong> under the parent with smaller text</li>
+                        <li>Chevron <strong>rotates 90 degrees</strong> when expanded</li>
+                        <li>Items without subcategories (Home, Notifications) have <strong>no expand icon</strong> — they link directly</li>
+                        <li>The "Favorites" group is shown <strong>expanded by default</strong> as an example</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h2 class="text-lg font-bold text-slate-800 mb-3">Proposed groupings</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="border border-slate-200 rounded-lg p-4">
+                            <p class="font-semibold text-slate-700 mb-2">Favorites</p>
+                            <ul class="space-y-1 text-slate-500 pl-4">
+                                <li>Favorites Activity</li>
+                                <li>Activity by Location</li>
+                                <li>Manage Categories</li>
+                            </ul>
+                        </div>
+                        <div class="border border-slate-200 rounded-lg p-4">
+                            <p class="font-semibold text-slate-700 mb-2">Discover</p>
+                            <ul class="space-y-1 text-slate-500 pl-4">
+                                <li>Discover Artists</li>
+                                <li>Discover Concerts</li>
+                                <li>Future Concerts</li>
+                            </ul>
+                        </div>
+                        <div class="border border-slate-200 rounded-lg p-4">
+                            <p class="font-semibold text-slate-700 mb-2">History</p>
+                            <ul class="space-y-1 text-slate-500 pl-4">
+                                <li>Concert History</li>
+                                <li>Tour Maps</li>
+                                <li>Venues</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSub(button) {
+            const subItems = button.nextElementSibling;
+            const chevron = button.querySelector('.expand-icon');
+
+            subItems.classList.toggle('open');
+            chevron.classList.toggle('rotated');
+        }
+    </script>
+</body>
+</html>
