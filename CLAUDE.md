@@ -48,7 +48,7 @@
 event-tracker-backend/
 ├── config/
 │   └── database.js              # MongoDB connection
-├── models/                      # Mongoose schemas (10 models)
+├── models/                      # Mongoose schemas (12 models)
 │   ├── User.js                  # User accounts with preferences
 │   ├── Event.js                 # Concert/event data
 │   ├── Artist.js                # Artist/band profiles
@@ -59,7 +59,9 @@ event-tracker-backend/
 │   ├── concerthistory.js        # Attended concerts
 │   ├── notification.js          # Event alerts
 │   ├── UserMusicTaste.js        # YouTube-extracted taste
-│   └── songcache.js             # YouTube video cache
+│   ├── songcache.js             # YouTube video cache
+│   ├── activitylog.js           # User activity events (90-day TTL)
+│   └── requestlog.js            # Daily request performance aggregates
 ├── controllers/                 # Business logic
 │   ├── authController.js
 │   ├── userController.js
@@ -83,6 +85,7 @@ event-tracker-backend/
 │   ├── seatgeek.js              # /api/v1/seatgeek/*
 │   ├── artistCache.js           # /api/v1/artist-cache/*
 │   ├── artistimport.js          # /api/v1/artist-import/* (admin batch import)
+│   ├── activitylog.js           # /api/v1/admin/activity/* (admin activity log)
 │   ├── test.js                  # /api/v1/test/*
 │   ├── youtube.js               # /auth/youtube/*, /api/youtube/*
 │   └── spotify.js               # /auth/spotify/*, /api/spotify/*
@@ -93,11 +96,12 @@ event-tracker-backend/
 │   ├── notificationService.js
 │   ├── backgroundSyncService.js
 │   ├── artistCacheService.js
-│   └── geocodingService.js
+│   ├── geocodingService.js
+│   └── activitytracker.js       # Buffer-and-flush activity & request logging
 ├── middleware/
 │   ├── auth.js                  # JWT verification
 │   └── adminAuth.js             # Admin-only protection
-├── Public/                      # Frontend HTML pages (27 pages)
+├── Public/                      # Frontend HTML pages (29 pages)
 │   ├── index.html               # Dashboard (search bar: artists + venues)
 │   ├── auth.html                # Login/register (confirm password, show/hide toggle)
 │   ├── account-details.html     # Profile management
@@ -122,6 +126,8 @@ event-tracker-backend/
 │   ├── admin-artist-import.html # Admin batch artist import from seed list
 │   ├── admin-music-taste.html   # Admin music taste
 │   ├── admin-song-cache.html    # Admin song cache
+│   ├── admin-activity-log.html  # Admin activity log & analytics
+│   ├── admin-api-usage.html     # Admin API usage tracking
 │   ├── sidebar.js               # Shared sidebar component (user pages)
 │   ├── sidebar-admin.js         # Shared sidebar component (admin pages)
 │   ├── SeatGeek-test.html       # SeatGeek API testing
@@ -215,6 +221,19 @@ event-tracker-backend/
 - Dedup by name (case-insensitive) and TM external ID
 - Reuses `autoImportArtistsAsFavorites()` pattern from `userController.js`
 
+### Activity Logging & Analytics (Admin)
+- Buffer-and-flush pattern (30s interval) for low-overhead tracking
+- 18 tracked user actions: login, register, favorite/unfavorite, profile update, OAuth connect/disconnect, sync, concert history CRUD
+- Request performance middleware: latency histograms, P95 calculation, per-endpoint daily aggregates
+- 90-day TTL auto-cleanup on both activity and request logs
+- Admin dashboard with summary cards, activity breakdown, recent feed with filters, daily trend chart
+
+### API Usage Tracking (Admin)
+- Tracks all external API calls (Ticketmaster, YouTube, Setlist.fm, Spotify, etc.)
+- Quota gauges for Ticketmaster (5,000/day) and YouTube (10,000 units/day)
+- Per-endpoint breakdown with latency and error rates
+- Daily trend charts across 1-day, 7-day, 30-day ranges
+
 ### Affiliate System
 - Ticketmaster, SeatGeek, StubHub links
 - Click tracking per platform
@@ -295,6 +314,18 @@ event-tracker-backend/
 - YouTube video cache + Spotify track cache
 - Artist + title → videoId mapping
 
+### ActivityLog
+- Individual user activity events (login, favorite, sync, etc.)
+- 18 action types with metadata (artistId, artistName, ip, userAgent, etc.)
+- 90-day TTL index for auto-cleanup
+- Indexes on `{action, timestamp}` and `{userId, timestamp}`
+
+### RequestLog
+- Daily request performance aggregates per endpoint
+- Latency histogram buckets for P95 calculation
+- Compound unique index `{date, endpoint}`
+- 90-day TTL for auto-cleanup
+
 ## Important API Endpoints
 
 ### Authentication
@@ -350,6 +381,11 @@ event-tracker-backend/
 - `POST /api/v1/artist-import/run` - Batch import `{ limit, fetchEvents, dryRun }`
 - `POST /api/v1/artist-import/add-to-seed` - Add artist to seed list
 - `DELETE /api/v1/artist-import/seed-list/:index` - Remove from seed list
+
+### Activity Log (Admin)
+- `GET /api/v1/admin/activity/summary` - Activity + request stats
+- `GET /api/v1/admin/activity/events` - Paginated activity feed (filterable by action)
+- `GET /api/v1/admin/activity/requests` - Endpoint performance with P95
 
 ### YouTube
 - `GET /auth/youtube` - Start OAuth flow
@@ -466,7 +502,7 @@ node scripts/make-admin.js <email>
 
 ### File Naming
 - All model files and HTML pages have been normalized to **lowercase** for Linux compatibility
-- Models: `user.js`, `event.js`, `artist.js`, `venue.js`, `tour.js`, `notification.js`, `songcache.js`, `usermusictaste.js`, `category.js`, `artistcategory.js`, `concerthistory.js`
+- Models: `user.js`, `event.js`, `artist.js`, `venue.js`, `tour.js`, `notification.js`, `songcache.js`, `usermusictaste.js`, `category.js`, `artistcategory.js`, `concerthistory.js`, `activitylog.js`, `requestlog.js`
 - All require() statements use lowercase paths (e.g., `require('../models/user')`)
 - HTML files: `discover-artists.html`, `event-details.html`, `favorites-activity.html`, etc.
 - **Never create new files with uppercase** — Linux (VPS) is case-sensitive
@@ -490,9 +526,11 @@ node scripts/make-admin.js <email>
 
 ### Background Sync
 - Use Server-Sent Events (SSE) to monitor progress
-- Sync runs in background, doesn't block API
+- SSE requires `X-Accel-Buffering: no` header to bypass Nginx buffering
+- Pipeline routes (`/full-pipeline`, `/my-pipeline`) respond immediately, run in background to avoid Nginx 504 timeouts
 - Can sync all artists or just user's favorites
 - Automatic notification generation after sync
+- Admin sync page auto-reconnects SSE on page load if sync is running
 
 ### Notifications
 - Two-tier system: favorite artists vs music taste
@@ -506,9 +544,8 @@ node scripts/make-admin.js <email>
 - Affiliate IDs configured in environment variables
 
 ### Schema Warnings
-- Mongoose may warn about duplicate indexes
-- Current warning about `{"name":1}` index is harmless
-- Pre-existing from schema definition + schema.index()
+- Avoid using both `unique: true` and `schema.index()` on the same field — causes duplicate index warning
+- Artist model uses `unique: true` on name (no separate `schema.index()` needed)
 
 ### Model Relationships
 - Events reference Artists (required) and Tours (optional)
@@ -535,7 +572,7 @@ node scripts/make-admin.js <email>
 ## Frontend Pages Summary
 
 - **User Pages**: auth, index, account-details, favorites, favorites-activity, favorites-activity-location, discover-artists, discover-concerts, artist-profile, venue-profile, venues, future-concerts, tour-map, event-details, concert-history, notifications, manage-categories
-- **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-artist-import, admin-music-taste, admin-song-cache
+- **Admin Pages**: admin-portal, admin-users, admin-sync, admin-notifications, admin-artist-cache, admin-artist-import, admin-music-taste, admin-song-cache, admin-api-usage, admin-activity-log
 - **Testing Pages**: youtubetest, seatgeek-test
 
 ## Architecture Patterns
@@ -631,6 +668,6 @@ nginx -t && systemctl restart nginx  # Test & restart Nginx
 
 ---
 
-**Last Updated**: 2026-03-12
-**Version**: 1.5.0
+**Last Updated**: 2026-03-17
+**Version**: 1.6.0
 **Author**: Billy Wagner
