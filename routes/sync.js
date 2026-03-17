@@ -104,21 +104,19 @@ router.post('/my-artists', protect, async (req, res) => {
 
 // POST /api/v1/sync/full-pipeline - Run full sync + notification check + send digests (admin)
 router.post('/full-pipeline', requireAdmin, async (req, res) => {
+    // Respond immediately — pipeline runs in background, progress via SSE
+    console.log(`\n========================================`);
+    console.log(`FULL PIPELINE triggered by: ${req.user.username}`);
+    console.log(`========================================\n`);
+
+    res.json({ success: true, message: 'Full pipeline started. Monitor progress via SSE.' });
+
+    // Run pipeline in background (after response sent)
     try {
-        console.log(`\n========================================`);
-        console.log(`FULL PIPELINE triggered by: ${req.user.username}`);
-        console.log(`========================================\n`);
-        
-        const results = {
-            sync: null,
-            notifications: null,
-            timestamp: new Date()
-        };
-        
         // Step 1: Sync events from Ticketmaster
         console.log('STEP 1: Syncing events from Ticketmaster...');
-        results.sync = await backgroundSyncService.runFullSync({ verbose: true });
-        
+        const syncResult = await backgroundSyncService.runFullSync({ verbose: true });
+
         // Step 2: Emit phase change to notifications
         const emitter = backgroundSyncService.getProgressEmitter();
         emitter.emit('progress', {
@@ -127,52 +125,58 @@ router.post('/full-pipeline', requireAdmin, async (req, res) => {
             currentArtist: 'Checking notifications for all users...',
             currentIndex: 0,
             totalArtists: 0,
-            eventsFound: results.sync.eventsFound || 0,
-            eventsSaved: results.sync.eventsSaved || 0,
-            errors: results.sync.errors || 0
+            eventsFound: syncResult.eventsFound || 0,
+            eventsSaved: syncResult.eventsSaved || 0,
+            errors: syncResult.errors || 0
         });
-        
+
         // Step 2: Check for matching events and create notifications
         console.log('\nSTEP 2: Checking for notification matches...');
-        results.notifications = await notificationService.checkEventsForAllUsers();
-        
+        const notifResult = await notificationService.checkEventsForAllUsers();
+
         // Emit pipeline complete
         emitter.emit('progress', {
             isRunning: false,
             phase: 'complete',
             currentArtist: 'Pipeline complete!',
-            currentIndex: results.sync.artistsChecked || 0,
-            totalArtists: results.sync.artistsChecked || 0,
-            eventsFound: results.sync.eventsFound || 0,
-            eventsSaved: results.sync.eventsSaved || 0,
-            errors: results.sync.errors || 0
+            currentIndex: syncResult.artistsChecked || 0,
+            totalArtists: syncResult.artistsChecked || 0,
+            eventsFound: syncResult.eventsFound || 0,
+            eventsSaved: syncResult.eventsSaved || 0,
+            errors: syncResult.errors || 0
         });
-        
+
         console.log('\n========================================');
         console.log('FULL PIPELINE COMPLETE');
+        console.log(`Sync: ${syncResult.eventsFound} found, ${syncResult.eventsSaved} saved`);
+        console.log(`Notifications: ${JSON.stringify(notifResult)}`);
         console.log('========================================\n');
-        
-        res.json({ success: true, results });
-        
+
     } catch (err) {
         console.error('Pipeline error:', err);
-        res.status(500).json({ success: false, error: err.message });
+        // Emit error state so SSE clients know it failed
+        const emitter = backgroundSyncService.getProgressEmitter();
+        emitter.emit('progress', {
+            isRunning: false,
+            phase: 'error',
+            currentArtist: `Pipeline error: ${err.message}`,
+            errors: 1
+        });
     }
 });
 
 // POST /api/v1/sync/my-pipeline - Sync user's artists + check notifications
 router.post('/my-pipeline', protect, async (req, res) => {
+    console.log(`User pipeline triggered by: ${req.user.username}`);
+    const userId = req.user._id;
+
+    // Respond immediately — pipeline runs in background, progress via SSE
+    res.json({ success: true, message: 'User pipeline started. Monitor progress via SSE.' });
+
     try {
-        console.log(`User pipeline triggered by: ${req.user.username}`);
-        
-        const results = {
-            sync: null,
-            notifications: null
-        };
-        
         // Step 1: Sync user's artists
-        results.sync = await backgroundSyncService.syncUserArtists(req.user._id, { verbose: true });
-        
+        const syncResult = await backgroundSyncService.syncUserArtists(userId, { verbose: true });
+
         // Step 2: Emit phase change to notifications
         const emitter = backgroundSyncService.getProgressEmitter();
         emitter.emit('progress', {
@@ -181,30 +185,37 @@ router.post('/my-pipeline', protect, async (req, res) => {
             currentArtist: 'Checking notifications...',
             currentIndex: 0,
             totalArtists: 0,
-            eventsFound: results.sync.eventsFound || 0,
-            eventsSaved: results.sync.eventsSaved || 0,
+            eventsFound: syncResult.eventsFound || 0,
+            eventsSaved: syncResult.eventsSaved || 0,
             errors: 0
         });
-        
+
         // Step 2: Check notifications for this user
-        results.notifications = await notificationService.checkEventsForUser(req.user._id);
-        
+        const notifResult = await notificationService.checkEventsForUser(userId);
+
         // Emit pipeline complete
         emitter.emit('progress', {
             isRunning: false,
             phase: 'complete',
             currentArtist: 'Pipeline complete!',
-            currentIndex: results.sync.artistsChecked || 0,
-            totalArtists: results.sync.artistsChecked || 0,
-            eventsFound: results.sync.eventsFound || 0,
-            eventsSaved: results.sync.eventsSaved || 0,
+            currentIndex: syncResult.artistsChecked || 0,
+            totalArtists: syncResult.artistsChecked || 0,
+            eventsFound: syncResult.eventsFound || 0,
+            eventsSaved: syncResult.eventsSaved || 0,
             errors: 0
         });
-        
-        res.json({ success: true, results });
-        
+
+        console.log(`User pipeline complete: ${syncResult.eventsFound} found, ${syncResult.eventsSaved} saved`);
+
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('User pipeline error:', err);
+        const emitter = backgroundSyncService.getProgressEmitter();
+        emitter.emit('progress', {
+            isRunning: false,
+            phase: 'error',
+            currentArtist: `Pipeline error: ${err.message}`,
+            errors: 1
+        });
     }
 });
 
