@@ -172,10 +172,11 @@ router.get('/api/youtube/status', authenticateUser, async (req, res) => {
   
   if (isConnected && user.youtubeMusic?.accessToken) {
     const isExpired = user.youtubeMusic.tokenExpiry && new Date() >= user.youtubeMusic.tokenExpiry;
-    res.json({ 
-      connected: true, 
+    res.json({
+      connected: true,
       expired: isExpired,
       hasRefreshToken: !!user.youtubeMusic.refreshToken,
+      hasChannel: !!user.youtubeMusic.channelId,
       channelTitle: user.youtubeMusic.channelTitle,
       connectedAt: user.youtubeMusic.connectedAt
     });
@@ -523,7 +524,7 @@ router.post('/api/youtube/playlists', authenticateUser, async (req, res) => {
       console.error('[YouTube] Create playlist failed:', response.status, msg, errCode);
       if (response.status === 401 || response.status === 403) {
         if (errCode === 'youtubeSignupRequired' || errCode === 'channelNotFound') {
-          throw new Error('Your Google account does not have a YouTube channel. Please create a channel at youtube.com first, then try again.');
+          throw new Error('YouTube requires a channel to create playlists. Visit https://www.youtube.com/create_channel to set one up (takes 10 seconds), then try again.');
         }
         throw new Error('Unauthorized — your YouTube session may have expired. Please reconnect YouTube from Account Details.');
       }
@@ -874,7 +875,7 @@ router.post('/api/youtube/create-playlist-with-songs', authenticateUser, async (
       console.error('[YouTube] Create playlist with songs failed:', playlistResponse.status, msg, errCode);
       if (playlistResponse.status === 401 || playlistResponse.status === 403) {
         if (errCode === 'youtubeSignupRequired' || errCode === 'channelNotFound') {
-          throw new Error('Your Google account does not have a YouTube channel. Please create a channel at youtube.com first, then try again.');
+          throw new Error('YouTube requires a channel to create playlists. Visit https://www.youtube.com/create_channel to set one up (takes 10 seconds), then try again.');
         }
         throw new Error('Unauthorized — your YouTube session may have expired. Please reconnect YouTube from Account Details.');
       }

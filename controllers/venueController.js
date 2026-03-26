@@ -6,37 +6,99 @@ const ticketmasterService = require('../services/ticketmasterService');
 
 const VENUE_SYNC_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-// GET /venues — List/search venues
+// GET /venues — List/search venues (with optional proximity-based relevance sort)
+const DECAY_MILES = 30;
+
 exports.getVenues = async (req, res) => {
     try {
-        const { q, city, state, page = 1, limit = 20 } = req.query;
+        const { q, city, state, page = 1, limit = 20, latitude, longitude } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
 
+        // Determine coordinates: query params > logged-in user's stored coords
+        let lat = latitude ? parseFloat(latitude) : null;
+        let lng = longitude ? parseFloat(longitude) : null;
+        if (!lat && !lng && req.user?.coordinates?.lat && req.user?.coordinates?.lng) {
+            lat = req.user.coordinates.lat;
+            lng = req.user.coordinates.lng;
+        }
+
+        // Build match filter (shared by both paths)
+        const matchFilter = { isActive: { $ne: false } };
+        if (q) matchFilter.name = { $regex: q, $options: 'i' };
+        if (city) matchFilter.city = { $regex: city, $options: 'i' };
+        if (state) matchFilter.state = state.toUpperCase();
+
+        if (lat && lng) {
+            // === Geo path: $geoNear aggregation with relevance scoring ===
+            const pipeline = [
+                {
+                    $geoNear: {
+                        near: { type: 'Point', coordinates: [lng, lat] },
+                        distanceField: 'distanceMeters',
+                        spherical: true,
+                        query: matchFilter
+                    }
+                },
+                {
+                    $addFields: {
+                        distanceMiles: { $divide: ['$distanceMeters', 1609.34] }
+                    }
+                },
+                {
+                    $addFields: {
+                        relevanceScore: {
+                            $multiply: [
+                                { $ifNull: ['$stats.activityScore', 0] },
+                                { $add: [1, { $ln: { $add: [1, { $ifNull: ['$stats.upcomingEvents', 0] }] } }] },
+                                { $divide: [1, { $add: [1, { $divide: ['$distanceMiles', DECAY_MILES] }] }] }
+                            ]
+                        }
+                    }
+                },
+                { $sort: { relevanceScore: -1, name: 1 } },
+                {
+                    $facet: {
+                        venues: [{ $skip: skip }, { $limit: limitNum }],
+                        totalCount: [{ $count: 'count' }]
+                    }
+                }
+            ];
+
+            const result = await Venue.aggregate(pipeline);
+            const venues = result[0].venues;
+            const total = result[0].totalCount[0]?.count || 0;
+
+            return res.json({
+                success: true,
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum),
+                venues
+            });
+        }
+
+        // === Non-geo path: original sort by upcoming events ===
         const filter = {};
-        if (q) {
-            filter.name = new RegExp(q, 'i');
-        }
-        if (city) {
-            filter.city = new RegExp(city, 'i');
-        }
-        if (state) {
-            filter.state = state.toUpperCase();
-        }
-
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        if (q) filter.name = new RegExp(q, 'i');
+        if (city) filter.city = new RegExp(city, 'i');
+        if (state) filter.state = state.toUpperCase();
 
         const venues = await Venue.find(filter)
             .sort({ 'stats.upcomingEvents': -1, name: 1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(limitNum);
 
         const total = await Venue.countDocuments(filter);
 
         res.json({
             success: true,
-            page: parseInt(page),
-            limit: parseInt(limit),
+            page: pageNum,
+            limit: limitNum,
             total,
-            totalPages: Math.ceil(total / parseInt(limit)),
+            totalPages: Math.ceil(total / limitNum),
             venues
         });
     } catch (error) {

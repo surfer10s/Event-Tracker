@@ -448,8 +448,12 @@
                 if (data.success && data.events.length > 0) {
                     artistData = data.events[0].artist;
                     displayArtistHeader();
-                    if (!artistData.externalIds?.setlistfm) await linkWithSetlistFm();
-                    else mbid = artistData.externalIds.setlistfm;
+                    if (!artistData.externalIds?.setlistfm) {
+                        await linkWithSetlistFm();
+                        if (!mbid) await linkWithSetlistFmByName();
+                    } else {
+                        mbid = artistData.externalIds.setlistfm;
+                    }
                     await loadTourStatus();
                     await loadConcertCounts();
                 } else {
@@ -1257,7 +1261,13 @@
         function showProgressError(message) {
             document.getElementById('progressServiceIcon').classList.add('hidden');
             document.getElementById('progressTitle').textContent = 'Error';
-            document.getElementById('progressSubtitle').textContent = message;
+            const subtitle = document.getElementById('progressSubtitle');
+            // Render URLs as clickable links
+            if (message.includes('https://')) {
+                subtitle.innerHTML = message.replace(/(https:\/\/[^\s,]+)/g, '<a href="$1" target="_blank" class="text-indigo-600 underline">$1</a>');
+            } else {
+                subtitle.textContent = message;
+            }
             document.getElementById('progressSpinner').style.display = 'none';
             document.getElementById('progressFooter').style.display = 'block';
         }

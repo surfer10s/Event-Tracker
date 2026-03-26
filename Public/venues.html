@@ -258,12 +258,19 @@ async function searchVenues(page = 1) {
     if (q) params.set('q', q);
     if (city) params.set('city', city);
     if (state) params.set('state', state);
+    if (userLat && userLng) {
+        params.set('latitude', userLat);
+        params.set('longitude', userLng);
+    }
 
     const container = document.getElementById('discoverResults');
     container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-8">Searching...</div>';
 
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     try {
-        const res = await fetch(`${API_BASE}/venues?${params}`);
+        const res = await fetch(`${API_BASE}/venues?${params}`, { headers });
         const data = await res.json();
 
         if (data.success && data.venues.length > 0) {

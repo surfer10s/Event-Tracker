@@ -20,7 +20,7 @@ async function optionalAuth(req, res, next) {
 }
 
 // Public routes (static paths before :venueId)
-router.get('/', venueController.getVenues);
+router.get('/', optionalAuth, venueController.getVenues);
 router.get('/nearby', venueController.getVenuesNearby);
 router.get('/map-markers', venueController.getVenueMapMarkers);
 
