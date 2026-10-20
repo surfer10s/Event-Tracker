@@ -641,6 +641,9 @@ tr:last-child td{border-bottom:0}
       liveControls.classList.remove('hidden');
       document.getElementById('liveToggleBtn').textContent = 'Stop live scan';
 
+      // Lock orientation to portrait while scanning
+      try { if(screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch(e){}
+
       liveTrack = stream.getVideoTracks()[0];
       const caps = liveTrack.getCapabilities ? liveTrack.getCapabilities() : {};
       if(caps.torch) document.getElementById('torchBtn').classList.remove('hidden');
@@ -696,6 +699,8 @@ tr:last-child td{border-bottom:0}
     if(video.srcObject){ video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
     if(zxingReader) try{ zxingReader.reset(); }catch(e){}
     liveRunning = false; liveTrack = null; torchOn = false;
+    // Unlock orientation
+    try { if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
     viewfinder.className = 'viewfinder';
     liveControls.classList.add('hidden');
     document.getElementById('torchBtn').classList.add('hidden');
