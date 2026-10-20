@@ -131,28 +131,23 @@ tr:last-child td{border-bottom:0}
   <p>Scan a VIN barcode to get vehicle details for your loan application</p>
 </div>
 
-<!-- Primary: Photo capture -->
+<!-- Primary: Live camera scan -->
 <div class="scan-area">
-  <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
   <button class="scan-btn" id="scanBtn">
     <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
     Scan VIN Barcode
   </button>
-  <div class="scan-hint">Opens your camera to photograph the VIN barcode</div>
+  <div class="scan-hint">Opens live camera to scan the VIN barcode</div>
 </div>
-
-<!-- Processing indicator -->
-<div class="processing" id="processing">
-  <div class="spinner"></div>
-  <div>Reading barcode from photo...</div>
+<div class="viewfinder" id="viewfinder">
+  <video id="video" playsinline muted></video>
+  <div class="reticle" id="reticle"></div>
 </div>
-
-<!-- Photo preview on failure -->
-<div class="photo-preview" id="photoPreview">
-  <img id="previewImg" alt="Captured photo">
-  <div style="margin-top:8px;font-size:14px;color:var(--muted)">No barcode detected in this photo</div>
-  <button class="retry-btn" id="retryBtn">Try Again</button>
+<div class="live-controls hidden" id="liveControls">
+  <button id="stopLiveBtn">Stop Camera</button>
+  <button id="torchBtn" class="hidden">Flashlight</button>
 </div>
+<div class="live-status" id="liveStatus"></div>
 
 <!-- Alert messages -->
 <div class="alert" id="alert">
@@ -191,19 +186,20 @@ tr:last-child td{border-bottom:0}
 </div>
 <div class="action-status" id="actionStatus"></div>
 
-<!-- Live camera scan (secondary option) -->
-<div class="live-toggle" id="liveToggle">
-  <button id="liveToggleBtn">Or use live camera scan</button>
+<!-- Photo capture (secondary option) -->
+<div class="live-toggle">
+  <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
+  <button id="photoToggleBtn">Or take a picture instead</button>
 </div>
-<div class="viewfinder" id="viewfinder">
-  <video id="video" playsinline muted></video>
-  <div class="reticle" id="reticle"></div>
+<div class="processing" id="processing">
+  <div class="spinner"></div>
+  <div>Reading barcode from photo...</div>
 </div>
-<div class="live-controls hidden" id="liveControls">
-  <button id="stopLiveBtn">Stop Camera</button>
-  <button id="torchBtn" class="hidden">Flashlight</button>
+<div class="photo-preview" id="photoPreview">
+  <img id="previewImg" alt="Captured photo">
+  <div style="margin-top:8px;font-size:14px;color:var(--muted)">No barcode detected in this photo</div>
+  <button class="retry-btn" id="retryBtn">Try Again</button>
 </div>
-<div class="live-status" id="liveStatus"></div>
 
 </main>
 
@@ -509,112 +505,18 @@ tr:last-child td{border-bottom:0}
     return null;
   }
 
-  // ========== Photo capture flow ==========
+  // ========== Live scan (primary) ==========
   initDetector();
+  let liveRunning = false, liveTrack = null, nativeScanTimer = null;
+  let torchOn = false;
 
   scanBtn.addEventListener('click', () => {
-    photoInput.value = '';
-    photoInput.click();
-  });
-
-  retryBtn.addEventListener('click', () => {
-    photoPreview.className = 'photo-preview';
-    hideAlert();
-    photoInput.value = '';
-    photoInput.click();
-  });
-
-  photoInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-
-    hideAlert();
-    photoPreview.className = 'photo-preview';
-    processing.className = 'processing active';
-
-    try {
-      const raw = await detectFromImage(file);
-      processing.className = 'processing';
-
-      if(raw){
-        const ok = await processVin(raw);
-        if(!ok){
-          // Show photo preview for retry
-          previewImg.src = URL.createObjectURL(file);
-          photoPreview.className = 'photo-preview active';
-          showAlert('warn', 'Barcode read as "'+raw+'" but it failed VIN validation. Try scanning again with better lighting.');
-        }
-      } else {
-        // No barcode found
-        previewImg.src = URL.createObjectURL(file);
-        photoPreview.className = 'photo-preview active';
-        showAlert('bad', 'No barcode detected in the photo. Make sure the barcode is clearly visible and well-lit, then try again. You can also type the VIN manually below.');
-      }
-    } catch(err) {
-      processing.className = 'processing';
-      showAlert('bad', 'Error processing photo: '+err.message);
-    }
-  });
-
-  // ========== Manual entry ==========
-  document.getElementById('useBtn').addEventListener('click', () => processVin(vinInput.value));
-  vinInput.addEventListener('keydown', e => { if(e.key==='Enter') processVin(vinInput.value); });
-
-  // ========== Action buttons ==========
-  document.getElementById('copyDetailsBtn').addEventListener('click', async () => {
-    if(!currentVehicle) return;
-    const v = currentVehicle.vehicle;
-    const lines = [
-      'VIN: ' + currentVin,
-      'Year: ' + (v.year || 'N/A'),
-      'Make: ' + (v.make || 'N/A'),
-      'Model: ' + (v.model || 'N/A'),
-      'Trim: ' + (v.trim || v.series || 'N/A'),
-      'Body: ' + (v.bodyClass || 'N/A'),
-      'Drivetrain: ' + (v.driveType || 'N/A'),
-      'Engine: ' + (v.engine || 'N/A'),
-      'Transmission: ' + (v.transmission || 'N/A'),
-    ].join('\n');
-    try {
-      await navigator.clipboard.writeText(lines);
-      actionStatus.textContent = 'Vehicle details copied to clipboard';
-    } catch(e){
-      actionStatus.textContent = 'Copy failed — try Copy JSON instead';
-    }
-  });
-
-  document.getElementById('copyJsonBtn').addEventListener('click', async () => {
-    if(!currentVehicle) return;
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(currentVehicle, null, 2));
-      actionStatus.textContent = 'JSON copied to clipboard';
-    } catch(e){
-      actionStatus.textContent = 'Copy blocked by browser';
-    }
-  });
-
-  document.getElementById('shareBtn').addEventListener('click', async () => {
-    if(!currentVehicle) return;
-    const v = currentVehicle.vehicle;
-    const text = 'VIN: '+currentVin+'\n'+[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
-    if(navigator.share){
-      try { await navigator.share({title:'VIN '+currentVin, text}); } catch(e){}
-    } else {
-      actionStatus.textContent = 'Share not available — use Copy instead';
-    }
-  });
-
-  // ========== Live camera scan (secondary) ==========
-  let liveRunning = false, liveTrack = null, nativeScanTimer = null;
-
-  document.getElementById('liveToggleBtn').addEventListener('click', () => {
     if(liveRunning){ stopLive(); return; }
     startLive();
   });
 
   document.getElementById('stopLiveBtn').addEventListener('click', stopLive);
 
-  let torchOn = false;
   document.getElementById('torchBtn').addEventListener('click', async () => {
     if(!liveTrack) return;
     torchOn = !torchOn;
@@ -639,7 +541,8 @@ tr:last-child td{border-bottom:0}
       liveRunning = true;
       viewfinder.className = 'viewfinder active scanning';
       liveControls.classList.remove('hidden');
-      document.getElementById('liveToggleBtn').textContent = 'Stop live scan';
+      scanBtn.querySelector('svg').style.display = 'none';
+      scanBtn.textContent = 'Stop Scanning';
 
       // Lock orientation to portrait while scanning
       try { if(screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch(e){}
@@ -704,9 +607,102 @@ tr:last-child td{border-bottom:0}
     viewfinder.className = 'viewfinder';
     liveControls.classList.add('hidden');
     document.getElementById('torchBtn').classList.add('hidden');
-    document.getElementById('liveToggleBtn').textContent = 'Or use live camera scan';
+    // Restore button
+    scanBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px;height:28px;fill:currentColor"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg> Scan VIN Barcode';
     liveStatus.textContent = '';
   }
+
+  // ========== Photo capture (secondary) ==========
+  document.getElementById('photoToggleBtn').addEventListener('click', () => {
+    photoInput.value = '';
+    photoInput.click();
+  });
+
+  retryBtn.addEventListener('click', () => {
+    photoPreview.className = 'photo-preview';
+    hideAlert();
+    photoInput.value = '';
+    photoInput.click();
+  });
+
+  photoInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    hideAlert();
+    photoPreview.className = 'photo-preview';
+    processing.className = 'processing active';
+
+    try {
+      const raw = await detectFromImage(file);
+      processing.className = 'processing';
+
+      if(raw){
+        const ok = await processVin(raw);
+        if(!ok){
+          previewImg.src = URL.createObjectURL(file);
+          photoPreview.className = 'photo-preview active';
+          showAlert('warn', 'Barcode read as "'+raw+'" but it failed VIN validation. Try scanning again with better lighting.');
+        }
+      } else {
+        previewImg.src = URL.createObjectURL(file);
+        photoPreview.className = 'photo-preview active';
+        showAlert('bad', 'No barcode detected in the photo. Make sure the barcode is clearly visible and well-lit, then try again.');
+      }
+    } catch(err) {
+      processing.className = 'processing';
+      showAlert('bad', 'Error processing photo: '+err.message);
+    }
+  });
+
+  // ========== Manual entry ==========
+  document.getElementById('useBtn').addEventListener('click', () => processVin(vinInput.value));
+  vinInput.addEventListener('keydown', e => { if(e.key==='Enter') processVin(vinInput.value); });
+
+  // ========== Action buttons ==========
+  document.getElementById('copyDetailsBtn').addEventListener('click', async () => {
+    if(!currentVehicle) return;
+    const v = currentVehicle.vehicle;
+    const lines = [
+      'VIN: ' + currentVin,
+      'Year: ' + (v.year || 'N/A'),
+      'Make: ' + (v.make || 'N/A'),
+      'Model: ' + (v.model || 'N/A'),
+      'Trim: ' + (v.trim || v.series || 'N/A'),
+      'Body: ' + (v.bodyClass || 'N/A'),
+      'Drivetrain: ' + (v.driveType || 'N/A'),
+      'Engine: ' + (v.engine || 'N/A'),
+      'Transmission: ' + (v.transmission || 'N/A'),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(lines);
+      actionStatus.textContent = 'Vehicle details copied to clipboard';
+    } catch(e){
+      actionStatus.textContent = 'Copy failed — try Copy JSON instead';
+    }
+  });
+
+  document.getElementById('copyJsonBtn').addEventListener('click', async () => {
+    if(!currentVehicle) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(currentVehicle, null, 2));
+      actionStatus.textContent = 'JSON copied to clipboard';
+    } catch(e){
+      actionStatus.textContent = 'Copy blocked by browser';
+    }
+  });
+
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    if(!currentVehicle) return;
+    const v = currentVehicle.vehicle;
+    const text = 'VIN: '+currentVin+'\n'+[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+    if(navigator.share){
+      try { await navigator.share({title:'VIN '+currentVin, text}); } catch(e){}
+    } else {
+      actionStatus.textContent = 'Share not available — use Copy instead';
+    }
+  });
+
 
 })();
 </script>
