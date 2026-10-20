@@ -109,13 +109,12 @@ tr:last-child td{border-bottom:0}
 .viewfinder{position:relative;background:#000;aspect-ratio:4/3;overflow:hidden;border-radius:12px;margin-top:12px;display:none}
 .viewfinder.active{display:block}
 .viewfinder video{width:100%;height:100%;object-fit:cover;display:block}
-.reticle{position:absolute;left:8%;right:8%;top:32%;height:36%;border:2px solid #ffcc1f;border-radius:6px;
-  pointer-events:none;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
-.reticle::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#ffcc1f;opacity:.85}
-@media (prefers-reduced-motion:no-preference){
-  .scanning .reticle::after{animation:sweep 1.6s ease-in-out infinite alternate}
-  @keyframes sweep{from{top:15%}to{top:85%}}
-}
+.reticle{position:absolute;left:50%;top:50%;width:60%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none}
+.reticle b{position:absolute;width:28px;height:28px;border-color:#ffcc1f;border-style:solid;border-width:0}
+.reticle b:nth-child(1){top:0;left:0;border-top-width:3px;border-left-width:3px;border-top-left-radius:6px}
+.reticle b:nth-child(2){top:0;right:0;border-top-width:3px;border-right-width:3px;border-top-right-radius:6px}
+.reticle b:nth-child(3){bottom:0;left:0;border-bottom-width:3px;border-left-width:3px;border-bottom-left-radius:6px}
+.reticle b:nth-child(4){bottom:0;right:0;border-bottom-width:3px;border-right-width:3px;border-bottom-right-radius:6px}
 .live-controls{display:flex;gap:8px;margin-top:8px}
 .live-controls button{flex:1;font:inherit;font-size:14px;font-weight:500;padding:10px;border:1px solid var(--line);
   border-radius:8px;background:var(--panel);color:var(--ink);cursor:pointer}
@@ -141,7 +140,7 @@ tr:last-child td{border-bottom:0}
 </div>
 <div class="viewfinder" id="viewfinder">
   <video id="video" playsinline muted></video>
-  <div class="reticle" id="reticle"></div>
+  <div class="reticle" id="reticle"><b></b><b></b><b></b><b></b></div>
 </div>
 <div class="live-controls hidden" id="liveControls">
   <button id="stopLiveBtn">Stop Camera</button>
