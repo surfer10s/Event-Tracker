@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VIN Scanner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  box-sizing:border-box;
+  --bg:#f3f5f8; --panel:#ffffff; --ink:#15213a; --muted:#5c6b86; --line:#d6dce8;
+  --navy:#15213a; --accent:#2563eb; --ok:#1f8a4c; --bad:#c23b3b; --warn:#d97706;
+  --btn:#15213a; --btn-ink:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121a2b; --panel:#1b2538; --ink:#eef2f8; --muted:#9aa8c2; --line:#2d3a54;
+    --accent:#60a5fa; --btn:#60a5fa; --btn-ink:#121a2b;
+  }
+}
+*{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16px;line-height:1.5;
+  padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}
+main{max-width:540px;margin:0 auto;padding:16px 16px 40px}
+
+/* Header */
+.header{text-align:center;padding:8px 0 20px}
+.header h1{font-size:22px;font-weight:700;margin:0 0 4px}
+.header p{margin:0;font-size:14px;color:var(--muted)}
+
+/* Scan button */
+.scan-area{text-align:center;padding:24px 0}
+.scan-btn{display:inline-flex;align-items:center;gap:10px;font:inherit;font-size:18px;font-weight:600;
+  background:var(--btn);color:var(--btn-ink);border:none;border-radius:12px;padding:16px 32px;cursor:pointer;
+  transition:transform .1s,box-shadow .1s}
+.scan-btn:active{transform:scale(.97)}
+.scan-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.scan-btn svg{width:28px;height:28px;fill:currentColor}
+.scan-hint{font-size:13px;color:var(--muted);margin-top:10px}
+
+/* Processing state */
+.processing{text-align:center;padding:20px 0;display:none}
+.processing.active{display:block}
+.spinner{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Photo preview */
+.photo-preview{text-align:center;margin:12px 0;display:none}
+.photo-preview.active{display:block}
+.photo-preview img{max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--line)}
+.photo-preview .retry-btn{margin-top:8px;font:inherit;font-size:14px;font-weight:500;background:none;
+  border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 16px;cursor:pointer}
+
+/* Manual entry */
+.manual{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
+.manual label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.manual .row{display:flex;gap:8px}
+.manual input{flex:1;font:inherit;font-family:"IBM Plex Mono",monospace;font-size:16px;letter-spacing:.06em;
+  text-transform:uppercase;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+.manual input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.manual button{font:inherit;font-weight:600;padding:10px 18px;background:var(--btn);color:var(--btn-ink);
+  border:none;border-radius:8px;cursor:pointer}
+
+/* Alerts */
+.alert{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:14px;display:none}
+.alert.active{display:flex;align-items:flex-start;gap:8px}
+.alert.ok{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
+.alert.bad{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.alert.warn{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .alert.ok{background:#064e3b;color:#a7f3d0;border-color:#065f46}
+  :root:not([data-theme="light"]) .alert.bad{background:#7f1d1d;color:#fecaca;border-color:#991b1b}
+  :root:not([data-theme="light"]) .alert.warn{background:#78350f;color:#fde68a;border-color:#92400e}
+}
+.alert svg{flex-shrink:0;width:18px;height:18px;margin-top:1px}
+
+/* VIN display */
+.vin-display{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px;display:none}
+.vin-display.active{display:block}
+.vin-display h2{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+.vin-code{font-family:"IBM Plex Mono",monospace;font-size:clamp(20px,5.5vw,28px);letter-spacing:.08em;font-weight:500;
+  word-break:break-all;margin:0;user-select:all}
+
+/* Vehicle details */
+.vehicle-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:12px;display:none}
+.vehicle-card.active{display:block}
+.vehicle-card h2{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 12px;text-transform:uppercase;letter-spacing:.04em}
+.vehicle-title{font-size:20px;font-weight:700;margin:0 0 14px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{color:var(--muted);width:38%;padding-right:12px;font-size:14px}
+td:last-child{font-weight:500}
+tr:last-child td{border-bottom:0}
+.source-note{font-size:12px;color:var(--muted);margin:10px 0 0}
+
+/* Action buttons */
+.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;display:none}
+.actions.active{display:flex}
+.actions button{flex:1;min-width:120px;font:inherit;font-size:14px;font-weight:600;padding:12px 14px;border-radius:10px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);transition:background .15s}
+.actions button.primary{background:var(--btn);color:var(--btn-ink);border-color:transparent}
+.actions button:active{opacity:.85}
+.action-status{font-size:13px;color:var(--muted);margin-top:8px;min-height:18px;text-align:center}
+
+/* Live scan (secondary) */
+.live-toggle{text-align:center;margin-top:20px}
+.live-toggle button{font:inherit;font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline}
+.viewfinder{position:relative;background:#000;aspect-ratio:4/3;overflow:hidden;border-radius:12px;margin-top:12px;display:none}
+.viewfinder.active{display:block}
+.viewfinder video{width:100%;height:100%;object-fit:cover;display:block}
+.reticle{position:absolute;left:8%;right:8%;top:32%;height:36%;border:2px solid #ffcc1f;border-radius:6px;
+  pointer-events:none;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.reticle::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#ffcc1f;opacity:.85}
+@media (prefers-reduced-motion:no-preference){
+  .scanning .reticle::after{animation:sweep 1.6s ease-in-out infinite alternate}
+  @keyframes sweep{from{top:15%}to{top:85%}}
+}
+.live-controls{display:flex;gap:8px;margin-top:8px}
+.live-controls button{flex:1;font:inherit;font-size:14px;font-weight:500;padding:10px;border:1px solid var(--line);
+  border-radius:8px;background:var(--panel);color:var(--ink);cursor:pointer}
+.live-status{font-size:12px;color:var(--muted);margin-top:4px;min-height:16px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<main>
+
+<div class="header">
+  <h1>VIN Scanner</h1>
+  <p>Scan a VIN barcode to get vehicle details for your loan application</p>
+</div>
+
+<!-- Primary: Photo capture -->
+<div class="scan-area">
+  <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
+  <button class="scan-btn" id="scanBtn">
+    <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+    Scan VIN Barcode
+  </button>
+  <div class="scan-hint">Opens your camera to photograph the VIN barcode</div>
+</div>
+
+<!-- Processing indicator -->
+<div class="processing" id="processing">
+  <div class="spinner"></div>
+  <div>Reading barcode from photo...</div>
+</div>
+
+<!-- Photo preview on failure -->
+<div class="photo-preview" id="photoPreview">
+  <img id="previewImg" alt="Captured photo">
+  <div style="margin-top:8px;font-size:14px;color:var(--muted)">No barcode detected in this photo</div>
+  <button class="retry-btn" id="retryBtn">Try Again</button>
+</div>
+
+<!-- Alert messages -->
+<div class="alert" id="alert">
+  <svg id="alertIcon" viewBox="0 0 20 20" fill="currentColor"></svg>
+  <span id="alertMsg"></span>
+</div>
+
+<!-- Manual entry -->
+<div class="manual">
+  <label for="vinInput">Or enter VIN manually</label>
+  <div class="row">
+    <input id="vinInput" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="17-character VIN">
+    <button id="useBtn">Decode</button>
+  </div>
+</div>
+
+<!-- VIN display -->
+<div class="vin-display" id="vinDisplay">
+  <h2>VIN</h2>
+  <p class="vin-code" id="vinOut"></p>
+</div>
+
+<!-- Vehicle details -->
+<div class="vehicle-card" id="vehicleCard">
+  <h2>Vehicle Details</h2>
+  <p class="vehicle-title" id="vehicleTitle"></p>
+  <table id="detailsTable"></table>
+  <p class="source-note" id="sourceNote"></p>
+</div>
+
+<!-- Action buttons -->
+<div class="actions" id="actions">
+  <button class="primary" id="copyDetailsBtn">Copy for Loan App</button>
+  <button id="copyJsonBtn">Copy JSON</button>
+  <button id="shareBtn">Share</button>
+</div>
+<div class="action-status" id="actionStatus"></div>
+
+<!-- Live camera scan (secondary option) -->
+<div class="live-toggle" id="liveToggle">
+  <button id="liveToggleBtn">Or use live camera scan</button>
+</div>
+<div class="viewfinder" id="viewfinder">
+  <video id="video" playsinline muted></video>
+  <div class="reticle" id="reticle"></div>
+</div>
+<div class="live-controls hidden" id="liveControls">
+  <button id="stopLiveBtn">Stop Camera</button>
+  <button id="torchBtn" class="hidden">Flashlight</button>
+</div>
+<div class="live-status" id="liveStatus"></div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+(function(){
+  // DOM refs
+  const photoInput = document.getElementById('photoInput');
+  const scanBtn = document.getElementById('scanBtn');
+  const processing = document.getElementById('processing');
+  const photoPreview = document.getElementById('photoPreview');
+  const previewImg = document.getElementById('previewImg');
+  const retryBtn = document.getElementById('retryBtn');
+  const alertEl = document.getElementById('alert');
+  const alertIcon = document.getElementById('alertIcon');
+  const alertMsg = document.getElementById('alertMsg');
+  const vinInput = document.getElementById('vinInput');
+  const vinDisplay = document.getElementById('vinDisplay');
+  const vinOut = document.getElementById('vinOut');
+  const vehicleCard = document.getElementById('vehicleCard');
+  const vehicleTitle = document.getElementById('vehicleTitle');
+  const detailsTable = document.getElementById('detailsTable');
+  const sourceNote = document.getElementById('sourceNote');
+  const actions = document.getElementById('actions');
+  const actionStatus = document.getElementById('actionStatus');
+  const video = document.getElementById('video');
+  const viewfinder = document.getElementById('viewfinder');
+  const reticle = document.getElementById('reticle');
+  const liveControls = document.getElementById('liveControls');
+  const liveStatus = document.getElementById('liveStatus');
+
+  let currentVehicle = null;
+  let currentVin = null;
+
+  // ========== VIN validation ==========
+  const TRANS={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
+  const WEIGHTS=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+
+  function checkDigit(vin){
+    let sum=0;
+    for(let i=0;i<17;i++){const c=vin[i]; const v=/\d/.test(c)?+c:TRANS[c]; sum+=v*WEIGHTS[i];}
+    const r=sum%11; return r===10?'X':String(r);
+  }
+
+  function normalize(raw){
+    let s=(raw||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(s.length===18&&s[0]==='I') s=s.slice(1); // Code 39 leading "I"
+    if(s.length>17) s=s.slice(-17);
+    return s;
+  }
+
+  function validate(vin){
+    if(vin.length!==17) return {ok:false, msg:'Need 17 characters, got '+vin.length+'.'};
+    if(/[IOQ]/.test(vin)) return {ok:false, msg:'Contains I, O, or Q — not a valid VIN.'};
+    const cd=checkDigit(vin);
+    if(cd!==vin[8]) return {ok:false, msg:'Check digit failed (expected '+cd+', got '+vin[8]+'). Likely a misread.'};
+    return {ok:true, msg:'Valid VIN'};
+  }
+
+  // ========== Local (offline) decode ==========
+  const YEARS='ABCDEFGHJKLMNPRSTVWXY123456789';
+  function modelYear(vin){
+    const i=YEARS.indexOf(vin[9]); if(i<0) return null;
+    const recent=/[A-Z]/.test(vin[6]);
+    return (recent?2010:1980)+i;
+  }
+
+  function countryName(c){
+    const map={'1':'United States','2':'Canada','3':'Mexico','4':'United States','5':'United States',
+      'J':'Japan','K':'South Korea','L':'China','S':'United Kingdom','W':'Germany','Y':'Sweden/Finland',
+      'Z':'Italy','V':'France/Spain'};
+    if(map[c]) return map[c];
+    if(/[6-7]/.test(c)) return 'Australia/NZ';
+    if(/[8-9]/.test(c)) return 'South America';
+    return null;
+  }
+
+  const WMI={
+    '1HG':'Honda','2HG':'Honda','1HD':'Harley-Davidson','5FN':'Honda','JHM':'Honda','19U':'Acura','JH4':'Acura',
+    '1FA':'Ford','1FM':'Ford','1FT':'Ford','3FA':'Ford','1FD':'Ford',
+    '1G1':'Chevrolet','1GC':'Chevrolet','1GN':'Chevrolet','2G1':'Chevrolet','3G1':'Chevrolet',
+    '1GT':'GMC','1GK':'GMC','1G4':'Buick','1G6':'Cadillac','1GY':'Cadillac',
+    '1C3':'Chrysler','2C3':'Chrysler','1C4':'Jeep','1J4':'Jeep','1C6':'Ram','3C6':'Ram',
+    '1B3':'Dodge','2B3':'Dodge',
+    '4T1':'Toyota','5TD':'Toyota','5TF':'Toyota','JTD':'Toyota','JTE':'Toyota','2T1':'Toyota',
+    'JTH':'Lexus','JTJ':'Lexus','2T2':'Lexus',
+    '1N4':'Nissan','1N6':'Nissan','JN1':'Nissan','5N1':'Nissan','JN8':'Nissan','JNK':'Infiniti','3N1':'Nissan',
+    'KMH':'Hyundai','KM8':'Hyundai','5NP':'Hyundai',
+    'KNA':'Kia','KND':'Kia','5XY':'Kia','3KP':'Kia',
+    'JF1':'Subaru','JF2':'Subaru','4S3':'Subaru','4S4':'Subaru',
+    'JM1':'Mazda','JM3':'Mazda','3MZ':'Mazda',
+    'WBA':'BMW','WBS':'BMW M','WBX':'BMW','5UX':'BMW',
+    'WDD':'Mercedes-Benz','WDC':'Mercedes-Benz','4JG':'Mercedes-Benz',
+    'WAU':'Audi','WA1':'Audi',
+    'WVW':'Volkswagen','WVG':'Volkswagen','3VW':'Volkswagen','1VW':'Volkswagen',
+    'WP0':'Porsche','WP1':'Porsche',
+    'YV1':'Volvo','YV4':'Volvo',
+    '5YJ':'Tesla','7SA':'Tesla','7G2':'Rivian',
+    'SAL':'Land Rover','SAJ':'Jaguar','ZFF':'Ferrari','ZAM':'Maserati','ZAR':'Alfa Romeo',
+    '2HK':'Honda','5J6':'Honda','2HJ':'Honda'
+  };
+
+  function localDecode(vin){
+    return {
+      year: modelYear(vin),
+      make: WMI[vin.slice(0,3)] || null,
+      country: countryName(vin[0]),
+      wmi: vin.slice(0,3),
+      vds: vin.slice(3,9),
+      serial: vin.slice(11),
+      plantCode: vin[10]
+    };
+  }
+
+  // ========== NHTSA vPIC API ==========
+  async function nhtsaDecode(vin){
+    const ctl=new AbortController();
+    const t=setTimeout(()=>ctl.abort(), 8000);
+    try {
+      const r=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/'+vin+'?format=json',{signal:ctl.signal});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=(await r.json()).Results[0];
+      const pick=k=>d[k]&&d[k].trim()?d[k].trim():null;
+      return {
+        year: +pick('ModelYear') || null,
+        make: pick('Make'),
+        model: pick('Model'),
+        trim: pick('Trim'),
+        series: pick('Series'),
+        bodyClass: pick('BodyClass'),
+        vehicleType: pick('VehicleType'),
+        driveType: pick('DriveType'),
+        doors: pick('Doors'),
+        engine: [pick('DisplacementL')&&pick('DisplacementL')+'L', pick('EngineCylinders')&&pick('EngineCylinders')+'-cyl', pick('FuelTypePrimary')].filter(Boolean).join(' '),
+        transmission: pick('TransmissionStyle'),
+        plant: [pick('PlantCity'),pick('PlantState'),pick('PlantCountry')].filter(Boolean).join(', '),
+        gvwr: pick('GVWR'),
+        errorText: pick('ErrorText'),
+        source: 'NHTSA vPIC'
+      };
+    } finally { clearTimeout(t); }
+  }
+
+  // ========== Alert helpers ==========
+  function showAlert(type, msg){
+    alertEl.className='alert active '+type;
+    alertMsg.textContent=msg;
+    const icons={
+      ok:'<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>',
+      bad:'<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>',
+      warn:'<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>'
+    };
+    alertIcon.innerHTML=icons[type]||icons.warn;
+  }
+  function hideAlert(){ alertEl.className='alert'; }
+
+  // ========== Decode & render ==========
+  async function processVin(raw){
+    const vin = normalize(raw);
+    const v = validate(vin);
+
+    if(!v.ok){
+      showAlert('bad', v.msg);
+      vinDisplay.className='vin-display'; vehicleCard.className='vehicle-card'; actions.className='actions';
+      return false;
+    }
+
+    hideAlert();
+    currentVin = vin;
+    vinOut.textContent = vin;
+    vinDisplay.className='vin-display active';
+    vinInput.value = vin;
+    if(navigator.vibrate) navigator.vibrate(60);
+
+    // Local decode first
+    const local = localDecode(vin);
+    currentVehicle = {vin, scannedAt: new Date().toISOString(), vehicle:{...local, source:'local'}};
+    renderVehicle(local, 'Looking up full details...');
+
+    // Then NHTSA
+    try {
+      const full = await nhtsaDecode(vin);
+      currentVehicle.vehicle = {...local, ...full};
+      const note = (full.errorText && !/0 - VIN decoded clean/.test(full.errorText))
+        ? 'NHTSA note: '+full.errorText : 'Decoded via NHTSA vPIC';
+      renderVehicle(currentVehicle.vehicle, note);
+      showAlert('ok', 'Vehicle identified: ' + [full.year, full.make, full.model].filter(Boolean).join(' '));
+    } catch(e) {
+      renderVehicle(local, 'Showing offline decode. Full NHTSA lookup failed.');
+      showAlert('warn', 'NHTSA lookup failed — showing basic decode from VIN structure.');
+    }
+    return true;
+  }
+
+  function renderVehicle(v, note){
+    // Title
+    const title = [v.year, v.make, v.model, v.trim||v.series].filter(Boolean).join(' ');
+    vehicleTitle.textContent = title || 'Unknown Vehicle';
+
+    // Table rows — loan-relevant fields
+    const rows = [
+      ['Year', v.year],
+      ['Make', v.make],
+      ['Model', v.model],
+      ['Trim / Series', v.trim || v.series],
+      ['Body Style', v.bodyClass],
+      ['Vehicle Type', v.vehicleType],
+      ['Drivetrain', v.driveType],
+      ['Engine', v.engine],
+      ['Transmission', v.transmission],
+      ['Doors', v.doors],
+      ['Manufactured In', v.plant || v.country],
+      ['GVWR', v.gvwr],
+    ].filter(r => r[1]);
+
+    detailsTable.innerHTML = rows.map(r =>
+      '<tr><td>'+r[0]+'</td><td>'+String(r[1]).replace(/</g,'&lt;')+'</td></tr>'
+    ).join('');
+
+    sourceNote.textContent = note || '';
+    vehicleCard.className = 'vehicle-card active';
+    actions.className = 'actions active';
+    actionStatus.textContent = '';
+  }
+
+  // ========== Barcode detection from image ==========
+  let nativeDetector = null;
+
+  async function initDetector(){
+    if(!('BarcodeDetector' in window)) return;
+    try {
+      const supported = await BarcodeDetector.getSupportedFormats();
+      const wanted = ['code_39','code_128','qr_code','data_matrix'];
+      const usable = wanted.filter(f => supported.includes(f));
+      if(usable.length > 0){
+        nativeDetector = new BarcodeDetector({formats: usable});
+      }
+    } catch(e){ /* ignore */ }
+  }
+
+  // ZXing fallback
+  let zxingReader = null;
+  try {
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+      ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    zxingReader = new ZXing.BrowserMultiFormatReader(hints, 200);
+  } catch(e){}
+
+  async function detectFromImage(file){
+    // Try native BarcodeDetector first
+    if(nativeDetector){
+      try {
+        const bitmap = await createImageBitmap(file);
+        const barcodes = await nativeDetector.detect(bitmap);
+        bitmap.close();
+        if(barcodes.length > 0) return barcodes[0].rawValue;
+      } catch(e){}
+    }
+
+    // ZXing fallback — decode from image element
+    if(zxingReader){
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            // Draw to canvas for ZXing
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // Try multiple luminance sources
+            const luminance = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+            const binarizer = new ZXing.HybridBinarizer(luminance);
+            const bitmap = new ZXing.BinaryBitmap(binarizer);
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+              ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.CODE_128,
+              ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX
+            ]);
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            const reader = new ZXing.MultiFormatReader();
+            reader.setHints(hints);
+            const result = reader.decode(bitmap);
+            resolve(result.getText());
+          } catch(e){
+            resolve(null);
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+      });
+    }
+
+    return null;
+  }
+
+  // ========== Photo capture flow ==========
+  initDetector();
+
+  scanBtn.addEventListener('click', () => {
+    photoInput.value = '';
+    photoInput.click();
+  });
+
+  retryBtn.addEventListener('click', () => {
+    photoPreview.className = 'photo-preview';
+    hideAlert();
+    photoInput.value = '';
+    photoInput.click();
+  });
+
+  photoInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    hideAlert();
+    photoPreview.className = 'photo-preview';
+    processing.className = 'processing active';
+
+    try {
+      const raw = await detectFromImage(file);
+      processing.className = 'processing';
+
+      if(raw){
+        const ok = await processVin(raw);
+        if(!ok){
+          // Show photo preview for retry
+          previewImg.src = URL.createObjectURL(file);
+          photoPreview.className = 'photo-preview active';
+          showAlert('warn', 'Barcode read as "'+raw+'" but it failed VIN validation. Try scanning again with better lighting.');
+        }
+      } else {
+        // No barcode found
+        previewImg.src = URL.createObjectURL(file);
+        photoPreview.className = 'photo-preview active';
+        showAlert('bad', 'No barcode detected in the photo. Make sure the barcode is clearly visible and well-lit, then try again. You can also type the VIN manually below.');
+      }
+    } catch(err) {
+      processing.className = 'processing';
+      showAlert('bad', 'Error processing photo: '+err.message);
+    }
+  });
+
+  // ========== Manual entry ==========
+  document.getElementById('useBtn').addEventListener('click', () => processVin(vinInput.value));
+  vinInput.addEventListener('keydown', e => { if(e.key==='Enter') processVin(vinInput.value); });
+
+  // ========== Action buttons ==========
+  document.getElementById('copyDetailsBtn').addEventListener('click', async () => {
+    if(!currentVehicle) return;
+    const v = currentVehicle.vehicle;
+    const lines = [
+      'VIN: ' + currentVin,
+      'Year: ' + (v.year || 'N/A'),
+      'Make: ' + (v.make || 'N/A'),
+      'Model: ' + (v.model || 'N/A'),
+      'Trim: ' + (v.trim || v.series || 'N/A'),
+      'Body: ' + (v.bodyClass || 'N/A'),
+      'Drivetrain: ' + (v.driveType || 'N/A'),
+      'Engine: ' + (v.engine || 'N/A'),
+      'Transmission: ' + (v.transmission || 'N/A'),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(lines);
+      actionStatus.textContent = 'Vehicle details copied to clipboard';
+    } catch(e){
+      actionStatus.textContent = 'Copy failed — try Copy JSON instead';
+    }
+  });
+
+  document.getElementById('copyJsonBtn').addEventListener('click', async () => {
+    if(!currentVehicle) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(currentVehicle, null, 2));
+      actionStatus.textContent = 'JSON copied to clipboard';
+    } catch(e){
+      actionStatus.textContent = 'Copy blocked by browser';
+    }
+  });
+
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    if(!currentVehicle) return;
+    const v = currentVehicle.vehicle;
+    const text = 'VIN: '+currentVin+'\n'+[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+    if(navigator.share){
+      try { await navigator.share({title:'VIN '+currentVin, text}); } catch(e){}
+    } else {
+      actionStatus.textContent = 'Share not available — use Copy instead';
+    }
+  });
+
+  // ========== Live camera scan (secondary) ==========
+  let liveRunning = false, liveTrack = null, nativeScanTimer = null;
+
+  document.getElementById('liveToggleBtn').addEventListener('click', () => {
+    if(liveRunning){ stopLive(); return; }
+    startLive();
+  });
+
+  document.getElementById('stopLiveBtn').addEventListener('click', stopLive);
+
+  let torchOn = false;
+  document.getElementById('torchBtn').addEventListener('click', async () => {
+    if(!liveTrack) return;
+    torchOn = !torchOn;
+    try { await liveTrack.applyConstraints({advanced:[{torch:torchOn}]}); } catch(e){}
+  });
+
+  async function startLive(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showAlert('bad', 'Camera not available. Try Chrome over HTTPS.');
+      return;
+    }
+    await initDetector();
+    liveStatus.textContent = 'Starting camera...';
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}
+      });
+      video.srcObject = stream;
+      await video.play();
+
+      liveRunning = true;
+      viewfinder.className = 'viewfinder active scanning';
+      liveControls.classList.remove('hidden');
+      document.getElementById('liveToggleBtn').textContent = 'Stop live scan';
+
+      liveTrack = stream.getVideoTracks()[0];
+      const caps = liveTrack.getCapabilities ? liveTrack.getCapabilities() : {};
+      if(caps.torch) document.getElementById('torchBtn').classList.remove('hidden');
+
+      if(nativeDetector) startNativeScanLoop();
+      else if(zxingReader) startZxingScanLoop();
+      else { liveStatus.textContent = 'No barcode engine available'; stopLive(); }
+    } catch(e){
+      liveStatus.textContent = e.name==='NotAllowedError' ? 'Camera permission denied' : 'Camera error: '+e.message;
+      showAlert('bad', e.name==='NotAllowedError'
+        ? 'Camera permission was denied. Allow it in browser settings.'
+        : 'Could not start camera: '+e.message);
+    }
+  }
+
+  function startNativeScanLoop(){
+    let frameCount = 0;
+    const scan = async () => {
+      if(!liveRunning) return;
+      if(video.readyState < 2){ nativeScanTimer=setTimeout(scan,200); return; }
+      frameCount++;
+      try {
+        const barcodes = await nativeDetector.detect(video);
+        if(barcodes.length > 0){
+          const ok = await processVin(barcodes[0].rawValue);
+          if(ok){ stopLive(); return; }
+        }
+      } catch(e){}
+      if(frameCount % 20 === 0) liveStatus.textContent = 'Scanning... '+frameCount+' frames checked';
+      if(liveRunning) nativeScanTimer = setTimeout(scan, 150);
+    };
+    scan();
+  }
+
+  function startZxingScanLoop(){
+    let frameCount = 0;
+    zxingReader.decodeFromConstraints(
+      {video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}},
+      video,
+      (result, err) => {
+        frameCount++;
+        if(result){
+          processVin(result.getText()).then(ok => { if(ok) stopLive(); });
+        } else if(frameCount % 20 === 0){
+          liveStatus.textContent = 'Scanning... '+frameCount+' frames checked';
+        }
+      }
+    );
+  }
+
+  function stopLive(){
+    if(nativeScanTimer){ clearTimeout(nativeScanTimer); nativeScanTimer=null; }
+    if(video.srcObject){ video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
+    if(zxingReader) try{ zxingReader.reset(); }catch(e){}
+    liveRunning = false; liveTrack = null; torchOn = false;
+    viewfinder.className = 'viewfinder';
+    liveControls.classList.add('hidden');
+    document.getElementById('torchBtn').classList.add('hidden');
+    document.getElementById('liveToggleBtn').textContent = 'Or use live camera scan';
+    liveStatus.textContent = '';
+  }
+
+})();
+</script>
+</body>
+</html>
