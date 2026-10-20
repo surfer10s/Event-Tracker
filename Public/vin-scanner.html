@@ -544,7 +544,8 @@ tr:last-child td{border-bottom:0}
       scanBtn.querySelector('svg').style.display = 'none';
       scanBtn.textContent = 'Stop Scanning';
 
-      // Lock orientation to portrait while scanning
+      // Enter fullscreen + lock orientation to portrait while scanning
+      try { await document.documentElement.requestFullscreen(); } catch(e){}
       try { if(screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch(e){}
 
       liveTrack = stream.getVideoTracks()[0];
@@ -602,8 +603,9 @@ tr:last-child td{border-bottom:0}
     if(video.srcObject){ video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
     if(zxingReader) try{ zxingReader.reset(); }catch(e){}
     liveRunning = false; liveTrack = null; torchOn = false;
-    // Unlock orientation
+    // Unlock orientation + exit fullscreen
     try { if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+    try { if(document.fullscreenElement) document.exitFullscreen(); } catch(e){}
     viewfinder.className = 'viewfinder';
     liveControls.classList.add('hidden');
     document.getElementById('torchBtn').classList.add('hidden');
